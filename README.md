@@ -1,5 +1,8 @@
 # LLM Evaluation Regression Platform
 
+<!-- Replace OWNER/REPO once the GitHub repository exists. -->
+[![Eval Regression Gate](https://github.com/OWNER/REPO/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/eval-regression-gate.yml)
+
 An end-to-end LLM evaluation and regression-testing platform for measuring RAG candidate answers, validating judge behavior, routing judge disagreements to review, and blocking regressions in CI.
 
 ## Recruiter Scan
@@ -90,14 +93,15 @@ Only measured results are listed here. Targets and resume claims stay out of thi
 | vLLM sustained output throughput at concurrency 16 | 56.18 tok/s | `docs/results/vllm-benchmark.md` |
 | vLLM total token throughput at concurrency 16 | 506.48 tok/s | `runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json` |
 | vLLM peak output throughput at concurrency 16 | 144.00 tok/s | `docs/results/vllm-benchmark.md` |
-| Elasticsearch trace documents | 0 | Session 45 trace count; `otel-traces` index was absent |
+| Elasticsearch trace documents | 3 spans / 1 trace (smoke test) | `scripts/count_trace_documents.py` |
 
 Important metric boundaries:
 
 - Candidate-answer count and judged-answer count are different because an answer must be generated before it can be judged. A generated answer may be unjudged, failed, skipped, or judged later.
 - The vLLM throughput benchmark is separate from the bulk-judging run. The measured sustained benchmark was 56.18 output tok/s at concurrency 16; 144.00 tok/s was peak benchmark throughput, not sustained bulk-run throughput. The workload was prefill-heavy (2,052 input vs 256 output tokens per request), which is why output tok/s is modest while total token throughput is 506.48 tok/s.
 - The 960-answer bulk judging run executed at **concurrency 1**, not 16. Its 23.2 judgments/min is a real sustained end-to-end measurement, but it must not be attributed to the concurrency-16 benchmark.
-- The trace count is currently 0 because the trace index was not present when counted. The code has instrumentation and tests, but the persisted Elasticsearch trace volume has not been demonstrated yet.
+- The trace export path is now proven end to end: spans leave the app over OTLP, pass through the OpenTelemetry Collector, and are indexed into the `otel-traces` data stream in Elasticsearch, where `scripts/count_trace_documents.py` reads them back. The measured volume is only **3 span documents across 1 trace**, from a smoke test - the pipeline works, but no trace *volume* has been generated. Do not claim a trace count beyond what that script reports.
+- The collector's Elasticsearch exporter writes bulk `create` actions, which require a **data stream**, not a plain index. Without one every span fails with a 404 that never surfaces in the application - the trace count simply reads 0 as though nothing were instrumented. `scripts/setup_trace_index.py` creates the data stream idempotently and must be run before the collector.
 
 ### Repaired fixture defect: how the retrieval benchmark became meaningful
 
@@ -226,17 +230,29 @@ window for the self-hosted judge.
 
 ## Screenshots
 
-The React dashboard is implemented, but project screenshots are not yet committed. The intended recruiter-facing captures are:
+<!-- Drop the five PNGs into docs/screenshots/ with these exact filenames and the
+     images below will render. Until then the links show as broken, which is the
+     intended reminder. -->
 
-| View | Purpose |
+| View | What it shows |
 |---|---|
-| Overview dashboard | Show measured corpus, run, judge, and infrastructure status at a glance. |
-| Retrieval page | Show dense, BM25, and hybrid benchmark status without hiding missing measurements. |
-| Runs page | Show eval run metadata and provider coverage. |
-| Judges page | Show validation agreement, self-hosted judge metadata, and benchmark boundaries. |
-| Review queue | Show disagreement cases routed for human inspection. |
+| ![Overview](docs/screenshots/overview.png) | Measured corpus, run, judge, and infrastructure status at a glance. |
+| ![Retrieval](docs/screenshots/retrieval.png) | Dense, BM25, and hybrid scored side by side, with unmeasured strategies drawn as hatched tracks rather than zero-length bars. |
+| ![Runs](docs/screenshots/runs.png) | Eval run metadata and provider coverage, with unmeasured score and latency rendered as "Not measured". |
+| ![Judges](docs/screenshots/judges.png) | Validation agreement, self-hosted judge metadata, and the boundary between measured and non-final numbers. |
+| ![Review queue](docs/screenshots/review-queue.png) | Disagreement cases routed for human inspection. |
 
-Recommended screenshot folder: `docs/screenshots/`.
+To capture them:
+
+```powershell
+# terminal 1
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+# terminal 2
+cd frontend; npm run dev
+```
+
+Then open `http://localhost:5173` (use `localhost`, not `127.0.0.1` — the Vite dev
+server binds IPv6 only) and capture each page into `docs/screenshots/`.
 
 ## How To Run Locally
 
@@ -391,7 +407,7 @@ Tracing is designed around six service layers:
 - tool
 - storage
 
-The local stack uses OpenTelemetry Collector and Elasticsearch. The dashboard is built with React and TypeScript and reads summary data from the FastAPI backend. Current limitation: instrumentation exists and is tested, but persisted trace documents were measured as 0 because the expected trace index was absent during the latest count.
+The local stack uses OpenTelemetry Collector and Elasticsearch. The dashboard is built with React and TypeScript and reads summary data from the FastAPI backend. The export path is verified end to end into the `otel-traces` data stream, but only a smoke test's worth of spans has been generated: 3 span documents across 1 trace. Run `scripts/setup_trace_index.py` before the collector, or every span fails with a silent 404.
 
 Relevant files:
 
@@ -443,7 +459,7 @@ The committed metric files are gate fixtures. They prove the blocking behavior; 
 
 - Scale targets are not yet met: the measured project has 8 production run artifacts and 960 judged answers, not 60+ runs or 8K+ judged answers.
 - Dense and hybrid retrieval quality results are pending because the saved measured artifact currently supports BM25-only quality numbers.
-- Elasticsearch trace documents were measured as 0 in the latest reconciliation, even though instrumentation and tests exist.
+- Elasticsearch holds only 3 span documents across 1 trace. The pipeline is proven, but no trace volume has been generated from real eval runs.
 - Screenshots are pending and should be committed before using the README as a portfolio landing page.
 - Bulk-judging average output tokens per answer and sustained bulk-run tok/s were not captured by the bulk script.
 

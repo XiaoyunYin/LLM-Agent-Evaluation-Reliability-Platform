@@ -44,11 +44,22 @@ def count_trace_documents(
     )
     count_response.raise_for_status()
 
+    # Dynamic mapping stores trace_id as text, which cannot be aggregated. The
+    # aggregatable form is the .keyword subfield, so try that first and fall back
+    # to the bare field for indices with an explicit keyword mapping.
     search_response = requests.post(
         f"{base_url}/{trace_index}/_search",
-        json=build_unique_trace_count_query(trace_id_field=trace_id_field),
+        json=build_unique_trace_count_query(
+            trace_id_field=f"{trace_id_field}.keyword"
+        ),
         timeout=10,
     )
+    if search_response.status_code == 400:
+        search_response = requests.post(
+            f"{base_url}/{trace_index}/_search",
+            json=build_unique_trace_count_query(trace_id_field=trace_id_field),
+            timeout=10,
+        )
     search_response.raise_for_status()
 
     count_body = count_response.json()

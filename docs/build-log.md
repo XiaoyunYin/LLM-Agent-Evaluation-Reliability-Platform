@@ -3051,3 +3051,80 @@ Validation:
 
 - Full suite: `112 passed`
 - Frontend production build: succeeded
+
+## Session 51 - CI Readiness and a Working Trace Export Path
+
+Goal: make CI able to run, and find out why the trace count was 0.
+
+CI fixes:
+
+- The workflow triggered on push to `main`, but the repository branch is
+  `master`, so a push would never have started it. Added `master`.
+- Added `httpx` to `requirements.txt`. `fastapi.testclient.TestClient` needs it,
+  so any CI step running the API tests would have failed on a clean checkout.
+- Removed a duplicate `python-dotenv` entry.
+- The workflow now runs the full suite in addition to the regression gate.
+- Verified the suite passes with **no data services running**, which is how CI
+  will execute it: `113 passed`.
+- Added a CI badge to the README. `OWNER/REPO` must be replaced once the GitHub
+  repository exists.
+
+Gate behavior re-verified:
+
+- Committed fixtures pass, exit `0`.
+- Fake regression fails, exit `1`, with `eval_score` 12.50%, `latency_ms` 30.00%,
+  `cost_usd` 40.00% against thresholds of 5%, 15%, 15%.
+
+Trace export - root cause of the 0 count:
+
+The trace count was not 0 because instrumentation was missing. Three separate
+faults were stacked, none of which surfaced in the application:
+
+1. `opentelemetry-exporter-otlp-proto-grpc` was listed in `requirements.txt` but
+   had never been installed into `.venv`, so `configure_tracing()` raised as soon
+   as an OTLP endpoint was set. Same class of fault as the missing
+   `load_dotenv()` found in Session 49.
+2. The collector's Elasticsearch exporter sends bulk `create` actions, which
+   require a **data stream**. Against a missing index it failed every span with
+   `index_not_found_exception`; against a hand-created plain index it failed with
+   `resource_not_found_exception`. Both are collector-side 404s that the
+   application never sees, so a trace count reads 0 as though nothing were
+   instrumented.
+3. `count_trace_documents.py` aggregated on `trace_id`, which dynamic mapping
+   stores as `text`. Cardinality aggregations on text fields return 400.
+
+Fixes:
+
+- Installed the OTLP gRPC exporter.
+- Added `scripts/setup_trace_index.py`, which idempotently creates the
+  `otel-traces` index template and data stream, and removes a blocking plain
+  index if a previous manual attempt left one.
+- `count_trace_documents.py` now queries `trace_id.keyword` and falls back to the
+  bare field, with a test covering the fallback.
+
+Measured:
+
+- Command: `python scripts/count_trace_documents.py`
+- `span_document_count`: `3`
+- `unique_trace_count`: `1`
+- Spans carry `service.layer`, `eval.run_id`, and `eval.trace_id` attributes as
+  instrumented.
+
+Metric integrity notes:
+
+- The export path is proven end to end. The **volume** is a smoke test only.
+- `3` spans is not a trace-count achievement. Do not claim any trace figure
+  beyond what `count_trace_documents.py` reports.
+- Generating real volume means running eval jobs through the worker with
+  `OTEL_EXPORTER_OTLP_ENDPOINT` set; that has not been done.
+
+Validation:
+
+- Full suite: `113 passed` (added a fallback test for the keyword aggregation)
+
+Open work:
+
+1. Replace `OWNER/REPO` in the README badge and push, so CI actually executes.
+2. Capture the five dashboard screenshots into `docs/screenshots/`.
+3. Generate real trace volume from worker runs.
+4. Re-run the dual-judge slice on `golden_rag_v0.2` (needs a GPU window).
