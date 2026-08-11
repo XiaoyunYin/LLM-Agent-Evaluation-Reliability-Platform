@@ -1,0 +1,130 @@
+{
+  "benchmark": "hybrid_retrieval_benchmark",
+  "breakdowns": {
+    "match_type": {
+      "exact-term": {
+        "dense": {
+          "mean_recall_at_10": 0.025,
+          "mean_ndcg_at_10": 0.02915763403565723
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.8666666666666667,
+          "mean_ndcg_at_10": 0.892534814778569
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.7333333333333333,
+          "mean_ndcg_at_10": 0.5733776785751267
+        }
+      },
+      "semantic/paraphrase": {
+        "dense": {
+          "mean_recall_at_10": 0.1075,
+          "mean_ndcg_at_10": 0.11722615236123651
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.6166666666666667,
+          "mean_ndcg_at_10": 0.7674096219293466
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.4230555555555556,
+          "mean_ndcg_at_10": 0.4460812035625165
+        }
+      }
+    },
+    "hop_type": {
+      "multi-hop": {
+        "dense": {
+          "mean_recall_at_10": 0.07972222222222222,
+          "mean_ndcg_at_10": 0.10327971272127025
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.6166666666666667,
+          "mean_ndcg_at_10": 0.7697389458375099
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.44805555555555554,
+          "mean_ndcg_at_10": 0.49620468154186087
+        }
+      },
+      "single-hop": {
+        "dense": {
+          "mean_recall_at_10": 0.05277777777777778,
+          "mean_ndcg_at_10": 0.0431040736756235
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.8666666666666667,
+          "mean_ndcg_at_10": 0.8902054908704057
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.7083333333333334,
+          "mean_ndcg_at_10": 0.5232542005957822
+        }
+      }
+    },
+    "difficulty": {
+      "easy": {
+        "dense": {
+          "mean_recall_at_10": 0.041666666666666664,
+          "mean_ndcg_at_10": 0.044095391161760804
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.76,
+          "mean_ndcg_at_10": 0.8763253384885971
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.5872222222222222,
+          "mean_ndcg_at_10": 0.5234409919367827
+        }
+      },
+      "hard": {
+        "dense": {
+          "mean_recall_at_10": 0.09083333333333334,
+          "mean_ndcg_at_10": 0.10228839523513293
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.7233333333333333,
+          "mean_ndcg_at_10": 0.7836190982193185
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.5691666666666666,
+          "mean_ndcg_at_10": 0.4960178902008604
+        }
+      }
+    }
+  },
+  "status": "measured",
+  "measured_at": "2026-08-11T08:59:06.552504+00:00",
+  "exact_command": "python scripts/benchmark_hybrid_retrieval.py",
+  "label_path": "datasets\\labels\\retrieval_heldout_120_v0.2.jsonl",
+  "label_dataset_version": "retrieval_heldout_120_v0.2",
+  "corpus_path": "datasets\\corpus\\chunks.jsonl",
+  "corpus_version": "synthetic_support_corpus_chunks_v0.2",
+  "queries_evaluated": 120,
+  "embedding_model": "text-embedding-3-small",
+  "config": {
+    "dense_candidate_depth": 50,
+    "bm25_candidate_depth": 50,
+    "rrf_k": 60,
+    "metric_depth": 10
+  },
+  "strategies": {
+    "dense": {
+      "mean_recall_at_10": 0.06625,
+      "mean_ndcg_at_10": 0.07319189319844686
+    },
+    "bm25": {
+      "mean_recall_at_10": 0.7416666666666667,
+      "mean_ndcg_at_10": 0.8299722183539578
+    },
+    "hybrid": {
+      "mean_recall_at_10": 0.5781944444444445,
+      "mean_ndcg_at_10": 0.5097294410688216
+    }
+  },
+  "dense_mean_recall_at_10": 0.06625,
+  "dense_mean_ndcg_at_10": 0.07319189319844686,
+  "bm25_mean_recall_at_10": 0.7416666666666667,
+  "bm25_mean_ndcg_at_10": 0.8299722183539578,
+  "hybrid_mean_recall_at_10": 0.5781944444444445,
+  "hybrid_mean_ndcg_at_10": 0.5097294410688216
+}

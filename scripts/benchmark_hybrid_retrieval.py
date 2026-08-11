@@ -1,6 +1,11 @@
 import json
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,6 +23,9 @@ LABEL_PATH = Path("datasets/labels/retrieval_heldout_120_v0.2.jsonl")
 LABEL_DATASET_VERSION = "retrieval_heldout_120_v0.2"
 CORPUS_PATH = Path("datasets/corpus/chunks.jsonl")
 CORPUS_VERSION = "synthetic_support_corpus_chunks_v0.2"
+# A machine-readable artifact so the dashboard and metrics endpoint can read a
+# measured retrieval result instead of reporting "not measured".
+RESULT_PATH = Path("runs/retrieval_benchmark/hybrid_retrieval_benchmark.json")
 
 
 def load_labeled_queries(path: Path) -> list[dict]:
@@ -74,6 +82,34 @@ def summarize_scores(
 
 def chunk_ids(results: list) -> list[str]:
     return [result.chunk_id for result in results]
+
+
+def breakdown_by_category(
+    results_by_strategy: dict[str, list[list[str]]],
+    labeled_queries: list[dict],
+    facet: str,
+) -> dict[str, dict[str, dict[str, float]]]:
+    """Score each strategy within one label facet.
+
+    A single mean hides the dense/lexical tradeoff: embeddings and BM25 fail on
+    different query shapes, so an aggregate can make a retriever look uniformly
+    weak when it is strong on half the set.
+    """
+    buckets: dict[str, list[int]] = {}
+    for index, row in enumerate(labeled_queries):
+        buckets.setdefault(row["categories"][facet], []).append(index)
+
+    out: dict[str, dict[str, dict[str, float]]] = {}
+    for value, indexes in sorted(buckets.items()):
+        subset = [labeled_queries[i] for i in indexes]
+        out[value] = {
+            strategy: summarize_scores(
+                retrieval_results_by_query=[results[i] for i in indexes],
+                labeled_queries=subset,
+            )
+            for strategy, results in results_by_strategy.items()
+        }
+    return out
 
 
 def main() -> None:
@@ -154,6 +190,63 @@ def main() -> None:
     print(f"bm25_mean_ndcg_at_10: {bm25_scores['mean_ndcg_at_10']:.4f}")
     print(f"hybrid_mean_recall_at_10: {hybrid_scores['mean_recall_at_10']:.4f}")
     print(f"hybrid_mean_ndcg_at_10: {hybrid_scores['mean_ndcg_at_10']:.4f}")
+
+    results_by_strategy = {
+        "dense": dense_results_by_query,
+        "bm25": bm25_results_by_query,
+        "hybrid": hybrid_results_by_query,
+    }
+    breakdowns = {
+        facet: breakdown_by_category(results_by_strategy, labeled_queries, facet)
+        for facet in ("match_type", "hop_type", "difficulty")
+    }
+
+    for facet, values in breakdowns.items():
+        print(f"\n-- recall@10 by {facet} --")
+        for value, strategies in values.items():
+            scores = "  ".join(
+                f"{name}={data['mean_recall_at_10']:.4f}"
+                for name, data in strategies.items()
+            )
+            print(f"  {value:24s} {scores}")
+    print()
+
+    artifact = {
+        "benchmark": "hybrid_retrieval_benchmark",
+        "breakdowns": breakdowns,
+        "status": "measured",
+        "measured_at": datetime.now(timezone.utc).isoformat(),
+        "exact_command": "python scripts/benchmark_hybrid_retrieval.py",
+        "label_path": str(LABEL_PATH),
+        "label_dataset_version": LABEL_DATASET_VERSION,
+        "corpus_path": str(CORPUS_PATH),
+        "corpus_version": CORPUS_VERSION,
+        "queries_evaluated": len(labeled_queries),
+        "embedding_model": embedding_provider.model_name,
+        "config": {
+            "dense_candidate_depth": dense_retriever.candidate_depth,
+            "bm25_candidate_depth": bm25_retriever.candidate_depth,
+            "rrf_k": hybrid_retriever.rrf_k,
+            "metric_depth": hybrid_retriever.metric_depth,
+        },
+        "strategies": {
+            "dense": dense_scores,
+            "bm25": bm25_scores,
+            "hybrid": hybrid_scores,
+        },
+        # Flat mirrors of the nested scores. dashboard_metrics.retrieval_metric
+        # detects an artifact by scanning top-level keys ending in recall_at_10 /
+        # ndcg_at_10, so the nested form alone would read as "not measured".
+        "dense_mean_recall_at_10": dense_scores["mean_recall_at_10"],
+        "dense_mean_ndcg_at_10": dense_scores["mean_ndcg_at_10"],
+        "bm25_mean_recall_at_10": bm25_scores["mean_recall_at_10"],
+        "bm25_mean_ndcg_at_10": bm25_scores["mean_ndcg_at_10"],
+        "hybrid_mean_recall_at_10": hybrid_scores["mean_recall_at_10"],
+        "hybrid_mean_ndcg_at_10": hybrid_scores["mean_ndcg_at_10"],
+    }
+    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RESULT_PATH.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
+    print(f"saved_artifact: {RESULT_PATH}")
 
 
 if __name__ == "__main__":

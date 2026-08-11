@@ -2876,3 +2876,97 @@ guarantee that a non-retrieval case never invokes the retriever.
    non-degenerate agreement number.
 3. Export real spans and count persisted Elasticsearch trace documents.
 4. Push to GitHub so the CI regression gate actually executes.
+
+## Session 49 - Dense Embeddings and the Three-Way Retrieval Benchmark
+
+Goal: embed the regenerated corpus and measure dense, BM25, and hybrid RRF on
+the same held-out query set.
+
+Built:
+
+- Added `scripts/embed_chunks.py`. Checkpoint-resumable by construction: pending
+  work is derived from `WHERE embedding IS NULL` in the database rather than a
+  local progress file that can drift. Each batch commits before the next request,
+  so an interruption costs at most one batch.
+- Added `--estimate-only` so cost is visible before any paid call.
+- Added a machine-readable benchmark artifact at
+  `runs/retrieval_benchmark/hybrid_retrieval_benchmark.json`. Session 39 reported
+  retrieval as not measured because no such artifact existed; the dashboard now
+  reads it.
+- Added per-facet score breakdowns (match_type, hop_type, difficulty) to the
+  benchmark, since a single mean hides the dense/lexical tradeoff.
+- Fixed `benchmark_hybrid_retrieval.py` and `benchmark_dense_retrieval.py`, which
+  never called `load_dotenv()`. This is why Session 25 recorded `status: not_run`
+  with "Missing OPENAI_API_KEY" even though the key was present in `.env`.
+
+Measured - embedding run:
+
+- Chunks embedded: `8,926` of `8,926`
+- Model: `text-embedding-3-small`, 1536 dimensions
+- Approx tokens: `1,398,713`
+- Estimated cost: `$0.028`
+- Wall time: `474.4s`
+- Failures: `0`
+
+Measured - three-way retrieval benchmark:
+
+- Command: `python scripts/benchmark_hybrid_retrieval.py`
+- Queries: `120`; dense/BM25 candidate depth `50`; RRF k `60`; metric depth `10`
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.7417 | 0.8300 |
+| Hybrid RRF | 0.5782 | 0.5097 |
+| Dense only | 0.0663 | 0.0732 |
+
+Recall@10 by match type:
+
+| Query type | Dense | BM25 | Hybrid |
+|---|---:|---:|---:|
+| exact-term | 0.0250 | 0.8667 | 0.7333 |
+| semantic/paraphrase | 0.1075 | 0.6167 | 0.4231 |
+
+Finding: **hybrid retrieval reduces quality on this corpus.** BM25 alone is the
+best retriever, and fusing dense into it costs 0.16 recall@10.
+
+Dense is not broken. Verified directly: a query consisting of a chunk's own text
+returns that chunk at rank 1 with score `0.9555`, clear of the next result at
+`0.8499`. The failure is a corpus property. Every document is the same runbook
+template describing a different procedure, so the Escalation section of all 1,100
+documents reads near-identically apart from its embedded values. For the query
+"What is the escalation acknowledgement target for error ATL-4100?" the top five
+dense hits are all `chunk_0005` from five different documents, scored `0.6554`,
+`0.6515`, `0.6496`, `0.6493`, `0.6492` - effectively tied. Embeddings capture
+topic; here the topic is identical and the discriminating signal is a rare
+identifier, which is BM25's strength. RRF then dilutes a good lexical ranking
+with a near-uninformative dense one.
+
+Metric integrity notes:
+
+- The resume claim "lifted recall@10 from 0.69 to 0.84 over a dense-only baseline
+  using hybrid retrieval" is now measured and the direction is **wrong**. Dense
+  measures `0.0663`, BM25 `0.7417`, hybrid `0.5782`. Hybrid does not beat the
+  best single retriever here and must not be claimed to.
+- These numbers describe this synthetic corpus. A heterogeneous corpus with real
+  topical variety would give dense far more to work with. The finding is not a
+  general claim about hybrid retrieval.
+- Corpus regeneration is the reason BM25 moved from `0.0667` to `0.7417`, not any
+  change to the retriever.
+
+Validation:
+
+- Full suite: `python -m pytest tests -p no:cacheprovider` -> `112 passed`
+- Frontend production build: succeeded
+- Updated `tests/test_dashboard_metrics_api.py`, which asserted
+  `recall_at_10 == "not_measured"`. That pinned a run state rather than an
+  invariant and failed the moment a benchmark succeeded. It now asserts that a
+  measured metric carries a value and a source, and an unmeasured one carries no
+  value.
+
+Open work:
+
+1. Re-run the dual-judge validation slice on `golden_rag_v0.2` (needs a GPU window).
+2. Export real spans and count persisted Elasticsearch trace documents.
+3. Push to GitHub so the CI regression gate actually executes.
+4. If a dense contribution matters, the corpus needs genuine topical variety
+   rather than one template with substituted values.
