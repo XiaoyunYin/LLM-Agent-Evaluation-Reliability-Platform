@@ -1,7 +1,7 @@
 /**
  * Claim readiness.
  *
- * Each entry is a sentence someone might put on a resume, paired with the
+ * Each entry is a claim someone might make about this platform, paired with the
  * measurement that would have to exist for it to be true. Nothing here is
  * hand-flagged as met or unmet — `evaluate()` recomputes every verdict from
  * the snapshot. Paste a real number into metricsSnapshot.ts and the

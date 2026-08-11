@@ -125,7 +125,7 @@ Mock provider runs must be clearly marked as mock. They are useful for rehearsal
 
 Later, OpenAIProvider and AnthropicProvider can follow the same interface as MockProvider. That means generate_answer can call any provider through the same contract.
 
-An optional self-hosted candidate provider may also follow this interface later, but self-hosted candidate generation is not required for my current resume claim. The required self-hosted model work is for the bulk judge, not necessarily for candidate generation.
+An optional self-hosted candidate provider may also follow this interface later, but self-hosted candidate generation is not required for my current headline claims claim. The required self-hosted model work is for the bulk judge, not necessarily for candidate generation.
 
 
 Why is generate_answer(provider, request) better than calling OpenAI or Anthropic directly from the dataset loop?
@@ -155,7 +155,7 @@ The mock provider is useful for rehearsing the pipeline before calling paid APIs
 
 Metric integrity note: mock provider outputs do not count as real OpenAI or Anthropic candidate generations and must be excluded from real provider-diversity claims.
 
-Design note: OpenAI and Anthropic providers can later implement the same interface. An optional self-hosted candidate provider may also fit this interface, but self-hosted candidate generation is not required for the current resume claim.
+Design note: OpenAI and Anthropic providers can later implement the same interface. An optional self-hosted candidate provider may also fit this interface, but self-hosted candidate generation is not required for the current headline claims.
 
 
 ## Session 7 - First Local End-to-End Eval Generation Run
@@ -259,9 +259,9 @@ Validation:
 Metric integrity note:
 - This session completes provider-interface plumbing only.
 - It does not prove real OpenAI or Anthropic candidate generation yet.
-- The current resume requires real candidate-answer generation across OpenAI and Anthropic APIs.
+- The current headline claims requires real candidate-answer generation across OpenAI and Anthropic APIs.
 - Mock runs are useful for testing but do not count as real provider diversity.
-- The self-hosted provider is optional for candidate generation and should not be treated as required for the current resume claim.
+- The self-hosted provider is optional for candidate generation and should not be treated as required for the current headline claims.
 
 Important distinction:
 - The later Mistral-7B-Instruct-v0.3-AWQ vLLM work is required for the self-hosted judge path.
@@ -933,10 +933,10 @@ Benchmark status:
 
 Metric integrity notes:
 
-- The resume retrieval numbers remain previous claims until measured in the current benchmark.
+- The retrieval numbers remain previous claims until measured in the current benchmark.
 - Do not claim dense-only recall@10 `0.69`, hybrid recall@10 `0.84`, dense-only nDCG@10 `0.62`, or hybrid nDCG@10 `0.79` as current measured values yet.
-- Dense-only and hybrid metrics must be measured on the same 120-query held-out labeled set with the same metric implementation before updating the resume.
-- If the measured values differ from the previous resume numbers, update the resume to the measured values.
+- Dense-only and hybrid metrics must be measured on the same 120-query held-out labeled set with the same metric implementation before updating the reported claims.
+- If the measured values differ from the previous resume numbers, update the reported values to the measured ones.
 
 Design notes:
 
@@ -1259,7 +1259,7 @@ Metric integrity notes:
 - Mock 7B scores are not real judge-validation results.
 - No real self-hosted Mistral-7B-Instruct-v0.3-AWQ judge was run in this session.
 - No GPT-4o-mini versus real self-hosted 7B agreement rate was measured.
-- No throughput, cost, agreement, or manual-review routing percentage from this session should be used as a resume metric.
+- No throughput, cost, agreement, or manual-review routing percentage from this session should be used as a reportable metric.
 
 ## Session 32 - Dual-Judge Validation Harness
 
@@ -1365,7 +1365,7 @@ Metric integrity notes:
 - The Session 33 GPT-4o-mini path used a deterministic stand-in unless `--use-gpt4o-mini` is intentionally passed.
 - The Session 33 7B path used mock 7B, not the real self-hosted Mistral-7B-Instruct-v0.3-AWQ judge.
 - The `0.00%` agreement and `120` manual-review cases from the rehearsal are non-final mock numbers.
-- Mock 7B agreement is not a resume metric.
+- Mock 7B agreement is not a reportable metric.
 - A future `84%` agreement on 120 answers would still have uncertainty and should be described as validation evidence, not universal ground truth.
 - Final judge agreement must be measured during the GPU window after swapping in the real self-hosted 7B vLLM endpoint and scoring the same 120 validation answers.
 
@@ -1887,9 +1887,9 @@ Design notes:
 - Loading states matter because the backend may be slow or unavailable.
 - Error states matter because a failed API call should not look like an empty
   dataset.
-- A recruiter should understand that the page is a run-history surface for an
-  eval platform: it shows datasets, providers, run status, and where score and
-  latency will appear once measured.
+- A first-time reader should understand that the page is a run-history surface
+  for an eval platform: it shows datasets, providers, run status, and where score
+  and latency will appear once measured.
 
 Metric integrity notes:
 
@@ -1974,7 +1974,7 @@ Metric integrity notes:
 - The Session 33 judge agreement and disagreement values are shown as
   non-final because they came from a stand-in GPT judge and a mock 7B endpoint.
 - Mock agreement is harness evidence only. It is not final judge-validation
-  evidence and is not a resume metric.
+  evidence and is not a reportable metric.
 - Trace count remains not measured because Elasticsearch trace documents have
   not been counted and saved as a trace-count artifact.
 - Persisted judge-score count is a real artifact count, but it is not the
@@ -1982,7 +1982,7 @@ Metric integrity notes:
 
 Concept notes:
 
-- For recruiter scanning, the highest-signal metrics are retrieval quality
+- The highest-signal metrics for a first scan are retrieval quality
   (`recall@10`, `nDCG@10`), judge validation stability, judged-answer volume,
   eval-run volume, and trace availability.
 - A simple dashboard should lead with a few tiles and attach provenance, not
@@ -1990,7 +1990,7 @@ Concept notes:
 - Misleading metrics are avoided by keeping missing values null, labeling mock
   values non-final, and showing the source artifact for every number.
 - Real measured values are better than impressive fake values because they are
-  reproducible, defensible in interviews, and safe to put on a resume.
+  reproducible, defensible under scrutiny, and safe to report.
 
 ## Session 40 - CI Regression Gates
 
@@ -2140,7 +2140,7 @@ Provider coverage:
 - Mock provider:
   - excluded from real provider-diversity claim
 - Self-hosted Mistral:
-  - not required as a candidate provider for the current resume scope
+  - not required as a candidate provider for the current reporting scope
   - still scoped as the self-hosted judge
 
 Estimated API cost before running:
@@ -2194,7 +2194,7 @@ Concept notes:
   answers; they cannot score planned answers.
 - The OpenAI/Anthropic API wording is earned only when both providers produce
   real persisted candidate answers.
-- Self-hosted Mistral-7B is the judge in the current resume scope, not a
+- Self-hosted Mistral-7B is the judge in the current reporting scope, not a
   required candidate generator.
 - The matrix stays honest by separating primary RAG scale math from small
   agentic coverage and by labeling all counts as expected until artifacts exist.
@@ -2555,10 +2555,10 @@ Metric integrity notes:
 
 ## Session 45 - Scale Number Reconciliation
 
-Goal: reconcile current resume scale targets against actual persisted project
+Goal: reconcile current headline claims scale targets against actual persisted project
 artifacts.
 
-Resume story targets checked:
+Headline claim targets checked:
 
 - `60+ eval runs`
 - `8K+ candidate answers`
@@ -2598,7 +2598,7 @@ How counts were produced:
 - Elasticsearch did contain `llm_eval_chunks` with `9,900` documents, but those
   are retrieval chunk documents, not trace documents.
 
-Resume reconciliation:
+Claim reconciliation:
 
 - `60+ eval runs`: does not match; actual production run artifacts are `8`.
 - `8K+ candidate answers`: does not match; actual production completed
@@ -2608,7 +2608,7 @@ Resume reconciliation:
 - `OpenAI/Anthropic APIs`: supported, because both providers produced real
   completed candidate answers.
 
-Safer resume wording:
+Safer wording:
 
 - `Ran 8 real OpenAI/Anthropic eval configurations over 960 candidate answers,
   then bulk-judged 960 answers with a self-hosted
@@ -2628,14 +2628,13 @@ Concept notes:
 - Trace count depends on real instrumentation exporting spans to Elasticsearch;
   configured tracing alone is not the same as persisted trace documents.
 
-## Session 46 - Recruiter README Polish
+## Session 46 - README Polish
 
-Goal: polish the README for a fast recruiter scan and a deeper hiring-manager
-review.
+Goal: polish the README for a fast first scan and a deeper technical read.
 
 Updated:
 
-- Replaced the initial README skeleton with a portfolio-style project summary.
+- Replaced the initial README skeleton with a full project summary.
 - Added an architecture diagram section using Mermaid.
 - Added key features, local run instructions, evaluation methodology,
   retrieval benchmark status, candidate run matrix status, judge validation,
@@ -2692,7 +2691,7 @@ Interpretation:
 
 - Measured BM25 recall@10 was `0.0667`, which is 79% of the `0.0846` ceiling the
   fixture allows. BM25 is behaving correctly; the fixture is the limiting factor.
-- The resume target of recall@10 `0.84` is not merely unmeasured, it is
+- The headline target of recall@10 `0.84` is not merely unmeasured, it is
   arithmetically unreachable on this label set.
 - The `2,200` cluster-size-1 chunks are unique only because the document title
   embeds a document number. Their body text is identical boilerplate, so
@@ -2862,7 +2861,7 @@ guarantee that a non-retrieval case never invokes the retriever.
 
 - `0.7417` / `0.8300` are measured BM25 results on the repaired fixture. They
   are not dense or hybrid results and must not be reported as such.
-- The resume target of recall@10 `0.84` was arithmetically unreachable on the
+- The headline target of recall@10 `0.84` was arithmetically unreachable on the
   old fixture (ceiling `0.0846`). It is now reachable in principle but has not
   been measured for any retriever.
 - No judge run happened in this session. The recorded dual-judge slice is still
@@ -2943,7 +2942,7 @@ with a near-uninformative dense one.
 
 Metric integrity notes:
 
-- The resume claim "lifted recall@10 from 0.69 to 0.84 over a dense-only baseline
+- The headline claim "lifted recall@10 from 0.69 to 0.84 over a dense-only baseline
   using hybrid retrieval" is now measured and the direction is **wrong**. Dense
   measures `0.0663`, BM25 `0.7417`, hybrid `0.5782`. Hybrid does not beat the
   best single retriever here and must not be claimed to.

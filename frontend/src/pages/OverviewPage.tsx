@@ -17,7 +17,7 @@ const METRIC_ORDER = [
   'trace_count',
 ]
 
-const RECRUITER_PRIORITY = new Set([
+const HEADLINE_METRICS = new Set([
   'recall_at_10',
   'judge_agreement_percentage',
   'judged_answer_count',
@@ -78,11 +78,11 @@ export function OverviewPage() {
         )
       : []
 
-  const recruiterMetrics = ordered.filter((metric) =>
-    RECRUITER_PRIORITY.has(metric.key),
+  const headlineMetrics = ordered.filter((metric) =>
+    HEADLINE_METRICS.has(metric.key),
   )
   const supportingMetrics = ordered.filter(
-    (metric) => !RECRUITER_PRIORITY.has(metric.key),
+    (metric) => !HEADLINE_METRICS.has(metric.key),
   )
 
   return (
@@ -94,8 +94,8 @@ export function OverviewPage() {
       </Callout>
 
       <Panel
-        title="Recruiter scan metrics"
-        description="These are the first numbers a reviewer is likely to scan: retrieval quality, judge validation, and evaluation volume."
+        title="Headline metrics"
+        description="Retrieval quality, judge validation, and evaluation volume — the three signals that summarise platform health."
       >
         {metrics.status === 'loading' || metrics.status === 'idle' ? (
           <LoadingRows cols={3} />
@@ -108,7 +108,7 @@ export function OverviewPage() {
           />
         ) : (
           <div className="tile-grid">
-            {recruiterMetrics.map((metric) => (
+            {headlineMetrics.map((metric) => (
               <StatTile
                 key={metric.key}
                 label={metric.label}

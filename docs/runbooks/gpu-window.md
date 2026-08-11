@@ -16,7 +16,7 @@ Optional GPU work:
 
 - Generate self-hosted candidate answers only if self-hosted candidate-provider
   coverage is intentionally added later.
-- This is not required for the current resume bullets.
+- This is not required for the current headline claims.
 
 ## Target Configuration
 

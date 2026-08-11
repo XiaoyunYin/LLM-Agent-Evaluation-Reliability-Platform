@@ -327,7 +327,7 @@ def main() -> None:
             "judge_b_name": judge_b.judge_name,
             "judge_b_is_mock_7b": True,
             "agreement_numbers_are_final": False,
-            "mock_numbers_are_resume_metrics": False,
+            "mock_numbers_are_reportable": False,
             "non_final_number_fields": [
                 "pass_fail_agreement_percentage",
                 "score_agreement_percentage",
@@ -366,7 +366,7 @@ def main() -> None:
     print(f"candidate_answers_path={candidate_answers_path}")
     print(f"report_path={report_path}")
     print(f"manual_review_queue_path={review_queue_path}")
-    print("Mock 7B agreement is not a resume metric.")
+    print("Mock 7B agreement is not a reportable result.")
 
 
 if __name__ == "__main__":
