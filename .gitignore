@@ -19,6 +19,13 @@ runs/pytest_tmp*/
 runs/pytest_cache*/
 runs/pytest-cache-files-*/
 
+# Nondeterministic pytest output. runs/test_regression_gate/ is kept on purpose:
+# it holds the committed fixtures the CI gate test asserts against.
+runs/test_bulk_judging/
+runs/test_candidate_generation_pipeline/
+runs/test_dual_judge_validation_artifacts/
+runs/test_judge_validation_rehearsal/
+
 # Local editor/agent state
 .local-editor-state/settings.local.json
 

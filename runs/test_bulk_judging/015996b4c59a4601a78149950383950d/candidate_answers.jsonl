@@ -1,2 +1,0 @@
-{"run_id": "run_001", "case_id": "case_001", "generated_answer": "A", "status": "completed", "metadata": {"generation_context_chunk_ids": ["chunk_001"]}}
-{"run_id": "run_001", "case_id": "case_002", "generated_answer": "B", "status": "completed", "metadata": {"generation_context_chunk_ids": ["chunk_001"]}}

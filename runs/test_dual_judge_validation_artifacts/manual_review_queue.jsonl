@@ -1,1 +1,0 @@
-{"run_id": "run_001", "case_id": "case_002", "answer": "Candidate answer 2", "judge_a_score": 0.9, "judge_b_score": 0.2, "disagreement_reason": "pass_fail_differs: True vs False; correctness_delta_exceeds_threshold: 0.700 > 0.250", "human_label": null, "final_decision": null, "status": "pending"}
