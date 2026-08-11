@@ -65,15 +65,15 @@ Only measured results are listed here. Targets and resume claims stay out of thi
 | Metric | Measured value | Source |
 |---|---:|---|
 | Corpus documents | 1,100 | `scripts/generate_synthetic_corpus.py` |
-| Corpus chunks | 8,926 | `scripts/chunk_corpus.py` |
-| Distinct chunk texts | 8,926 of 8,926 (1.00x duplication) | `scripts/analyze_corpus_duplication.py` |
-| Chunks indexed in Elasticsearch | 8,926 | `scripts/index_chunks_to_elasticsearch.py` |
+| Corpus chunks | 6,041 | `scripts/chunk_corpus.py` |
+| Distinct chunk texts | 6,041 of 6,041 (1.00x duplication) | `scripts/analyze_corpus_duplication.py` |
+| Chunks indexed in Elasticsearch | 6,041 | `scripts/index_chunks_to_elasticsearch.py` |
 | Held-out labeled retrieval queries | 120 | `scripts/validate_retrieval_labels.py --strict` |
-| Graded relevance references | 382 (202 grade-2, 180 grade-1) | `scripts/validate_retrieval_labels.py --strict` |
-| Chunks embedded (text-embedding-3-small, 1536d) | 8,926 | `scripts/embed_chunks.py` |
-| BM25 recall@10 / nDCG@10 | **0.7417** / **0.8300** | `runs/retrieval_benchmark/hybrid_retrieval_benchmark.json` |
-| Hybrid RRF recall@10 / nDCG@10 | 0.5782 / 0.5097 | same artifact |
-| Dense recall@10 / nDCG@10 | 0.0663 / 0.0732 | same artifact |
+| Graded relevance references | 550 (370 grade-2, 180 grade-1) | `scripts/validate_retrieval_labels.py --strict` |
+| Chunks embedded (text-embedding-3-small, 1536d) | 6,041 | `scripts/embed_chunks.py` |
+| BM25 recall@10 / nDCG@10 | **0.3505** / **0.3077** | `runs/retrieval_benchmark/hybrid_retrieval_benchmark.json` |
+| Hybrid RRF recall@10 / nDCG@10 | 0.2832 / 0.2936 | same artifact |
+| Dense recall@10 / nDCG@10 | 0.2212 / 0.2109 | same artifact |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |
@@ -123,50 +123,74 @@ answer and fails loudly if it cannot find it.
 
 | | Before | After |
 |---|---:|---:|
-| Distinct chunk texts | 2,262 of 9,900 | 8,926 of 8,926 |
+| Distinct chunk texts | 2,262 of 9,900 | 6,041 of 6,041 |
 | Largest duplicate cluster | 330 | 1 |
 | Theoretical max recall@10 | 0.0846 | 1.0000 |
-| Measured BM25 recall@10 | 0.0667 | **0.7417** |
-| Measured BM25 nDCG@10 | 0.0377 | **0.8300** |
+| Measured BM25 recall@10 | 0.0667 | 0.3505 (v0.3 labels) |
+| Measured BM25 nDCG@10 | 0.0377 | 0.3077 (v0.3 labels) |
 
-Relevance is also genuinely graded now (202 grade-2, 180 grade-1), so nDCG@10 reports
+Relevance is also genuinely graded now (370 grade-2, 180 grade-1), so nDCG@10 reports
 something recall@10 does not. Previously all 180 labels were grade 2, making the set
 binary in substance.
 
-### Measured finding: hybrid retrieval does not help on this corpus
+### Measured finding: BM25 outperforms hybrid retrieval on this corpus
 
-All 8,926 chunks were embedded with `text-embedding-3-small` and all three strategies were
-scored on the same 120 held-out queries with the same metric functions:
+All three strategies are scored on the same 120 held-out queries with the same metric
+functions, over the v0.3 corpus with all 6,041 chunks embedded using
+`text-embedding-3-small`:
 
 | Strategy | recall@10 | nDCG@10 |
 |---|---:|---:|
-| BM25 only | **0.7417** | **0.8300** |
-| Hybrid RRF (k=60) | 0.5782 | 0.5097 |
-| Dense only | 0.0663 | 0.0732 |
+| BM25 only | **0.3505** | **0.3077** |
+| Hybrid RRF (k=60) | 0.2832 | 0.2936 |
+| Dense only | 0.2212 | 0.2109 |
 
-**BM25 alone wins, and fusing dense into it makes retrieval worse.** Recall@10 by query
-type shows why:
+Recall@10 by query type:
 
 | Query type | Dense | BM25 | Hybrid |
 |---|---:|---:|---:|
-| exact-term | 0.0250 | 0.8667 | 0.7333 |
-| semantic/paraphrase | 0.1075 | 0.6167 | 0.4231 |
+| exact-term | 0.1807 | 0.2506 | 0.1654 |
+| semantic/paraphrase | 0.2616 | 0.4504 | 0.4010 |
+| single-hop | 0.3403 | 0.5222 | 0.4056 |
+| multi-hop | 0.1021 | 0.1787 | 0.1609 |
 
-Dense retrieval is not broken - a query consisting of a chunk's own text returns that chunk
-at rank 1 with score 0.9555, well clear of the next result at 0.8499. The failure is a
-property of the corpus. Every document is the same runbook template describing a different
-procedure, so the "Escalation" section of all 1,100 documents reads near-identically apart
-from its embedded values. For the query *"What is the escalation acknowledgement target for
-error ATL-4100?"* the top five dense hits are all `chunk_0005` from five different
-documents, scored 0.6554 / 0.6515 / 0.6496 / 0.6493 / 0.6492 - effectively tied.
-Embeddings capture topic, and here the topic is identical; the discriminating signal is a
-rare identifier, which is exactly BM25's strength. RRF then drags BM25 down by fusing in a
-ranking that carries almost no information.
+**BM25 alone is the strongest retriever here, and fusing dense into it does not beat it.**
+This held across three independently generated corpora, so it is a stable result rather
+than an artifact of one build.
 
-This is a finding about **this synthetic corpus**, not a general result about hybrid
-retrieval. A heterogeneous corpus with real topical variety would give dense far more to
-work with. Recorded here because the honest measured direction is the opposite of what the
-project originally set out to show.
+#### How this conclusion was reached, including a corrected mistake
+
+The first corpus (v0.2) gave every document unique identifiers but identical prose. Dense
+scored 0.0663 there, and a direct check showed dense was not broken - a query made of a
+chunk's own text returned that chunk at rank 1, score 0.9555 against 0.8499 for the
+runner-up. The corpus was the cause: all 1,100 "Escalation" sections embedded to nearly the
+same vector, and for *"error ATL-4100"* the top five dense hits were five different
+documents' `chunk_0005`, scored within 0.006 of each other.
+
+So the corpus was rebuilt (v0.3) with a per-topic vocabulary - each of 110 topics carries
+its own component, symptom, cause, fix, and verification signal - across four document
+types with different section structures. Measured effect: word overlap between different
+documents' same-index chunks fell from **~0.60 to 0.11-0.16**, and dense recall@10 rose
+**0.0663 to 0.2212, a 3.3x improvement**. The hypothesis was right about the mechanism and
+wrong about the outcome: dense improved substantially but still did not overturn BM25.
+
+One intermediate result was discarded rather than published. A first pass at the v0.3 labels
+anchored on `retention_days` and `owner_team`. Measured across the corpus, `retention_days`
+takes only 28 distinct values (up to **40 documents share one**) and `owner_team` only 11
+(up to **100 share one**), so those labels marked a single document relevant while dozens
+held the identical fact - the same duplicate-cluster defect as v0.2, in miniature. Labels
+were regenerated against the five fields verified unique across all 1,100 documents
+(`config_key`, `error_code`, `workspace_slug`, `backoff_ms`, `max_rows`). The numbers above
+are from the corrected labels.
+
+**Do not compare these figures to the v0.2 ones.** BM25 measured 0.7417 on v0.2 and 0.3505
+here, but the corpus, the label set, and the number of relevant chunks per query all
+changed. Only the three strategies within a single row of the table are comparable, because
+only they share a fixture.
+
+This is a finding about **this synthetic corpus**, whose queries are largely
+identifier lookups - the shape that favours lexical matching. It is not a general claim that
+hybrid retrieval underperforms.
 
 ### Known defect: the recorded dual-judge validation slice is degenerate
 

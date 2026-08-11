@@ -70,89 +70,86 @@ def load_document_text(path: Path) -> dict[str, str]:
     return {doc_id: "\n".join(texts) for doc_id, texts in joined.items()}
 
 
-# Each probe returns (question, expected_answer, category, an anchor that must
-# be present in the source document for the pair to be trustworthy).
+# Each probe returns (question, expected_answer, category, anchor). The anchor
+# must appear in every document type (runbook, postmortem, reference, faq),
+# which word their prose differently; build_rows raises if it does not, so a
+# type-specific phrasing fails the build instead of shipping a question the
+# corpus cannot answer.
 def probes(f: DocumentFacts) -> list[tuple[str, str, str, str]]:
     return [
         (
             f"What is the escalation acknowledgement target for error {f.error_code}?",
             f"{f.sla_minutes} minutes",
             "exact_fact",
-            f"acknowledgement target is {f.sla_minutes} minutes",
+            f"{f.sla_minutes} minutes",
         ),
         (
             f"Which team owns escalations for error {f.error_code}?",
             f.owner_team,
             "exact_fact",
-            f"Ownership sits with the {f.owner_team}",
+            f.owner_team,
         ),
         (
             f"How many days are results retained for the {f.workspace} workspace?",
             f"{f.retention_days} days",
             "single_hop",
-            f"storage for {f.retention_days} days",
+            f"{f.retention_days} days",
         ),
         (
-            f"What per-minute call ceiling applies to {f.workspace} on the "
-            f"{f.plan_tier} plan?",
-            f"{f.rate_limit} calls per minute",
+            f"Which system component is affected when {f.error_code} is raised?",
+            f.component,
             "single_hop",
-            f"{f.rate_limit} {f.procedure_slug} calls per minute",
+            f.component,
         ),
         (
-            f"What batch size does the resolution command for {f.error_code} use?",
+            f"What batch size does the resolution for {f.error_code} use?",
             str(f.batch_size),
             "specificity",
-            f"batch size of {f.batch_size}",
+            f"{f.batch_size}",
         ),
         (
-            f"What retry backoff does the {f.procedure} resolution use for "
-            f"{f.workspace}?",
+            f"What retry backoff is used when resolving {f.error_code}?",
             f"{f.backoff_ms} milliseconds",
             "specificity",
-            f"a {f.backoff_ms} millisecond backoff",
+            f"{f.backoff_ms} millisecond",
         ),
         (
-            f"What is the maximum number of rows allowed in one {f.procedure} "
-            f"invocation for {f.workspace}?",
-            f"{f.max_rows} rows",
+            f"What is the root cause behind error {f.error_code}?",
+            f.cause,
+            "multi_hop",
+            f.cause,
+        ),
+        (
+            f"How is error {f.error_code} resolved?",
+            f.fix,
             "lexical_gap",
-            f"more than {f.max_rows} rows",
+            f.fix,
         ),
         (
-            f"Which configuration key does runbook {f.runbook_ref} change?",
-            f.config_key,
-            "exact_fact",
-            f.config_key,
+            f"How can an operator confirm that {f.procedure} succeeded for "
+            f"{f.workspace}?",
+            f.signal,
+            "lexical_gap",
+            f.signal,
+        ),
+        (
+            f"What symptom do reporters describe when {f.error_code} occurs?",
+            f.symptom,
+            "distractor_robustness",
+            f.symptom,
         ),
         (
             f"How many approvals are required before editing {f.config_key}?",
             f"{f.approval_count}",
             "multi_hop",
-            f"collect {f.approval_count} approval",
+            f"{f.approval_count} approval",
         ),
         (
-            f"In which region is the {f.workspace} workspace hosted?",
-            f.region,
-            "single_hop",
-            f"hosted in {f.region}",
-        ),
-        (
-            f"When error {f.error_code} is mistaken for a permissions fault, what "
-            f"distinguishes the two?",
-            (
-                f"A permissions fault leaves the {f.metric} counter flat, while "
-                f"{f.error_code} drives it above {f.threshold_percent} percent."
-            ),
-            "distractor_robustness",
-            f"permissions fault leaves `{f.metric}` flat",
-        ),
-        (
-            f"After how many seconds does the {f.procedure} operation abort for "
+            f"What row cap applies to a single {f.procedure_slug} invocation for "
             f"{f.workspace}?",
-            f"{f.timeout_seconds} seconds",
+            f"{f.max_rows} rows",
             "single_hop",
-            f"waited {f.timeout_seconds} seconds",
+            f"{f.max_rows} row",
         ),
     ]
 
