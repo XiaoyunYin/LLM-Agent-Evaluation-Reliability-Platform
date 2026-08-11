@@ -1,0 +1,50 @@
+name: Eval Regression Gate
+
+on:
+  pull_request:
+    paths:
+      - "prompts/**"
+      - "config/**"
+      - "backend/app/**"
+      - "backend/main.py"
+      - "scripts/**"
+      - "metrics/**"
+      - "tests/test_regression_gate.py"
+      - ".github/workflows/eval-regression-gate.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "prompts/**"
+      - "config/**"
+      - "backend/app/**"
+      - "backend/main.py"
+      - "scripts/**"
+      - "metrics/**"
+      - "tests/test_regression_gate.py"
+      - ".github/workflows/eval-regression-gate.yml"
+
+jobs:
+  regression-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Test regression gate behavior
+        run: python -m pytest tests/test_regression_gate.py -p no:cacheprovider
+
+      - name: Compare current metrics against baseline
+        run: >
+          python scripts/compare_regression_metrics.py
+          --baseline metrics/baseline_metrics.json
+          --current metrics/current_metrics.json
