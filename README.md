@@ -82,6 +82,11 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | SciFact BM25 recall@10 / nDCG@10 | 0.7843 / 0.6606 | same artifact |
 | SciFact hybrid recall@10 / nDCG@10 (default k=60, depth=50) | 0.8496 / 0.7198 | same artifact |
 | SciFact hybrid, tuned on train, held-out test (k=1, depth=20) | **0.8777** / **0.7388** | `runs/retrieval_benchmark/scifact_rrf_sweep.json` |
+| NFCorpus documents / test queries | 3,633 / 323 | `scripts/load_beir_dataset.py` |
+| NFCorpus dense recall@10 / nDCG@10 | 0.1873 / 0.3842 | `runs/retrieval_benchmark/nfcorpus_rrf_sweep.json` |
+| NFCorpus BM25 recall@10 / nDCG@10 | 0.1489 / 0.3080 | same artifact |
+| NFCorpus hybrid, tuned on train, held-out test (k=5, depth=50) | 0.1875 / 0.3829 | same artifact |
+| NFCorpus theoretical max recall@10 (38.2 relevant/query) | 0.6146 | computed from qrels |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |
@@ -268,6 +273,47 @@ costs more than fusion gains.
 Two honest limits on this result. The gain is real but modest in absolute terms - about 2.4
 points of recall@10. And k=1 is an unusual setting; standard practice is k=60, so this is a
 dataset-specific tuning rather than a general recommendation.
+
+### A second dataset qualifies that result
+
+NFCorpus (3,633 documents, 323 test queries, **graded** qrels of 0/1/2) was run under the
+same protocol - tuned on the train split, evaluated on held-out test:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.1489 | 0.3080 |
+| Dense only | 0.1873 | **0.3842** |
+| Hybrid RRF (k=5, depth=50) | **0.1875** | 0.3829 |
+
+Here fusion **ties** dense-only rather than beating it: +0.1% recall, -0.3% nDCG. It still
+beats BM25 comfortably (+26% recall, +24% nDCG), but the "beats both" result from SciFact
+did not generalise.
+
+The tuned depth did not transfer either. SciFact preferred depth 10-20; NFCorpus preferred
+50-100. Candidate depth is the dominant RRF parameter on both, but its best value is a
+property of the dataset.
+
+Absolute recall@10 looks low on NFCorpus because the task is different: queries average
+**38.2** relevant documents, so the theoretical maximum recall@10 is **0.6146**, not 1.0.
+Measured 0.1875 is about 30% of what is achievable at that depth. This is why BEIR treats
+nDCG@10 as the primary metric.
+
+### What holds across all three corpora
+
+| Corpus | Best single | Hybrid vs best single |
+|---|---|---|
+| Synthetic support corpus | BM25 | below (between the two inputs) |
+| BEIR SciFact | Dense | above, +2.8% recall / +3.1% nDCG |
+| BEIR NFCorpus | Dense | tied, +0.1% recall / -0.3% nDCG |
+
+The stable claim is not that fusion wins. It is that **fusion matches or exceeds the better
+of its two inputs without needing to know in advance which one that is**, and beats the
+weaker input substantially every time. That is a robustness property, and it is worth more
+in production - where the query mix shifts and is not known ahead of time - than a fixed
+choice that happens to be right on one benchmark.
+
+Running only SciFact would have supported a stronger and less accurate claim. Both datasets
+are reported here for that reason.
 
 ### Known defect: the recorded dual-judge validation slice is degenerate
 

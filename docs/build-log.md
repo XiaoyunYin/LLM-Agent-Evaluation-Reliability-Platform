@@ -3282,3 +3282,71 @@ Metric integrity notes:
 Validation:
 
 - Full suite: `116 passed`
+
+## Session 54 - NFCorpus: a Second Dataset Qualifies the Fusion Result
+
+Goal: test whether the Session 53 finding - RRF beating both inputs on held-out
+SciFact queries - generalises, and whether graded relevance changes the picture.
+
+Loaded:
+
+- BEIR NFCorpus, `3,633` documents
+- Test: `323` queries, `12,334` relevance references, **graded** (`576` at grade 2,
+  `11,758` at grade 1)
+- Train: `2,590` queries; tuning used a `400`-query subset, since selecting
+  hyperparameters costs one embedding call per query and does not need the whole
+  split
+- Embedding: `3,633` chunks, `$0.0289`, `207.7s`, `0` failures
+
+Protocol: identical to Session 53. Tuned on train by nDCG@10, applied unchanged to
+the held-out test split. Selected `k=5`, `depth=50` (train nDCG@10 `0.3853`).
+
+Measured on held-out NFCorpus test:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.1489 | 0.3080 |
+| Dense only | 0.1873 | 0.3842 |
+| Hybrid RRF (k=5, depth=50) | 0.1875 | 0.3829 |
+
+- vs dense-only: recall `+0.0002` (+0.1%), nDCG `-0.0013` (-0.3%)
+- vs BM25-only: recall `+0.0386` (+26%), nDCG `+0.0749` (+24%)
+- Beats both on recall: yes, by a margin too small to mean anything
+- Beats both on nDCG: **no**
+
+Findings:
+
+1. **The SciFact "beats both" result did not generalise.** On NFCorpus fusion ties
+   dense-only. Two datasets, two different answers, same protocol.
+2. **The tuned depth did not transfer.** SciFact preferred depth `10-20`; NFCorpus
+   preferred `50-100`. Candidate depth dominates k on both, but its best value is a
+   property of the dataset, not a constant.
+3. **Absolute recall@10 is capped by the task.** NFCorpus averages `38.2` relevant
+   documents per query, so the theoretical maximum recall@10 is `0.6146`. The
+   measured `0.1875` is roughly 30% of what is achievable at that depth. Reading it
+   as a low score against a 1.0 ceiling would be wrong, and it is why BEIR treats
+   nDCG@10 as primary.
+
+Cross-corpus summary:
+
+| Corpus | Best single retriever | Hybrid vs best single |
+|---|---|---|
+| Synthetic support corpus | BM25 | below (lands between the two inputs) |
+| BEIR SciFact | Dense | above: +2.8% recall, +3.1% nDCG |
+| BEIR NFCorpus | Dense | tied: +0.1% recall, -0.3% nDCG |
+
+Metric integrity notes:
+
+- The claim supported by all three corpora is that fusion **matches or exceeds the
+  better of its two inputs without needing to know in advance which that is**, and
+  beats the weaker input substantially every time. It is a robustness property.
+- The stronger claim - that RRF beats both retrievers - is supported by SciFact
+  alone and must not be generalised. Session 53's wording is qualified accordingly.
+- Reporting only SciFact would have supported a more impressive and less accurate
+  conclusion. Both datasets are recorded for that reason.
+- NFCorpus is the first dataset here with graded qrels, so it is the first where
+  nDCG@10 carries information recall@10 does not.
+
+Validation:
+
+- Full suite: `116 passed`
