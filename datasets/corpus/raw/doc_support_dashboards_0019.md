@@ -2,7 +2,9 @@
 doc_id: doc_support_dashboards_0019
 title: Scheduled Legend Remapping runbook 0019
 category: dashboards
+doc_type: runbook
 procedure: Scheduled legend remapping
+component: the series legend binder
 error_code: ATL-4448
 config_key: atlas.dashboards.legend-remapping.scheduled
 workspace: Perihelion Logistics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-DAS-0019 covers the Scheduled legend remapping procedure for the Perihelion Logistics workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4448; other dashboards faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4448 within 54 minutes.
+RB-DAS-0019 describes Scheduled legend remapping for Perihelion Logistics, where legend labels attach to the wrong series after a query change. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the series legend binder. This document applies only when Atlas raises ATL-4448; other dashboards faults are covered elsewhere. Workspace Experience owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4448 with the message "Scheduled legend remapping blocked for workspace perihelion-logistics". The `atlas_dashboards_legend_remapping_total` counter rises while the affected dashboards operation stalls. Requests exceeding 128 calls per minute against perihelion-logistics amplify the failure, and the operation aborts once it has waited 171 seconds.
+Reporters describe the same thing: legend labels attach to the wrong series after a query change. Atlas raises ATL-4448 against the perihelion-logistics workspace and `atlas_dashboards_legend_remapping_total` climbs past 76 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the series legend binder is under load. Requests beyond 128 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Perihelion Logistics, then collect 1 approval(s) before editing `atlas.dashboards.legend-remapping.scheduled`. Changes to `atlas.dashboards.legend-remapping.scheduled` are irreversible after 43 days because the prior value leaves hot storage on that schedule. Record RB-DAS-0019 and ATL-4448 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas dashboards legend-remapping --mode scheduled --workspace perihelion-logistics --dry-run` and compare the reported value of `atlas.dashboards.legend-remapping.scheduled` with the expected baseline. If `atlas_dashboards_legend_remapping_total` exceeds 76 percent of its ceiling for the perihelion-logistics workspace, the Scheduled legend remapping path is saturated rather than misconfigured, and error ATL-4448 is a symptom instead of the cause.
+The underlying fault is that the binder keys labels on series position rather than series identity. This is a property of the series legend binder rather than of any single workspace, so Perihelion Logistics is affected only because it exercises that path. The 171 second abort is a consequence, not the cause; raising it hides ATL-4448 without repairing the series legend binder.
 
 ## Resolution
 
-Apply `atlas dashboards legend-remapping --mode scheduled --workspace perihelion-logistics --commit` with a batch size of 454. The command retries with a 3176 millisecond backoff and gives up after 171 seconds. Processing more than 34756 rows in one invocation for Perihelion Logistics is unsupported and re-raises ATL-4448. Split larger jobs into batches of 454.
-
-## Limits and Quotas
-
-The Starter plan caps Perihelion Logistics at 128 scheduled-legend-remapping calls per minute in ap-southeast-1. Results persist in hot storage for 43 days. Exports tied to RB-DAS-0019 refuse payloads above 34756 rows. Atlas warns 26 days before the 43 day window closes on perihelion-logistics.
+To repair the fault, key legend labels on the series identifier. Run `atlas dashboards legend-remapping --mode scheduled --workspace perihelion-logistics --commit` with a batch size of 454, retrying with a 3176 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 34756 rows in one invocation. Editing `atlas.dashboards.legend-remapping.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas dashboards legend-remapping --mode scheduled --workspace perihelion-logistics --verify` should report `atlas.dashboards.legend-remapping.scheduled` as active with no occurrences of ATL-4448 in the last 171 seconds. Ask the customer to confirm from Perihelion Logistics directly. The `atlas_dashboards_legend_remapping_total` counter should settle below 76 percent within 54 minutes.
+The repair has landed when labels follow their series across query changes. Confirm with `atlas dashboards legend-remapping --mode scheduled --workspace perihelion-logistics --verify`, which should report `atlas.dashboards.legend-remapping.scheduled` active and no ATL-4448 in the last 171 seconds. `atlas_dashboards_legend_remapping_total` should settle below 76 percent within 54 minutes.
+
+## Limits
+
+Perihelion Logistics is capped at 128 scheduled-legend-remapping calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 43 days, and Atlas warns 26 days before that window closes. Payloads above 34756 rows are refused.
 
 ## Escalation
 
-Escalate to Workspace Experience if ATL-4448 recurs on perihelion-logistics after two attempts, citing RB-DAS-0019. Their acknowledgement target is 54 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.dashboards.legend-remapping.scheduled`, the observed `atlas_dashboards_legend_remapping_total` rate, and whether the 128 per minute ceiling was reached.
+Escalate to Workspace Experience citing RB-DAS-0019 if ATL-4448 recurs after two attempts, or if legend labels attach to the wrong series after a query change persists once labels follow their series across query changes. Their acknowledgement target is 54 minutes. Include the value of `atlas.dashboards.legend-remapping.scheduled` and the observed `atlas_dashboards_legend_remapping_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4448 is often confused with a plain permissions fault on perihelion-logistics, but a permissions fault leaves `atlas_dashboards_legend_remapping_total` flat while ATL-4448 drives it above 76 percent. A second misread is blaming the 128 per minute ceiling when the true limit reached was the 34756 row cap. Check `atlas.dashboards.legend-remapping.scheduled` before assuming either.
+Every Scheduled legend remapping action against Perihelion Logistics writes an entry tagged RB-DAS-0019, retained 43 days in hot storage, recording the actor and both values of `atlas.dashboards.legend-remapping.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the series legend binder was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled legend remapping action against Perihelion Logistics writes an audit entry tagged RB-DAS-0019 and retained for 43 days in hot storage. The entry records the actor, the prior and new values of `atlas.dashboards.legend-remapping.scheduled`, and whether ATL-4448 was observed. Never log raw credentials for perihelion-logistics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4448 clears on Perihelion Logistics, confirm downstream dashboards jobs that read `atlas.dashboards.legend-remapping.scheduled` still run. Scheduled work reading scheduled-legend-remapping output may lag by up to 3176 milliseconds per batch of 454. Re-check perihelion-logistics after 26 days, before the 43 day hot retention window expires.
+Once ATL-4448 clears, confirm downstream dashboards jobs reading `atlas.dashboards.legend-remapping.scheduled` still run. Work depending on the series legend binder may lag 3176 milliseconds per batch of 454. Re-check perihelion-logistics after 26 days.

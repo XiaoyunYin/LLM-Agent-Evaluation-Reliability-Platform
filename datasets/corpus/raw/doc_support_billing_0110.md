@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0110
-title: Cascading Overage Forgiveness runbook 0110
+title: Cascading Overage Forgiveness incident review 0110
 category: billing
+doc_type: postmortem
 procedure: Cascading overage forgiveness
+component: the overage assessor
 error_code: ATL-4429
 config_key: atlas.billing.overage-forgiveness.cascading
 workspace: Hollowbrook Research
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0110
 source: synthetic
 ---
 
-# Cascading Overage Forgiveness runbook 0110
+# Cascading Overage Forgiveness incident review 0110
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0110 covers the Cascading overage forgiveness procedure for the Hollowbrook Research workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4429; other billing faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4429 within 152 minutes.
+On the Growth plan in us-east-1, Hollowbrook Research reported that forgiven overage reappears on the next invoice. Atlas raised ATL-4429 for 152 minutes before Integrations Guild mitigated. The fault was in the overage assessor. Review reference RB-BIL-0110.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4429 with the message "Cascading overage forgiveness blocked for workspace hollowbrook-research". The `atlas_billing_overage_forgiveness_total` counter rises while the affected billing operation stalls. Requests exceeding 859 calls per minute against hollowbrook-research amplify the failure, and the operation aborts once it has waited 38 seconds.
+Hollowbrook Research was unable to complete Cascading overage forgiveness while ATL-4429 persisted. Roughly 32913 rows were delayed and `atlas_billing_overage_forgiveness_total` held above 68 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Hollowbrook Research, then collect 2 approval(s) before editing `atlas.billing.overage-forgiveness.cascading`. Changes to `atlas.billing.overage-forgiveness.cascading` are irreversible after 70 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0110 and ATL-4429 in the case notes.
+Operations first saw `atlas_billing_overage_forgiveness_total` cross 68 percent. ATL-4429 appeared against hollowbrook-research once traffic exceeded 859 per minute. The page reached Integrations Guild within 152 minutes. Investigation focused on the overage assessor after forgiven overage reappears on the next invoice was reproduced with `atlas billing overage-forgiveness --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing overage-forgiveness --mode cascading --workspace hollowbrook-research --dry-run` and compare the reported value of `atlas.billing.overage-forgiveness.cascading` with the expected baseline. If `atlas_billing_overage_forgiveness_total` exceeds 68 percent of its ceiling for the hollowbrook-research workspace, the Cascading overage forgiveness path is saturated rather than misconfigured, and error ATL-4429 is a symptom instead of the cause.
+forgiveness credits the invoice but leaves the overage record standing. The condition had existed in the overage assessor for some time and became visible only when Hollowbrook Research crossed 859 calls per minute. The 38 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing overage-forgiveness --mode cascading --workspace hollowbrook-research --commit` with a batch size of 967. The command retries with a 2473 millisecond backoff and gives up after 38 seconds. Processing more than 32913 rows in one invocation for Hollowbrook Research is unsupported and re-raises ATL-4429. Split larger jobs into batches of 967.
-
-## Limits and Quotas
-
-The Growth plan caps Hollowbrook Research at 859 cascading-overage-forgiveness calls per minute in us-east-1. Results persist in warm storage for 70 days. Exports tied to RB-BIL-0110 refuse payloads above 32913 rows. Atlas warns 7 days before the 70 day window closes on hollowbrook-research.
+The team applied the standing fix: mark the overage record forgiven, not just credited. This was executed with `atlas billing overage-forgiveness --mode cascading --workspace hollowbrook-research --commit` at a batch size of 967, backing off 2473 milliseconds between attempts, under 2 approval(s) against `atlas.billing.overage-forgiveness.cascading`.
 
 ## Verification
 
-After the change, `atlas billing overage-forgiveness --mode cascading --workspace hollowbrook-research --verify` should report `atlas.billing.overage-forgiveness.cascading` as active with no occurrences of ATL-4429 in the last 38 seconds. Ask the customer to confirm from Hollowbrook Research directly. The `atlas_billing_overage_forgiveness_total` counter should settle below 68 percent within 152 minutes.
+Recovery was confirmed when the following invoice carries no repeated overage. `atlas_billing_overage_forgiveness_total` returned below 68 percent and ATL-4429 stopped appearing for hollowbrook-research. Because dependents must be re-evaluated after the change lands, the team also confirmed the overage assessor had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Integrations Guild if ATL-4429 recurs on hollowbrook-research after two attempts, citing RB-BIL-0110. Their acknowledgement target is 152 minutes for the Growth plan in us-east-1. Include the value of `atlas.billing.overage-forgiveness.cascading`, the observed `atlas_billing_overage_forgiveness_total` rate, and whether the 859 per minute ceiling was reached.
+To keep forgiveness credits the invoice but leaves the overage record standing from recurring, Integrations Guild added monitoring on the overage assessor that alerts before `atlas_billing_overage_forgiveness_total` reaches 68 percent. Retention for the diagnostic trail was set to 70 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4429 is often confused with a plain permissions fault on hollowbrook-research, but a permissions fault leaves `atlas_billing_overage_forgiveness_total` flat while ATL-4429 drives it above 68 percent. A second misread is blaming the 859 per minute ceiling when the true limit reached was the 32913 row cap. Check `atlas.billing.overage-forgiveness.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading overage forgiveness action against Hollowbrook Research writes an audit entry tagged RB-BIL-0110 and retained for 70 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.overage-forgiveness.cascading`, and whether ATL-4429 was observed. Never log raw credentials for hollowbrook-research; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4429 clears on Hollowbrook Research, confirm downstream billing jobs that read `atlas.billing.overage-forgiveness.cascading` still run. Scheduled work reading cascading-overage-forgiveness output may lag by up to 2473 milliseconds per batch of 967. Re-check hollowbrook-research after 7 days, before the 70 day warm retention window expires.
+Re-check hollowbrook-research after 7 days. Confirm the 859 per minute ceiling and the 32913 row cap still suit Hollowbrook Research on the Growth plan, and that the following invoice carries no repeated overage remains true.

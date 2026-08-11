@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0015
 title: Scheduled Status Page Correction runbook 0015
 category: incidents
+doc_type: runbook
 procedure: Scheduled status page correction
+component: the status page publisher
 error_code: ATL-4664
 config_key: atlas.incidents.status-page-correction.scheduled
 workspace: Eastgate Media
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0015 covers the Scheduled status page correction procedure for the Eastgate Media workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4664; other incidents faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4664 within 102 minutes.
+RB-INC-0015 describes Scheduled status page correction for Eastgate Media, where the public status page contradicts the internal incident state. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the status page publisher. This document applies only when Atlas raises ATL-4664; other incidents faults are covered elsewhere. Data Delivery owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4664 with the message "Scheduled status page correction blocked for workspace eastgate-media". The `atlas_incidents_status_page_correction_total` counter rises while the affected incidents operation stalls. Requests exceeding 624 calls per minute against eastgate-media amplify the failure, and the operation aborts once it has waited 258 seconds.
+Reporters describe the same thing: the public status page contradicts the internal incident state. Atlas raises ATL-4664 against the eastgate-media workspace and `atlas_incidents_status_page_correction_total` climbs past 58 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the status page publisher is under load. Requests beyond 624 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Eastgate Media, then collect 1 approval(s) before editing `atlas.incidents.status-page-correction.scheduled`. Changes to `atlas.incidents.status-page-correction.scheduled` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-INC-0015 and ATL-4664 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents status-page-correction --mode scheduled --workspace eastgate-media --dry-run` and compare the reported value of `atlas.incidents.status-page-correction.scheduled` with the expected baseline. If `atlas_incidents_status_page_correction_total` exceeds 58 percent of its ceiling for the eastgate-media workspace, the Scheduled status page correction path is saturated rather than misconfigured, and error ATL-4664 is a symptom instead of the cause.
+The underlying fault is that the publisher pushes on state change but not on state correction. This is a property of the status page publisher rather than of any single workspace, so Eastgate Media is affected only because it exercises that path. The 258 second abort is a consequence, not the cause; raising it hides ATL-4664 without repairing the status page publisher.
 
 ## Resolution
 
-Apply `atlas incidents status-page-correction --mode scheduled --workspace eastgate-media --commit` with a batch size of 672. The command retries with a 1368 millisecond backoff and gives up after 258 seconds. Processing more than 55708 rows in one invocation for Eastgate Media is unsupported and re-raises ATL-4664. Split larger jobs into batches of 672.
-
-## Limits and Quotas
-
-The Starter plan caps Eastgate Media at 624 scheduled-status-page-correction calls per minute in ap-southeast-1. Results persist in hot storage for 19 days. Exports tied to RB-INC-0015 refuse payloads above 55708 rows. Atlas warns 17 days before the 19 day window closes on eastgate-media.
+To repair the fault, publish corrections through the same channel as state changes. Run `atlas incidents status-page-correction --mode scheduled --workspace eastgate-media --commit` with a batch size of 672, retrying with a 1368 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 55708 rows in one invocation. Editing `atlas.incidents.status-page-correction.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents status-page-correction --mode scheduled --workspace eastgate-media --verify` should report `atlas.incidents.status-page-correction.scheduled` as active with no occurrences of ATL-4664 in the last 258 seconds. Ask the customer to confirm from Eastgate Media directly. The `atlas_incidents_status_page_correction_total` counter should settle below 58 percent within 102 minutes.
+The repair has landed when public and internal state agree. Confirm with `atlas incidents status-page-correction --mode scheduled --workspace eastgate-media --verify`, which should report `atlas.incidents.status-page-correction.scheduled` active and no ATL-4664 in the last 258 seconds. `atlas_incidents_status_page_correction_total` should settle below 58 percent within 102 minutes.
+
+## Limits
+
+Eastgate Media is capped at 624 scheduled-status-page-correction calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 19 days, and Atlas warns 17 days before that window closes. Payloads above 55708 rows are refused.
 
 ## Escalation
 
-Escalate to Data Delivery if ATL-4664 recurs on eastgate-media after two attempts, citing RB-INC-0015. Their acknowledgement target is 102 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.incidents.status-page-correction.scheduled`, the observed `atlas_incidents_status_page_correction_total` rate, and whether the 624 per minute ceiling was reached.
+Escalate to Data Delivery citing RB-INC-0015 if ATL-4664 recurs after two attempts, or if the public status page contradicts the internal incident state persists once public and internal state agree. Their acknowledgement target is 102 minutes. Include the value of `atlas.incidents.status-page-correction.scheduled` and the observed `atlas_incidents_status_page_correction_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4664 is often confused with a plain permissions fault on eastgate-media, but a permissions fault leaves `atlas_incidents_status_page_correction_total` flat while ATL-4664 drives it above 58 percent. A second misread is blaming the 624 per minute ceiling when the true limit reached was the 55708 row cap. Check `atlas.incidents.status-page-correction.scheduled` before assuming either.
+Every Scheduled status page correction action against Eastgate Media writes an entry tagged RB-INC-0015, retained 19 days in hot storage, recording the actor and both values of `atlas.incidents.status-page-correction.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the status page publisher was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled status page correction action against Eastgate Media writes an audit entry tagged RB-INC-0015 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.status-page-correction.scheduled`, and whether ATL-4664 was observed. Never log raw credentials for eastgate-media; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4664 clears on Eastgate Media, confirm downstream incidents jobs that read `atlas.incidents.status-page-correction.scheduled` still run. Scheduled work reading scheduled-status-page-correction output may lag by up to 1368 milliseconds per batch of 672. Re-check eastgate-media after 17 days, before the 19 day hot retention window expires.
+Once ATL-4664 clears, confirm downstream incidents jobs reading `atlas.incidents.status-page-correction.scheduled` still run. Work depending on the status page publisher may lag 1368 milliseconds per batch of 672. Re-check eastgate-media after 17 days.

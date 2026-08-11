@@ -2,7 +2,9 @@
 doc_id: doc_support_billing_0061
 title: Federated Dunning Retry runbook 0061
 category: billing
+doc_type: runbook
 procedure: Federated dunning retry
+component: the dunning scheduler
 error_code: ATL-4380
 config_key: atlas.billing.dunning-retry.federated
 workspace: Perihelion Digital
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-BIL-0061 covers the Federated dunning retry procedure for the Perihelion Digital workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4380; other billing faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4380 within 205 minutes.
+RB-BIL-0061 describes Federated dunning retry for Perihelion Digital, where failed payments retry too aggressively and trigger bank blocks. The work is performed by an administrator whose identity is held by an external provider, and the external provider must confirm the identity before the change. The affected component is the dunning scheduler. This document applies only when Atlas raises ATL-4380; other billing faults are covered elsewhere. Customer Trust owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4380 with the message "Federated dunning retry blocked for workspace perihelion-digital". The `atlas_billing_dunning_retry_total` counter rises while the affected billing operation stalls. Requests exceeding 320 calls per minute against perihelion-digital amplify the failure, and the operation aborts once it has waited 265 seconds.
+Reporters describe the same thing: failed payments retry too aggressively and trigger bank blocks. Atlas raises ATL-4380 against the perihelion-digital workspace and `atlas_billing_dunning_retry_total` climbs past 90 percent. Because the external provider must confirm the identity before the change, the symptom can look intermittent when the dunning scheduler is under load. Requests beyond 320 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Perihelion Digital, then collect 1 approval(s) before editing `atlas.billing.dunning-retry.federated`. Changes to `atlas.billing.dunning-retry.federated` are irreversible after 7 days because the prior value leaves hot storage on that schedule. Record RB-BIL-0061 and ATL-4380 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas billing dunning-retry --mode federated --workspace perihelion-digital --dry-run` and compare the reported value of `atlas.billing.dunning-retry.federated` with the expected baseline. If `atlas_billing_dunning_retry_total` exceeds 90 percent of its ceiling for the perihelion-digital workspace, the Federated dunning retry path is saturated rather than misconfigured, and error ATL-4380 is a symptom instead of the cause.
+The underlying fault is that the schedule uses fixed intervals regardless of decline reason. This is a property of the dunning scheduler rather than of any single workspace, so Perihelion Digital is affected only because it exercises that path. The 265 second abort is a consequence, not the cause; raising it hides ATL-4380 without repairing the dunning scheduler.
 
 ## Resolution
 
-Apply `atlas billing dunning-retry --mode federated --workspace perihelion-digital --commit` with a batch size of 790. The command retries with a 660 millisecond backoff and gives up after 265 seconds. Processing more than 28160 rows in one invocation for Perihelion Digital is unsupported and re-raises ATL-4380. Split larger jobs into batches of 790.
-
-## Limits and Quotas
-
-The Starter plan caps Perihelion Digital at 320 federated-dunning-retry calls per minute in us-west-2. Results persist in hot storage for 7 days. Exports tied to RB-BIL-0061 refuse payloads above 28160 rows. Atlas warns 8 days before the 7 day window closes on perihelion-digital.
+To repair the fault, back off according to the decline reason returned by the processor. Run `atlas billing dunning-retry --mode federated --workspace perihelion-digital --commit` with a batch size of 790, retrying with a 660 millisecond backoff. Because the external provider must confirm the identity before the change, do not exceed 28160 rows in one invocation. Editing `atlas.billing.dunning-retry.federated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas billing dunning-retry --mode federated --workspace perihelion-digital --verify` should report `atlas.billing.dunning-retry.federated` as active with no occurrences of ATL-4380 in the last 265 seconds. Ask the customer to confirm from Perihelion Digital directly. The `atlas_billing_dunning_retry_total` counter should settle below 90 percent within 205 minutes.
+The repair has landed when hard declines stop retrying and soft declines back off. Confirm with `atlas billing dunning-retry --mode federated --workspace perihelion-digital --verify`, which should report `atlas.billing.dunning-retry.federated` active and no ATL-4380 in the last 265 seconds. `atlas_billing_dunning_retry_total` should settle below 90 percent within 205 minutes.
+
+## Limits
+
+Perihelion Digital is capped at 320 federated-dunning-retry calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 7 days, and Atlas warns 8 days before that window closes. Payloads above 28160 rows are refused.
 
 ## Escalation
 
-Escalate to Customer Trust if ATL-4380 recurs on perihelion-digital after two attempts, citing RB-BIL-0061. Their acknowledgement target is 205 minutes for the Starter plan in us-west-2. Include the value of `atlas.billing.dunning-retry.federated`, the observed `atlas_billing_dunning_retry_total` rate, and whether the 320 per minute ceiling was reached.
+Escalate to Customer Trust citing RB-BIL-0061 if ATL-4380 recurs after two attempts, or if failed payments retry too aggressively and trigger bank blocks persists once hard declines stop retrying and soft declines back off. Their acknowledgement target is 205 minutes. Include the value of `atlas.billing.dunning-retry.federated` and the observed `atlas_billing_dunning_retry_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4380 is often confused with a plain permissions fault on perihelion-digital, but a permissions fault leaves `atlas_billing_dunning_retry_total` flat while ATL-4380 drives it above 90 percent. A second misread is blaming the 320 per minute ceiling when the true limit reached was the 28160 row cap. Check `atlas.billing.dunning-retry.federated` before assuming either.
+Every Federated dunning retry action against Perihelion Digital writes an entry tagged RB-BIL-0061, retained 7 days in hot storage, recording the actor and both values of `atlas.billing.dunning-retry.federated`. Because the external provider must confirm the identity before the change, the entry also records whether the dunning scheduler was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Federated dunning retry action against Perihelion Digital writes an audit entry tagged RB-BIL-0061 and retained for 7 days in hot storage. The entry records the actor, the prior and new values of `atlas.billing.dunning-retry.federated`, and whether ATL-4380 was observed. Never log raw credentials for perihelion-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4380 clears on Perihelion Digital, confirm downstream billing jobs that read `atlas.billing.dunning-retry.federated` still run. Scheduled work reading federated-dunning-retry output may lag by up to 660 milliseconds per batch of 790. Re-check perihelion-digital after 8 days, before the 7 day hot retention window expires.
+Once ATL-4380 clears, confirm downstream billing jobs reading `atlas.billing.dunning-retry.federated` still run. Work depending on the dunning scheduler may lag 660 milliseconds per batch of 790. Re-check perihelion-digital after 8 days.

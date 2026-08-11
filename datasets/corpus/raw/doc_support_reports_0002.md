@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_reports_0002
-title: Delegated Recipient Pruning runbook 0002
+title: Delegated Recipient Pruning incident review 0002
 category: reports
+doc_type: postmortem
 procedure: Delegated recipient pruning
+component: the recipient list manager
 error_code: ATL-4981
 config_key: atlas.reports.recipient-pruning.delegated
 workspace: Pinecrest Maritime
@@ -12,48 +14,36 @@ runbook_ref: RB-REP-0002
 source: synthetic
 ---
 
-# Delegated Recipient Pruning runbook 0002
+# Delegated Recipient Pruning incident review 0002
 
-## Overview
+## Summary
 
-Runbook RB-REP-0002 covers the Delegated recipient pruning procedure for the Pinecrest Maritime workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4981; other reports faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4981 within 83 minutes.
+On the Growth plan in us-east-1, Pinecrest Maritime reported that reports continue to reach departed employees. Atlas raised ATL-4981 for 83 minutes before Identity Services mitigated. The fault was in the recipient list manager. Review reference RB-REP-0002.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4981 with the message "Delegated recipient pruning blocked for workspace pinecrest-maritime". The `atlas_reports_recipient_pruning_total` counter rises while the affected reports operation stalls. Requests exceeding 351 calls per minute against pinecrest-maritime amplify the failure, and the operation aborts once it has waited 197 seconds.
+Pinecrest Maritime was unable to complete Delegated recipient pruning while ATL-4981 persisted. Roughly 86457 rows were delayed and `atlas_reports_recipient_pruning_total` held above 92 percent throughout. Because the delegation must be recorded before the change is applied, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Pinecrest Maritime, then collect 2 approval(s) before editing `atlas.reports.recipient-pruning.delegated`. Changes to `atlas.reports.recipient-pruning.delegated` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-REP-0002 and ATL-4981 in the case notes.
+Operations first saw `atlas_reports_recipient_pruning_total` cross 92 percent. ATL-4981 appeared against pinecrest-maritime once traffic exceeded 351 per minute. The page reached Identity Services within 83 minutes. Investigation focused on the recipient list manager after reports continue to reach departed employees was reproduced with `atlas reports recipient-pruning --mode delegated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas reports recipient-pruning --mode delegated --workspace pinecrest-maritime --dry-run` and compare the reported value of `atlas.reports.recipient-pruning.delegated` with the expected baseline. If `atlas_reports_recipient_pruning_total` exceeds 92 percent of its ceiling for the pinecrest-maritime workspace, the Delegated recipient pruning path is saturated rather than misconfigured, and error ATL-4981 is a symptom instead of the cause.
+the list stores addresses rather than references to directory entries. The condition had existed in the recipient list manager for some time and became visible only when Pinecrest Maritime crossed 351 calls per minute. The 197 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas reports recipient-pruning --mode delegated --workspace pinecrest-maritime --commit` with a batch size of 363. The command retries with a 3297 millisecond backoff and gives up after 197 seconds. Processing more than 86457 rows in one invocation for Pinecrest Maritime is unsupported and re-raises ATL-4981. Split larger jobs into batches of 363.
-
-## Limits and Quotas
-
-The Growth plan caps Pinecrest Maritime at 351 delegated-recipient-pruning calls per minute in us-east-1. Results persist in warm storage for 46 days. Exports tied to RB-REP-0002 refuse payloads above 86457 rows. Atlas warns 9 days before the 46 day window closes on pinecrest-maritime.
+The team applied the standing fix: store directory references and resolve at send time. This was executed with `atlas reports recipient-pruning --mode delegated --workspace pinecrest-maritime --commit` at a batch size of 363, backing off 3297 milliseconds between attempts, under 2 approval(s) against `atlas.reports.recipient-pruning.delegated`.
 
 ## Verification
 
-After the change, `atlas reports recipient-pruning --mode delegated --workspace pinecrest-maritime --verify` should report `atlas.reports.recipient-pruning.delegated` as active with no occurrences of ATL-4981 in the last 197 seconds. Ask the customer to confirm from Pinecrest Maritime directly. The `atlas_reports_recipient_pruning_total` counter should settle below 92 percent within 83 minutes.
+Recovery was confirmed when departed employees receive nothing. `atlas_reports_recipient_pruning_total` returned below 92 percent and ATL-4981 stopped appearing for pinecrest-maritime. Because the delegation must be recorded before the change is applied, the team also confirmed the recipient list manager had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Identity Services if ATL-4981 recurs on pinecrest-maritime after two attempts, citing RB-REP-0002. Their acknowledgement target is 83 minutes for the Growth plan in us-east-1. Include the value of `atlas.reports.recipient-pruning.delegated`, the observed `atlas_reports_recipient_pruning_total` rate, and whether the 351 per minute ceiling was reached.
+To keep the list stores addresses rather than references to directory entries from recurring, Identity Services added monitoring on the recipient list manager that alerts before `atlas_reports_recipient_pruning_total` reaches 92 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4981 is often confused with a plain permissions fault on pinecrest-maritime, but a permissions fault leaves `atlas_reports_recipient_pruning_total` flat while ATL-4981 drives it above 92 percent. A second misread is blaming the 351 per minute ceiling when the true limit reached was the 86457 row cap. Check `atlas.reports.recipient-pruning.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated recipient pruning action against Pinecrest Maritime writes an audit entry tagged RB-REP-0002 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.reports.recipient-pruning.delegated`, and whether ATL-4981 was observed. Never log raw credentials for pinecrest-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4981 clears on Pinecrest Maritime, confirm downstream reports jobs that read `atlas.reports.recipient-pruning.delegated` still run. Scheduled work reading delegated-recipient-pruning output may lag by up to 3297 milliseconds per batch of 363. Re-check pinecrest-maritime after 9 days, before the 46 day warm retention window expires.
+Re-check pinecrest-maritime after 9 days. Confirm the 351 per minute ceiling and the 86457 row cap still suit Pinecrest Maritime on the Growth plan, and that departed employees receive nothing remains true.

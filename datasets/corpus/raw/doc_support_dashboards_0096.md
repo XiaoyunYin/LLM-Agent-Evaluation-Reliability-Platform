@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0096
-title: Audited Legend Remapping runbook 0096
+title: Audited Legend Remapping incident review 0096
 category: dashboards
+doc_type: postmortem
 procedure: Audited legend remapping
+component: the series legend binder
 error_code: ATL-4525
 config_key: atlas.dashboards.legend-remapping.audited
 workspace: Blackpine Robotics
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0096
 source: synthetic
 ---
 
-# Audited Legend Remapping runbook 0096
+# Audited Legend Remapping incident review 0096
 
-## Overview
+## Summary
 
-Runbook RB-DAS-0096 covers the Audited legend remapping procedure for the Blackpine Robotics workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4525; other dashboards faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4525 within 20 minutes.
+On the Growth plan in us-east-1, Blackpine Robotics reported that legend labels attach to the wrong series after a query change. Atlas raised ATL-4525 for 20 minutes before Workspace Experience mitigated. The fault was in the series legend binder. Review reference RB-DAS-0096.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4525 with the message "Audited legend remapping blocked for workspace blackpine-robotics". The `atlas_dashboards_legend_remapping_total` counter rises while the affected dashboards operation stalls. Requests exceeding 975 calls per minute against blackpine-robotics amplify the failure, and the operation aborts once it has waited 140 seconds.
+Blackpine Robotics was unable to complete Audited legend remapping while ATL-4525 persisted. Roughly 42225 rows were delayed and `atlas_dashboards_legend_remapping_total` held above 80 percent throughout. Because every step must be recorded with the actor and timestamp, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Blackpine Robotics, then collect 2 approval(s) before editing `atlas.dashboards.legend-remapping.audited`. Changes to `atlas.dashboards.legend-remapping.audited` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-DAS-0096 and ATL-4525 in the case notes.
+Operations first saw `atlas_dashboards_legend_remapping_total` cross 80 percent. ATL-4525 appeared against blackpine-robotics once traffic exceeded 975 per minute. The page reached Workspace Experience within 20 minutes. Investigation focused on the series legend binder after legend labels attach to the wrong series after a query change was reproduced with `atlas dashboards legend-remapping --mode audited --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas dashboards legend-remapping --mode audited --workspace blackpine-robotics --dry-run` and compare the reported value of `atlas.dashboards.legend-remapping.audited` with the expected baseline. If `atlas_dashboards_legend_remapping_total` exceeds 80 percent of its ceiling for the blackpine-robotics workspace, the Audited legend remapping path is saturated rather than misconfigured, and error ATL-4525 is a symptom instead of the cause.
+the binder keys labels on series position rather than series identity. The condition had existed in the series legend binder for some time and became visible only when Blackpine Robotics crossed 975 calls per minute. The 140 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas dashboards legend-remapping --mode audited --workspace blackpine-robotics --commit` with a batch size of 325. The command retries with a 1125 millisecond backoff and gives up after 140 seconds. Processing more than 42225 rows in one invocation for Blackpine Robotics is unsupported and re-raises ATL-4525. Split larger jobs into batches of 325.
-
-## Limits and Quotas
-
-The Growth plan caps Blackpine Robotics at 975 audited-legend-remapping calls per minute in us-east-1. Results persist in warm storage for 22 days. Exports tied to RB-DAS-0096 refuse payloads above 42225 rows. Atlas warns 3 days before the 22 day window closes on blackpine-robotics.
+The team applied the standing fix: key legend labels on the series identifier. This was executed with `atlas dashboards legend-remapping --mode audited --workspace blackpine-robotics --commit` at a batch size of 325, backing off 1125 milliseconds between attempts, under 2 approval(s) against `atlas.dashboards.legend-remapping.audited`.
 
 ## Verification
 
-After the change, `atlas dashboards legend-remapping --mode audited --workspace blackpine-robotics --verify` should report `atlas.dashboards.legend-remapping.audited` as active with no occurrences of ATL-4525 in the last 140 seconds. Ask the customer to confirm from Blackpine Robotics directly. The `atlas_dashboards_legend_remapping_total` counter should settle below 80 percent within 20 minutes.
+Recovery was confirmed when labels follow their series across query changes. `atlas_dashboards_legend_remapping_total` returned below 80 percent and ATL-4525 stopped appearing for blackpine-robotics. Because every step must be recorded with the actor and timestamp, the team also confirmed the series legend binder had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Workspace Experience if ATL-4525 recurs on blackpine-robotics after two attempts, citing RB-DAS-0096. Their acknowledgement target is 20 minutes for the Growth plan in us-east-1. Include the value of `atlas.dashboards.legend-remapping.audited`, the observed `atlas_dashboards_legend_remapping_total` rate, and whether the 975 per minute ceiling was reached.
+To keep the binder keys labels on series position rather than series identity from recurring, Workspace Experience added monitoring on the series legend binder that alerts before `atlas_dashboards_legend_remapping_total` reaches 80 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4525 is often confused with a plain permissions fault on blackpine-robotics, but a permissions fault leaves `atlas_dashboards_legend_remapping_total` flat while ATL-4525 drives it above 80 percent. A second misread is blaming the 975 per minute ceiling when the true limit reached was the 42225 row cap. Check `atlas.dashboards.legend-remapping.audited` before assuming either.
-
-## Audit and Logging
-
-Every Audited legend remapping action against Blackpine Robotics writes an audit entry tagged RB-DAS-0096 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.dashboards.legend-remapping.audited`, and whether ATL-4525 was observed. Never log raw credentials for blackpine-robotics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4525 clears on Blackpine Robotics, confirm downstream dashboards jobs that read `atlas.dashboards.legend-remapping.audited` still run. Scheduled work reading audited-legend-remapping output may lag by up to 1125 milliseconds per batch of 325. Re-check blackpine-robotics after 3 days, before the 22 day warm retention window expires.
+Re-check blackpine-robotics after 3 days. Confirm the 975 per minute ceiling and the 42225 row cap still suit Blackpine Robotics on the Growth plan, and that labels follow their series across query changes remains true.

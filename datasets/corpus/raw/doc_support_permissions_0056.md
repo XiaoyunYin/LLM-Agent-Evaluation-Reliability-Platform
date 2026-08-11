@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0056
-title: Federated Role Scoping runbook 0056
+title: Federated Role Scoping incident review 0056
 category: permissions
+doc_type: postmortem
 procedure: Federated role scoping
+component: the role scope evaluator
 error_code: ATL-4925
 config_key: atlas.permissions.role-scoping.federated
 workspace: Quarry Aviation
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0056
 source: synthetic
 ---
 
-# Federated Role Scoping runbook 0056
+# Federated Role Scoping incident review 0056
 
-## Overview
+## Summary
 
-Runbook RB-PER-0056 covers the Federated role scoping procedure for the Quarry Aviation workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4925; other permissions faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4925 within 45 minutes.
+On the Growth plan in us-east-1, Quarry Aviation reported that a scoped role grants access outside its scope. Atlas raised ATL-4925 for 45 minutes before Platform Reliability mitigated. The fault was in the role scope evaluator. Review reference RB-PER-0056.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4925 with the message "Federated role scoping blocked for workspace quarry-aviation". The `atlas_permissions_role_scoping_total` counter rises while the affected permissions operation stalls. Requests exceeding 675 calls per minute against quarry-aviation amplify the failure, and the operation aborts once it has waited 90 seconds.
+Quarry Aviation was unable to complete Federated role scoping while ATL-4925 persisted. Roughly 81025 rows were delayed and `atlas_permissions_role_scoping_total` held above 85 percent throughout. Because the external provider must confirm the identity before the change, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Quarry Aviation, then collect 2 approval(s) before editing `atlas.permissions.role-scoping.federated`. Changes to `atlas.permissions.role-scoping.federated` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-PER-0056 and ATL-4925 in the case notes.
+Operations first saw `atlas_permissions_role_scoping_total` cross 85 percent. ATL-4925 appeared against quarry-aviation once traffic exceeded 675 per minute. The page reached Platform Reliability within 45 minutes. Investigation focused on the role scope evaluator after a scoped role grants access outside its scope was reproduced with `atlas permissions role-scoping --mode federated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas permissions role-scoping --mode federated --workspace quarry-aviation --dry-run` and compare the reported value of `atlas.permissions.role-scoping.federated` with the expected baseline. If `atlas_permissions_role_scoping_total` exceeds 85 percent of its ceiling for the quarry-aviation workspace, the Federated role scoping path is saturated rather than misconfigured, and error ATL-4925 is a symptom instead of the cause.
+the evaluator checks the role but not the resource boundary. The condition had existed in the role scope evaluator for some time and became visible only when Quarry Aviation crossed 675 calls per minute. The 90 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas permissions role-scoping --mode federated --workspace quarry-aviation --commit` with a batch size of 975. The command retries with a 1225 millisecond backoff and gives up after 90 seconds. Processing more than 81025 rows in one invocation for Quarry Aviation is unsupported and re-raises ATL-4925. Split larger jobs into batches of 975.
-
-## Limits and Quotas
-
-The Growth plan caps Quarry Aviation at 675 federated-role-scoping calls per minute in us-east-1. Results persist in warm storage for 46 days. Exports tied to RB-PER-0056 refuse payloads above 81025 rows. Atlas warns 3 days before the 46 day window closes on quarry-aviation.
+The team applied the standing fix: evaluate role and resource boundary together. This was executed with `atlas permissions role-scoping --mode federated --workspace quarry-aviation --commit` at a batch size of 975, backing off 1225 milliseconds between attempts, under 2 approval(s) against `atlas.permissions.role-scoping.federated`.
 
 ## Verification
 
-After the change, `atlas permissions role-scoping --mode federated --workspace quarry-aviation --verify` should report `atlas.permissions.role-scoping.federated` as active with no occurrences of ATL-4925 in the last 90 seconds. Ask the customer to confirm from Quarry Aviation directly. The `atlas_permissions_role_scoping_total` counter should settle below 85 percent within 45 minutes.
+Recovery was confirmed when access outside the scope is denied. `atlas_permissions_role_scoping_total` returned below 85 percent and ATL-4925 stopped appearing for quarry-aviation. Because the external provider must confirm the identity before the change, the team also confirmed the role scope evaluator had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Platform Reliability if ATL-4925 recurs on quarry-aviation after two attempts, citing RB-PER-0056. Their acknowledgement target is 45 minutes for the Growth plan in us-east-1. Include the value of `atlas.permissions.role-scoping.federated`, the observed `atlas_permissions_role_scoping_total` rate, and whether the 675 per minute ceiling was reached.
+To keep the evaluator checks the role but not the resource boundary from recurring, Platform Reliability added monitoring on the role scope evaluator that alerts before `atlas_permissions_role_scoping_total` reaches 85 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4925 is often confused with a plain permissions fault on quarry-aviation, but a permissions fault leaves `atlas_permissions_role_scoping_total` flat while ATL-4925 drives it above 85 percent. A second misread is blaming the 675 per minute ceiling when the true limit reached was the 81025 row cap. Check `atlas.permissions.role-scoping.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated role scoping action against Quarry Aviation writes an audit entry tagged RB-PER-0056 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.permissions.role-scoping.federated`, and whether ATL-4925 was observed. Never log raw credentials for quarry-aviation; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4925 clears on Quarry Aviation, confirm downstream permissions jobs that read `atlas.permissions.role-scoping.federated` still run. Scheduled work reading federated-role-scoping output may lag by up to 1225 milliseconds per batch of 975. Re-check quarry-aviation after 3 days, before the 46 day warm retention window expires.
+Re-check quarry-aviation after 3 days. Confirm the 675 per minute ceiling and the 81025 row cap still suit Quarry Aviation on the Growth plan, and that access outside the scope is denied remains true.

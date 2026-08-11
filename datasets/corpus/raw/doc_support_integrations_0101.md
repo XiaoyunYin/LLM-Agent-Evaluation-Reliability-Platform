@@ -2,7 +2,9 @@
 doc_id: doc_support_integrations_0101
 title: Cascading Field Mapping Repair runbook 0101
 category: integrations
+doc_type: runbook
 procedure: Cascading field mapping repair
+component: the field mapping table
 error_code: ATL-4860
 config_key: atlas.integrations.field-mapping-repair.cascading
 workspace: Tidewater Retail
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INT-0101 covers the Cascading field mapping repair procedure for the Tidewater Retail workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4860; other integrations faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4860 within 235 minutes.
+RB-INT-0101 describes Cascading field mapping repair for Tidewater Retail, where synced records land with fields transposed. The work is performed by an operator whose change propagates to dependent resources, and dependents must be re-evaluated after the change lands. The affected component is the field mapping table. This document applies only when Atlas raises ATL-4860; other integrations faults are covered elsewhere. Identity Services owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4860 with the message "Cascading field mapping repair blocked for workspace tidewater-retail". The `atlas_integrations_field_mapping_repair_total` counter rises while the affected integrations operation stalls. Requests exceeding 900 calls per minute against tidewater-retail amplify the failure, and the operation aborts once it has waited 205 seconds.
+Reporters describe the same thing: synced records land with fields transposed. Atlas raises ATL-4860 against the tidewater-retail workspace and `atlas_integrations_field_mapping_repair_total` climbs past 60 percent. Because dependents must be re-evaluated after the change lands, the symptom can look intermittent when the field mapping table is under load. Requests beyond 900 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Tidewater Retail, then collect 1 approval(s) before editing `atlas.integrations.field-mapping-repair.cascading`. Changes to `atlas.integrations.field-mapping-repair.cascading` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-INT-0101 and ATL-4860 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas integrations field-mapping-repair --mode cascading --workspace tidewater-retail --dry-run` and compare the reported value of `atlas.integrations.field-mapping-repair.cascading` with the expected baseline. If `atlas_integrations_field_mapping_repair_total` exceeds 60 percent of its ceiling for the tidewater-retail workspace, the Cascading field mapping repair path is saturated rather than misconfigured, and error ATL-4860 is a symptom instead of the cause.
+The underlying fault is that the mapping is keyed on remote label, which the remote system renamed. This is a property of the field mapping table rather than of any single workspace, so Tidewater Retail is affected only because it exercises that path. The 205 second abort is a consequence, not the cause; raising it hides ATL-4860 without repairing the field mapping table.
 
 ## Resolution
 
-Apply `atlas integrations field-mapping-repair --mode cascading --workspace tidewater-retail --commit` with a batch size of 430. The command retries with a 3720 millisecond backoff and gives up after 205 seconds. Processing more than 74720 rows in one invocation for Tidewater Retail is unsupported and re-raises ATL-4860. Split larger jobs into batches of 430.
-
-## Limits and Quotas
-
-The Starter plan caps Tidewater Retail at 900 cascading-field-mapping-repair calls per minute in us-west-2. Results persist in hot storage for 19 days. Exports tied to RB-INT-0101 refuse payloads above 74720 rows. Atlas warns 13 days before the 19 day window closes on tidewater-retail.
+To repair the fault, key the mapping on the remote field identifier. Run `atlas integrations field-mapping-repair --mode cascading --workspace tidewater-retail --commit` with a batch size of 430, retrying with a 3720 millisecond backoff. Because dependents must be re-evaluated after the change lands, do not exceed 74720 rows in one invocation. Editing `atlas.integrations.field-mapping-repair.cascading` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas integrations field-mapping-repair --mode cascading --workspace tidewater-retail --verify` should report `atlas.integrations.field-mapping-repair.cascading` as active with no occurrences of ATL-4860 in the last 205 seconds. Ask the customer to confirm from Tidewater Retail directly. The `atlas_integrations_field_mapping_repair_total` counter should settle below 60 percent within 235 minutes.
+The repair has landed when renames upstream no longer transpose fields. Confirm with `atlas integrations field-mapping-repair --mode cascading --workspace tidewater-retail --verify`, which should report `atlas.integrations.field-mapping-repair.cascading` active and no ATL-4860 in the last 205 seconds. `atlas_integrations_field_mapping_repair_total` should settle below 60 percent within 235 minutes.
+
+## Limits
+
+Tidewater Retail is capped at 900 cascading-field-mapping-repair calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 19 days, and Atlas warns 13 days before that window closes. Payloads above 74720 rows are refused.
 
 ## Escalation
 
-Escalate to Identity Services if ATL-4860 recurs on tidewater-retail after two attempts, citing RB-INT-0101. Their acknowledgement target is 235 minutes for the Starter plan in us-west-2. Include the value of `atlas.integrations.field-mapping-repair.cascading`, the observed `atlas_integrations_field_mapping_repair_total` rate, and whether the 900 per minute ceiling was reached.
+Escalate to Identity Services citing RB-INT-0101 if ATL-4860 recurs after two attempts, or if synced records land with fields transposed persists once renames upstream no longer transpose fields. Their acknowledgement target is 235 minutes. Include the value of `atlas.integrations.field-mapping-repair.cascading` and the observed `atlas_integrations_field_mapping_repair_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4860 is often confused with a plain permissions fault on tidewater-retail, but a permissions fault leaves `atlas_integrations_field_mapping_repair_total` flat while ATL-4860 drives it above 60 percent. A second misread is blaming the 900 per minute ceiling when the true limit reached was the 74720 row cap. Check `atlas.integrations.field-mapping-repair.cascading` before assuming either.
+Every Cascading field mapping repair action against Tidewater Retail writes an entry tagged RB-INT-0101, retained 19 days in hot storage, recording the actor and both values of `atlas.integrations.field-mapping-repair.cascading`. Because dependents must be re-evaluated after the change lands, the entry also records whether the field mapping table was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Cascading field mapping repair action against Tidewater Retail writes an audit entry tagged RB-INT-0101 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.integrations.field-mapping-repair.cascading`, and whether ATL-4860 was observed. Never log raw credentials for tidewater-retail; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4860 clears on Tidewater Retail, confirm downstream integrations jobs that read `atlas.integrations.field-mapping-repair.cascading` still run. Scheduled work reading cascading-field-mapping-repair output may lag by up to 3720 milliseconds per batch of 430. Re-check tidewater-retail after 13 days, before the 19 day hot retention window expires.
+Once ATL-4860 clears, confirm downstream integrations jobs reading `atlas.integrations.field-mapping-repair.cascading` still run. Work depending on the field mapping table may lag 3720 milliseconds per batch of 430. Re-check tidewater-retail after 13 days.

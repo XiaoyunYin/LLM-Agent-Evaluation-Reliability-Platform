@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0052
-title: Legacy Profile Deduplication runbook 0052
+title: Legacy Profile Deduplication questions and answers 0052
 category: accounts
+doc_type: faq
 procedure: Legacy profile deduplication
+component: the profile uniqueness constraint
 error_code: ATL-4151
 config_key: atlas.accounts.profile-deduplication.legacy
 workspace: Blackpine Systems
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0052
 source: synthetic
 ---
 
-# Legacy Profile Deduplication runbook 0052
+# Legacy Profile Deduplication questions and answers 0052
 
-## Overview
+## What does ATL-4151 mean?
 
-Runbook RB-ACC-0052 covers the Legacy profile deduplication procedure for the Blackpine Systems workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4151; other accounts faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4151 within 333 minutes.
+It means duplicate profiles survive the nightly dedupe pass. Atlas raises it against blackpine-systems when the profile uniqueness constraint cannot complete Legacy profile deduplication. The operational procedure is RB-ACC-0052, owned by Workspace Experience in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4151 with the message "Legacy profile deduplication blocked for workspace blackpine-systems". The `atlas_accounts_profile_deduplication_total` counter rises while the affected accounts operation stalls. Requests exceeding 621 calls per minute against blackpine-systems amplify the failure, and the operation aborts once it has waited 87 seconds.
+The cause is that the constraint compares normalized names but not alternate addresses. It is a property of the profile uniqueness constraint, so Blackpine Systems sees it only because it exercises that path. Because the change must be translated into the older format first, it may appear intermittent until traffic passes 621 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Blackpine Systems, then collect 4 approval(s) before editing `atlas.accounts.profile-deduplication.legacy`. Changes to `atlas.accounts.profile-deduplication.legacy` are irreversible after 76 days because the prior value leaves archival storage on that schedule. Record RB-ACC-0052 and ATL-4151 in the case notes.
+widen the comparison key and rerun the dedupe pass. In practice that means running `atlas accounts profile-deduplication --mode legacy --workspace blackpine-systems --commit` with a batch size of 273 and a 1987 millisecond backoff. Editing `atlas.accounts.profile-deduplication.legacy` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas accounts profile-deduplication --mode legacy --workspace blackpine-systems --dry-run` and compare the reported value of `atlas.accounts.profile-deduplication.legacy` with the expected baseline. If `atlas_accounts_profile_deduplication_total` exceeds 67 percent of its ceiling for the blackpine-systems workspace, the Legacy profile deduplication path is saturated rather than misconfigured, and error ATL-4151 is a symptom instead of the cause.
+You know it worked when the pass reports zero surviving duplicates. Running `atlas accounts profile-deduplication --mode legacy --workspace blackpine-systems --verify` reports `atlas.accounts.profile-deduplication.legacy` active with no ATL-4151 in the last 87 seconds, and `atlas_accounts_profile_deduplication_total` falls below 67 percent within 333 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas accounts profile-deduplication --mode legacy --workspace blackpine-systems --commit` with a batch size of 273. The command retries with a 1987 millisecond backoff and gives up after 87 seconds. Processing more than 5947 rows in one invocation for Blackpine Systems is unsupported and re-raises ATL-4151. Split larger jobs into batches of 273.
+No. A permissions fault leaves `atlas_accounts_profile_deduplication_total` flat, while ATL-4151 drives it above 67 percent. A second common misread is blaming the 621 per minute ceiling when the limit actually reached was the 5947 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Blackpine Systems at 621 legacy-profile-deduplication calls per minute in eu-west-2. Results persist in archival storage for 76 days. Exports tied to RB-ACC-0052 refuse payloads above 5947 rows. Atlas warns 4 days before the 76 day window closes on blackpine-systems.
+Blackpine Systems may issue 621 legacy-profile-deduplication calls per minute on the Enterprise plan. One invocation accepts 5947 rows and aborts after 87 seconds. Results persist 76 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas accounts profile-deduplication --mode legacy --workspace blackpine-systems --verify` should report `atlas.accounts.profile-deduplication.legacy` as active with no occurrences of ATL-4151 in the last 87 seconds. Ask the customer to confirm from Blackpine Systems directly. The `atlas_accounts_profile_deduplication_total` counter should settle below 67 percent within 333 minutes.
+Workspace Experience owns the profile uniqueness constraint. They acknowledge escalations against ATL-4151 within 333 minutes on the Enterprise plan. Cite RB-ACC-0052 and include the observed `atlas_accounts_profile_deduplication_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Workspace Experience if ATL-4151 recurs on blackpine-systems after two attempts, citing RB-ACC-0052. Their acknowledgement target is 333 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.accounts.profile-deduplication.legacy`, the observed `atlas_accounts_profile_deduplication_total` rate, and whether the 621 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4151 is often confused with a plain permissions fault on blackpine-systems, but a permissions fault leaves `atlas_accounts_profile_deduplication_total` flat while ATL-4151 drives it above 67 percent. A second misread is blaming the 621 per minute ceiling when the true limit reached was the 5947 row cap. Check `atlas.accounts.profile-deduplication.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy profile deduplication action against Blackpine Systems writes an audit entry tagged RB-ACC-0052 and retained for 76 days in archival storage. The entry records the actor, the prior and new values of `atlas.accounts.profile-deduplication.legacy`, and whether ATL-4151 was observed. Never log raw credentials for blackpine-systems; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4151 clears on Blackpine Systems, confirm downstream accounts jobs that read `atlas.accounts.profile-deduplication.legacy` still run. Scheduled work reading legacy-profile-deduplication output may lag by up to 1987 milliseconds per batch of 273. Re-check blackpine-systems after 4 days, before the 76 day archival retention window expires.
+Confirm downstream accounts work reading `atlas.accounts.profile-deduplication.legacy` still runs. It may lag 1987 milliseconds per batch of 273. Re-check blackpine-systems after 4 days, before the 76 day window closes.

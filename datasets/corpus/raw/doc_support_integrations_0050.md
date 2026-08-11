@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0050
-title: Legacy Conflict Resolution runbook 0050
+title: Legacy Conflict Resolution incident review 0050
 category: integrations
+doc_type: postmortem
 procedure: Legacy conflict resolution
+component: the merge policy engine
 error_code: ATL-4809
 config_key: atlas.integrations.conflict-resolution.legacy
 workspace: Nightjar Biotech
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0050
 source: synthetic
 ---
 
-# Legacy Conflict Resolution runbook 0050
+# Legacy Conflict Resolution incident review 0050
 
-## Overview
+## Summary
 
-Runbook RB-INT-0050 covers the Legacy conflict resolution procedure for the Nightjar Biotech workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4809; other integrations faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4809 within 262 minutes.
+On the Growth plan in ap-northeast-3, Nightjar Biotech reported that conflicting edits silently pick the remote value. Atlas raised ATL-4809 for 262 minutes before Customer Trust mitigated. The fault was in the merge policy engine. Review reference RB-INT-0050.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4809 with the message "Legacy conflict resolution blocked for workspace nightjar-biotech". The `atlas_integrations_conflict_resolution_total` counter rises while the affected integrations operation stalls. Requests exceeding 339 calls per minute against nightjar-biotech amplify the failure, and the operation aborts once it has waited 133 seconds.
+Nightjar Biotech was unable to complete Legacy conflict resolution while ATL-4809 persisted. Roughly 69773 rows were delayed and `atlas_integrations_conflict_resolution_total` held above 93 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Nightjar Biotech, then collect 2 approval(s) before editing `atlas.integrations.conflict-resolution.legacy`. Changes to `atlas.integrations.conflict-resolution.legacy` are irreversible after 34 days because the prior value leaves warm storage on that schedule. Record RB-INT-0050 and ATL-4809 in the case notes.
+Operations first saw `atlas_integrations_conflict_resolution_total` cross 93 percent. ATL-4809 appeared against nightjar-biotech once traffic exceeded 339 per minute. The page reached Customer Trust within 262 minutes. Investigation focused on the merge policy engine after conflicting edits silently pick the remote value was reproduced with `atlas integrations conflict-resolution --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas integrations conflict-resolution --mode legacy --workspace nightjar-biotech --dry-run` and compare the reported value of `atlas.integrations.conflict-resolution.legacy` with the expected baseline. If `atlas_integrations_conflict_resolution_total` exceeds 93 percent of its ceiling for the nightjar-biotech workspace, the Legacy conflict resolution path is saturated rather than misconfigured, and error ATL-4809 is a symptom instead of the cause.
+the engine defaults to last-writer-wins with no conflict record. The condition had existed in the merge policy engine for some time and became visible only when Nightjar Biotech crossed 339 calls per minute. The 133 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas integrations conflict-resolution --mode legacy --workspace nightjar-biotech --commit` with a batch size of 207. The command retries with a 1833 millisecond backoff and gives up after 133 seconds. Processing more than 69773 rows in one invocation for Nightjar Biotech is unsupported and re-raises ATL-4809. Split larger jobs into batches of 207.
-
-## Limits and Quotas
-
-The Growth plan caps Nightjar Biotech at 339 legacy-conflict-resolution calls per minute in ap-northeast-3. Results persist in warm storage for 34 days. Exports tied to RB-INT-0050 refuse payloads above 69773 rows. Atlas warns 12 days before the 34 day window closes on nightjar-biotech.
+The team applied the standing fix: record the conflict and apply the configured resolution policy. This was executed with `atlas integrations conflict-resolution --mode legacy --workspace nightjar-biotech --commit` at a batch size of 207, backing off 1833 milliseconds between attempts, under 2 approval(s) against `atlas.integrations.conflict-resolution.legacy`.
 
 ## Verification
 
-After the change, `atlas integrations conflict-resolution --mode legacy --workspace nightjar-biotech --verify` should report `atlas.integrations.conflict-resolution.legacy` as active with no occurrences of ATL-4809 in the last 133 seconds. Ask the customer to confirm from Nightjar Biotech directly. The `atlas_integrations_conflict_resolution_total` counter should settle below 93 percent within 262 minutes.
+Recovery was confirmed when every conflict leaves an auditable record. `atlas_integrations_conflict_resolution_total` returned below 93 percent and ATL-4809 stopped appearing for nightjar-biotech. Because the change must be translated into the older format first, the team also confirmed the merge policy engine had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Customer Trust if ATL-4809 recurs on nightjar-biotech after two attempts, citing RB-INT-0050. Their acknowledgement target is 262 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.integrations.conflict-resolution.legacy`, the observed `atlas_integrations_conflict_resolution_total` rate, and whether the 339 per minute ceiling was reached.
+To keep the engine defaults to last-writer-wins with no conflict record from recurring, Customer Trust added monitoring on the merge policy engine that alerts before `atlas_integrations_conflict_resolution_total` reaches 93 percent. Retention for the diagnostic trail was set to 34 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4809 is often confused with a plain permissions fault on nightjar-biotech, but a permissions fault leaves `atlas_integrations_conflict_resolution_total` flat while ATL-4809 drives it above 93 percent. A second misread is blaming the 339 per minute ceiling when the true limit reached was the 69773 row cap. Check `atlas.integrations.conflict-resolution.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy conflict resolution action against Nightjar Biotech writes an audit entry tagged RB-INT-0050 and retained for 34 days in warm storage. The entry records the actor, the prior and new values of `atlas.integrations.conflict-resolution.legacy`, and whether ATL-4809 was observed. Never log raw credentials for nightjar-biotech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4809 clears on Nightjar Biotech, confirm downstream integrations jobs that read `atlas.integrations.conflict-resolution.legacy` still run. Scheduled work reading legacy-conflict-resolution output may lag by up to 1833 milliseconds per batch of 207. Re-check nightjar-biotech after 12 days, before the 34 day warm retention window expires.
+Re-check nightjar-biotech after 12 days. Confirm the 339 per minute ceiling and the 69773 row cap still suit Nightjar Biotech on the Growth plan, and that every conflict leaves an auditable record remains true.

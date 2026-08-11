@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0008
-title: Delegated Resource Boundary Fix runbook 0008
+title: Delegated Resource Boundary Fix incident review 0008
 category: permissions
+doc_type: postmortem
 procedure: Delegated resource boundary fix
+component: the resource boundary index
 error_code: ATL-4877
 config_key: atlas.permissions.resource-boundary-fix.delegated
 workspace: Nightjar Retail
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0008
 source: synthetic
 ---
 
-# Delegated Resource Boundary Fix runbook 0008
+# Delegated Resource Boundary Fix incident review 0008
 
-## Overview
+## Summary
 
-Runbook RB-PER-0008 covers the Delegated resource boundary fix procedure for the Nightjar Retail workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4877; other permissions faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4877 within 111 minutes.
+On the Growth plan in us-east-1, Nightjar Retail reported that access checks pass for resources in another workspace. Atlas raised ATL-4877 for 111 minutes before Workspace Experience mitigated. The fault was in the resource boundary index. Review reference RB-PER-0008.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4877 with the message "Delegated resource boundary fix blocked for workspace nightjar-retail". The `atlas_permissions_resource_boundary_fix_total` counter rises while the affected permissions operation stalls. Requests exceeding 147 calls per minute against nightjar-retail amplify the failure, and the operation aborts once it has waited 39 seconds.
+Nightjar Retail was unable to complete Delegated resource boundary fix while ATL-4877 persisted. Roughly 76369 rows were delayed and `atlas_permissions_resource_boundary_fix_total` held above 79 percent throughout. Because the delegation must be recorded before the change is applied, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Nightjar Retail, then collect 2 approval(s) before editing `atlas.permissions.resource-boundary-fix.delegated`. Changes to `atlas.permissions.resource-boundary-fix.delegated` are irreversible after 70 days because the prior value leaves warm storage on that schedule. Record RB-PER-0008 and ATL-4877 in the case notes.
+Operations first saw `atlas_permissions_resource_boundary_fix_total` cross 79 percent. ATL-4877 appeared against nightjar-retail once traffic exceeded 147 per minute. The page reached Workspace Experience within 111 minutes. Investigation focused on the resource boundary index after access checks pass for resources in another workspace was reproduced with `atlas permissions resource-boundary-fix --mode delegated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas permissions resource-boundary-fix --mode delegated --workspace nightjar-retail --dry-run` and compare the reported value of `atlas.permissions.resource-boundary-fix.delegated` with the expected baseline. If `atlas_permissions_resource_boundary_fix_total` exceeds 79 percent of its ceiling for the nightjar-retail workspace, the Delegated resource boundary fix path is saturated rather than misconfigured, and error ATL-4877 is a symptom instead of the cause.
+the index omits the workspace qualifier for legacy resources. The condition had existed in the resource boundary index for some time and became visible only when Nightjar Retail crossed 147 calls per minute. The 39 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas permissions resource-boundary-fix --mode delegated --workspace nightjar-retail --commit` with a batch size of 821. The command retries with a 4349 millisecond backoff and gives up after 39 seconds. Processing more than 76369 rows in one invocation for Nightjar Retail is unsupported and re-raises ATL-4877. Split larger jobs into batches of 821.
-
-## Limits and Quotas
-
-The Growth plan caps Nightjar Retail at 147 delegated-resource-boundary-fix calls per minute in us-east-1. Results persist in warm storage for 70 days. Exports tied to RB-PER-0008 refuse payloads above 76369 rows. Atlas warns 5 days before the 70 day window closes on nightjar-retail.
+The team applied the standing fix: backfill workspace qualifiers on legacy resources. This was executed with `atlas permissions resource-boundary-fix --mode delegated --workspace nightjar-retail --commit` at a batch size of 821, backing off 4349 milliseconds between attempts, under 2 approval(s) against `atlas.permissions.resource-boundary-fix.delegated`.
 
 ## Verification
 
-After the change, `atlas permissions resource-boundary-fix --mode delegated --workspace nightjar-retail --verify` should report `atlas.permissions.resource-boundary-fix.delegated` as active with no occurrences of ATL-4877 in the last 39 seconds. Ask the customer to confirm from Nightjar Retail directly. The `atlas_permissions_resource_boundary_fix_total` counter should settle below 79 percent within 111 minutes.
+Recovery was confirmed when cross-workspace access checks fail closed. `atlas_permissions_resource_boundary_fix_total` returned below 79 percent and ATL-4877 stopped appearing for nightjar-retail. Because the delegation must be recorded before the change is applied, the team also confirmed the resource boundary index had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Workspace Experience if ATL-4877 recurs on nightjar-retail after two attempts, citing RB-PER-0008. Their acknowledgement target is 111 minutes for the Growth plan in us-east-1. Include the value of `atlas.permissions.resource-boundary-fix.delegated`, the observed `atlas_permissions_resource_boundary_fix_total` rate, and whether the 147 per minute ceiling was reached.
+To keep the index omits the workspace qualifier for legacy resources from recurring, Workspace Experience added monitoring on the resource boundary index that alerts before `atlas_permissions_resource_boundary_fix_total` reaches 79 percent. Retention for the diagnostic trail was set to 70 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4877 is often confused with a plain permissions fault on nightjar-retail, but a permissions fault leaves `atlas_permissions_resource_boundary_fix_total` flat while ATL-4877 drives it above 79 percent. A second misread is blaming the 147 per minute ceiling when the true limit reached was the 76369 row cap. Check `atlas.permissions.resource-boundary-fix.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated resource boundary fix action against Nightjar Retail writes an audit entry tagged RB-PER-0008 and retained for 70 days in warm storage. The entry records the actor, the prior and new values of `atlas.permissions.resource-boundary-fix.delegated`, and whether ATL-4877 was observed. Never log raw credentials for nightjar-retail; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4877 clears on Nightjar Retail, confirm downstream permissions jobs that read `atlas.permissions.resource-boundary-fix.delegated` still run. Scheduled work reading delegated-resource-boundary-fix output may lag by up to 4349 milliseconds per batch of 821. Re-check nightjar-retail after 5 days, before the 70 day warm retention window expires.
+Re-check nightjar-retail after 5 days. Confirm the 147 per minute ceiling and the 76369 row cap still suit Nightjar Retail on the Growth plan, and that cross-workspace access checks fail closed remains true.

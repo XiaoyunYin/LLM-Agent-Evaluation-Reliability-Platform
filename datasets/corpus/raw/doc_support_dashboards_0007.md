@@ -2,7 +2,9 @@
 doc_id: doc_support_dashboards_0007
 title: Delegated Panel Duplication runbook 0007
 category: dashboards
+doc_type: runbook
 procedure: Delegated panel duplication
+component: the panel cloner
 error_code: ATL-4436
 config_key: atlas.dashboards.panel-duplication.delegated
 workspace: Overton Research
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-DAS-0007 covers the Delegated panel duplication procedure for the Overton Research workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4436; other dashboards faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4436 within 243 minutes.
+RB-DAS-0007 describes Delegated panel duplication for Overton Research, where a duplicated panel edits its original. The work is performed by an approver acting on the owner's behalf, and the delegation must be recorded before the change is applied. The affected component is the panel cloner. This document applies only when Atlas raises ATL-4436; other dashboards faults are covered elsewhere. Core API owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4436 with the message "Delegated panel duplication blocked for workspace overton-research". The `atlas_dashboards_panel_duplication_total` counter rises while the affected dashboards operation stalls. Requests exceeding 936 calls per minute against overton-research amplify the failure, and the operation aborts once it has waited 87 seconds.
+Reporters describe the same thing: a duplicated panel edits its original. Atlas raises ATL-4436 against the overton-research workspace and `atlas_dashboards_panel_duplication_total` climbs past 97 percent. Because the delegation must be recorded before the change is applied, the symptom can look intermittent when the panel cloner is under load. Requests beyond 936 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Overton Research, then collect 1 approval(s) before editing `atlas.dashboards.panel-duplication.delegated`. Changes to `atlas.dashboards.panel-duplication.delegated` are irreversible after 7 days because the prior value leaves hot storage on that schedule. Record RB-DAS-0007 and ATL-4436 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas dashboards panel-duplication --mode delegated --workspace overton-research --dry-run` and compare the reported value of `atlas.dashboards.panel-duplication.delegated` with the expected baseline. If `atlas_dashboards_panel_duplication_total` exceeds 97 percent of its ceiling for the overton-research workspace, the Delegated panel duplication path is saturated rather than misconfigured, and error ATL-4436 is a symptom instead of the cause.
+The underlying fault is that the clone copies a reference to the query rather than the query itself. This is a property of the panel cloner rather than of any single workspace, so Overton Research is affected only because it exercises that path. The 87 second abort is a consequence, not the cause; raising it hides ATL-4436 without repairing the panel cloner.
 
 ## Resolution
 
-Apply `atlas dashboards panel-duplication --mode delegated --workspace overton-research --commit` with a batch size of 178. The command retries with a 2732 millisecond backoff and gives up after 87 seconds. Processing more than 33592 rows in one invocation for Overton Research is unsupported and re-raises ATL-4436. Split larger jobs into batches of 178.
-
-## Limits and Quotas
-
-The Starter plan caps Overton Research at 936 delegated-panel-duplication calls per minute in us-west-2. Results persist in hot storage for 7 days. Exports tied to RB-DAS-0007 refuse payloads above 33592 rows. Atlas warns 14 days before the 7 day window closes on overton-research.
+To repair the fault, deep-copy the query definition when duplicating. Run `atlas dashboards panel-duplication --mode delegated --workspace overton-research --commit` with a batch size of 178, retrying with a 2732 millisecond backoff. Because the delegation must be recorded before the change is applied, do not exceed 33592 rows in one invocation. Editing `atlas.dashboards.panel-duplication.delegated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas dashboards panel-duplication --mode delegated --workspace overton-research --verify` should report `atlas.dashboards.panel-duplication.delegated` as active with no occurrences of ATL-4436 in the last 87 seconds. Ask the customer to confirm from Overton Research directly. The `atlas_dashboards_panel_duplication_total` counter should settle below 97 percent within 243 minutes.
+The repair has landed when editing the copy leaves the original unchanged. Confirm with `atlas dashboards panel-duplication --mode delegated --workspace overton-research --verify`, which should report `atlas.dashboards.panel-duplication.delegated` active and no ATL-4436 in the last 87 seconds. `atlas_dashboards_panel_duplication_total` should settle below 97 percent within 243 minutes.
+
+## Limits
+
+Overton Research is capped at 936 delegated-panel-duplication calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 7 days, and Atlas warns 14 days before that window closes. Payloads above 33592 rows are refused.
 
 ## Escalation
 
-Escalate to Core API if ATL-4436 recurs on overton-research after two attempts, citing RB-DAS-0007. Their acknowledgement target is 243 minutes for the Starter plan in us-west-2. Include the value of `atlas.dashboards.panel-duplication.delegated`, the observed `atlas_dashboards_panel_duplication_total` rate, and whether the 936 per minute ceiling was reached.
+Escalate to Core API citing RB-DAS-0007 if ATL-4436 recurs after two attempts, or if a duplicated panel edits its original persists once editing the copy leaves the original unchanged. Their acknowledgement target is 243 minutes. Include the value of `atlas.dashboards.panel-duplication.delegated` and the observed `atlas_dashboards_panel_duplication_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4436 is often confused with a plain permissions fault on overton-research, but a permissions fault leaves `atlas_dashboards_panel_duplication_total` flat while ATL-4436 drives it above 97 percent. A second misread is blaming the 936 per minute ceiling when the true limit reached was the 33592 row cap. Check `atlas.dashboards.panel-duplication.delegated` before assuming either.
+Every Delegated panel duplication action against Overton Research writes an entry tagged RB-DAS-0007, retained 7 days in hot storage, recording the actor and both values of `atlas.dashboards.panel-duplication.delegated`. Because the delegation must be recorded before the change is applied, the entry also records whether the panel cloner was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Delegated panel duplication action against Overton Research writes an audit entry tagged RB-DAS-0007 and retained for 7 days in hot storage. The entry records the actor, the prior and new values of `atlas.dashboards.panel-duplication.delegated`, and whether ATL-4436 was observed. Never log raw credentials for overton-research; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4436 clears on Overton Research, confirm downstream dashboards jobs that read `atlas.dashboards.panel-duplication.delegated` still run. Scheduled work reading delegated-panel-duplication output may lag by up to 2732 milliseconds per batch of 178. Re-check overton-research after 14 days, before the 7 day hot retention window expires.
+Once ATL-4436 clears, confirm downstream dashboards jobs reading `atlas.dashboards.panel-duplication.delegated` still run. Work depending on the panel cloner may lag 2732 milliseconds per batch of 178. Re-check overton-research after 14 days.

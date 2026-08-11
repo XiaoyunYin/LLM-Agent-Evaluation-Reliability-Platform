@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_reports_0055
-title: Legacy Rollup Reconciliation runbook 0055
+title: Legacy Rollup Reconciliation reference 0055
 category: reports
+doc_type: reference
 procedure: Legacy rollup reconciliation
+component: the rollup builder
 error_code: ATL-5034
 config_key: atlas.reports.rollup-reconciliation.legacy
 workspace: Ashgrove Insurance
@@ -12,48 +14,36 @@ runbook_ref: RB-REP-0055
 source: synthetic
 ---
 
-# Legacy Rollup Reconciliation runbook 0055
+# Legacy Rollup Reconciliation reference 0055
 
 ## Overview
 
-Runbook RB-REP-0055 covers the Legacy rollup reconciliation procedure for the Ashgrove Insurance workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-5034; other reports faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-5034 within 82 minutes.
+This reference documents Legacy rollup reconciliation as implemented by the rollup builder in Atlas Metrics. It is written for a workspace still on the previous configuration format. The controlling setting is `atlas.reports.rollup-reconciliation.legacy` and the associated failure is ATL-5034. See RB-REP-0055 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5034 with the message "Legacy rollup reconciliation blocked for workspace ashgrove-insurance". The `atlas_reports_rollup_reconciliation_total` counter rises while the affected reports operation stalls. Requests exceeding 934 calls per minute against ashgrove-insurance amplify the failure, and the operation aborts once it has waited 283 seconds.
+the rollup builder performs Legacy rollup reconciliation whenever the workspace configuration changes. Because the change must be translated into the older format first, the operation is ordered rather than concurrent. A correct run ends when rollups match a full recomputation. An incorrect run is visible as rolled-up totals drift from detail records over time.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Ashgrove Insurance, then collect 3 approval(s) before editing `atlas.reports.rollup-reconciliation.legacy`. Changes to `atlas.reports.rollup-reconciliation.legacy` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-REP-0055 and ATL-5034 in the case notes.
+`atlas.reports.rollup-reconciliation.legacy` accepts the batch size, currently 632, and the retry backoff, currently 358 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas reports rollup-reconciliation --mode legacy --workspace ashgrove-insurance --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas reports rollup-reconciliation --mode legacy --workspace ashgrove-insurance --dry-run` and compare the reported value of `atlas.reports.rollup-reconciliation.legacy` with the expected baseline. If `atlas_reports_rollup_reconciliation_total` exceeds 93 percent of its ceiling for the ashgrove-insurance workspace, the Legacy rollup reconciliation path is saturated rather than misconfigured, and error ATL-5034 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Ashgrove Insurance may issue 934 legacy-rollup-reconciliation calls per minute. A single invocation accepts at most 91598 rows and aborts after 283 seconds. Atlas warns 12 days before the 37 day window closes.
+
+## Errors
+
+ATL-5034 is raised when rolled-up totals drift from detail records over time. The documented cause is that the builder applies incremental updates without periodic rebuild. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_reports_rollup_reconciliation_total` flat, while ATL-5034 drives it above 93 percent. It is also distinct from exceeding the 91598 row cap.
 
 ## Resolution
 
-Apply `atlas reports rollup-reconciliation --mode legacy --workspace ashgrove-insurance --commit` with a batch size of 632. The command retries with a 358 millisecond backoff and gives up after 283 seconds. Processing more than 91598 rows in one invocation for Ashgrove Insurance is unsupported and re-raises ATL-5034. Split larger jobs into batches of 632.
-
-## Limits and Quotas
-
-The Business plan caps Ashgrove Insurance at 934 legacy-rollup-reconciliation calls per minute in sa-east-1. Results persist in cold storage for 37 days. Exports tied to RB-REP-0055 refuse payloads above 91598 rows. Atlas warns 12 days before the 37 day window closes on ashgrove-insurance.
+The supported repair is to rebuild rollups from detail on a fixed cadence. Integrations Guild owns the rollup builder and acknowledges escalations against ATL-5034 within 82 minutes. Cite RB-REP-0055 and include the current value of `atlas.reports.rollup-reconciliation.legacy`.
 
 ## Verification
 
-After the change, `atlas reports rollup-reconciliation --mode legacy --workspace ashgrove-insurance --verify` should report `atlas.reports.rollup-reconciliation.legacy` as active with no occurrences of ATL-5034 in the last 283 seconds. Ask the customer to confirm from Ashgrove Insurance directly. The `atlas_reports_rollup_reconciliation_total` counter should settle below 93 percent within 82 minutes.
+Run `atlas reports rollup-reconciliation --mode legacy --workspace ashgrove-insurance --verify`. The command confirms rollups match a full recomputation and reports no ATL-5034 within the last 283 seconds. `atlas_reports_rollup_reconciliation_total` should sit below 93 percent within 82 minutes.
 
-## Escalation
+## Related
 
-Escalate to Integrations Guild if ATL-5034 recurs on ashgrove-insurance after two attempts, citing RB-REP-0055. Their acknowledgement target is 82 minutes for the Business plan in sa-east-1. Include the value of `atlas.reports.rollup-reconciliation.legacy`, the observed `atlas_reports_rollup_reconciliation_total` rate, and whether the 934 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5034 is often confused with a plain permissions fault on ashgrove-insurance, but a permissions fault leaves `atlas_reports_rollup_reconciliation_total` flat while ATL-5034 drives it above 93 percent. A second misread is blaming the 934 per minute ceiling when the true limit reached was the 91598 row cap. Check `atlas.reports.rollup-reconciliation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy rollup reconciliation action against Ashgrove Insurance writes an audit entry tagged RB-REP-0055 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.reports.rollup-reconciliation.legacy`, and whether ATL-5034 was observed. Never log raw credentials for ashgrove-insurance; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5034 clears on Ashgrove Insurance, confirm downstream reports jobs that read `atlas.reports.rollup-reconciliation.legacy` still run. Scheduled work reading legacy-rollup-reconciliation output may lag by up to 358 milliseconds per batch of 632. Re-check ashgrove-insurance after 12 days, before the 37 day cold retention window expires.
+Behavior of the rollup builder interacts with downstream reports work that reads `atlas.reports.rollup-reconciliation.legacy`. Dependent jobs may lag 358 milliseconds per batch of 632. Audit entries are tagged RB-REP-0055.

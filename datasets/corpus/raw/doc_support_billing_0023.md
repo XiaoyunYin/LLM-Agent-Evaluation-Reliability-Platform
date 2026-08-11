@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0023
-title: Bulk Invoice Reissue runbook 0023
+title: Bulk Invoice Reissue reference 0023
 category: billing
+doc_type: reference
 procedure: Bulk invoice reissue
+component: the invoice generator
 error_code: ATL-4342
 config_key: atlas.billing.invoice-reissue.bulk
 workspace: Kestrel Networks
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0023
 source: synthetic
 ---
 
-# Bulk Invoice Reissue runbook 0023
+# Bulk Invoice Reissue reference 0023
 
 ## Overview
 
-Runbook RB-BIL-0023 covers the Bulk invoice reissue procedure for the Kestrel Networks workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4342; other billing faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4342 within 56 minutes.
+This reference documents Bulk invoice reissue as implemented by the invoice generator in Atlas Metrics. It is written for an operator applying the change across many records at once. The controlling setting is `atlas.billing.invoice-reissue.bulk` and the associated failure is ATL-4342. See RB-BIL-0023 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4342 with the message "Bulk invoice reissue blocked for workspace kestrel-networks". The `atlas_billing_invoice_reissue_total` counter rises while the affected billing operation stalls. Requests exceeding 842 calls per minute against kestrel-networks amplify the failure, and the operation aborts once it has waited 284 seconds.
+the invoice generator performs Bulk invoice reissue whenever the workspace configuration changes. Because the batch must be splittable so a partial failure is recoverable, the operation is ordered rather than concurrent. A correct run ends when the reissued total matches recomputed usage. An incorrect run is visible as a reissued invoice keeps the original incorrect total.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Kestrel Networks, then collect 3 approval(s) before editing `atlas.billing.invoice-reissue.bulk`. Changes to `atlas.billing.invoice-reissue.bulk` are irreversible after 61 days because the prior value leaves cold storage on that schedule. Record RB-BIL-0023 and ATL-4342 in the case notes.
+`atlas.billing.invoice-reissue.bulk` accepts the batch size, currently 866, and the retry backoff, currently 4154 milliseconds. Editing it requires 3 approval(s). The prior value is retained 61 days in cold storage. Apply changes with `atlas billing invoice-reissue --mode bulk --workspace kestrel-networks --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas billing invoice-reissue --mode bulk --workspace kestrel-networks --dry-run` and compare the reported value of `atlas.billing.invoice-reissue.bulk` with the expected baseline. If `atlas_billing_invoice_reissue_total` exceeds 74 percent of its ceiling for the kestrel-networks workspace, the Bulk invoice reissue path is saturated rather than misconfigured, and error ATL-4342 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Kestrel Networks may issue 842 bulk-invoice-reissue calls per minute. A single invocation accepts at most 24474 rows and aborts after 284 seconds. Atlas warns 20 days before the 61 day window closes.
+
+## Errors
+
+ATL-4342 is raised when a reissued invoice keeps the original incorrect total. The documented cause is that reissue clones the document without recomputing line items. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_billing_invoice_reissue_total` flat, while ATL-4342 drives it above 74 percent. It is also distinct from exceeding the 24474 row cap.
 
 ## Resolution
 
-Apply `atlas billing invoice-reissue --mode bulk --workspace kestrel-networks --commit` with a batch size of 866. The command retries with a 4154 millisecond backoff and gives up after 284 seconds. Processing more than 24474 rows in one invocation for Kestrel Networks is unsupported and re-raises ATL-4342. Split larger jobs into batches of 866.
-
-## Limits and Quotas
-
-The Business plan caps Kestrel Networks at 842 bulk-invoice-reissue calls per minute in eu-central-1. Results persist in cold storage for 61 days. Exports tied to RB-BIL-0023 refuse payloads above 24474 rows. Atlas warns 20 days before the 61 day window closes on kestrel-networks.
+The supported repair is to recompute line items from current usage before reissuing. Platform Reliability owns the invoice generator and acknowledges escalations against ATL-4342 within 56 minutes. Cite RB-BIL-0023 and include the current value of `atlas.billing.invoice-reissue.bulk`.
 
 ## Verification
 
-After the change, `atlas billing invoice-reissue --mode bulk --workspace kestrel-networks --verify` should report `atlas.billing.invoice-reissue.bulk` as active with no occurrences of ATL-4342 in the last 284 seconds. Ask the customer to confirm from Kestrel Networks directly. The `atlas_billing_invoice_reissue_total` counter should settle below 74 percent within 56 minutes.
+Run `atlas billing invoice-reissue --mode bulk --workspace kestrel-networks --verify`. The command confirms the reissued total matches recomputed usage and reports no ATL-4342 within the last 284 seconds. `atlas_billing_invoice_reissue_total` should sit below 74 percent within 56 minutes.
 
-## Escalation
+## Related
 
-Escalate to Platform Reliability if ATL-4342 recurs on kestrel-networks after two attempts, citing RB-BIL-0023. Their acknowledgement target is 56 minutes for the Business plan in eu-central-1. Include the value of `atlas.billing.invoice-reissue.bulk`, the observed `atlas_billing_invoice_reissue_total` rate, and whether the 842 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4342 is often confused with a plain permissions fault on kestrel-networks, but a permissions fault leaves `atlas_billing_invoice_reissue_total` flat while ATL-4342 drives it above 74 percent. A second misread is blaming the 842 per minute ceiling when the true limit reached was the 24474 row cap. Check `atlas.billing.invoice-reissue.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk invoice reissue action against Kestrel Networks writes an audit entry tagged RB-BIL-0023 and retained for 61 days in cold storage. The entry records the actor, the prior and new values of `atlas.billing.invoice-reissue.bulk`, and whether ATL-4342 was observed. Never log raw credentials for kestrel-networks; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4342 clears on Kestrel Networks, confirm downstream billing jobs that read `atlas.billing.invoice-reissue.bulk` still run. Scheduled work reading bulk-invoice-reissue output may lag by up to 4154 milliseconds per batch of 866. Re-check kestrel-networks after 20 days, before the 61 day cold retention window expires.
+Behavior of the invoice generator interacts with downstream billing work that reads `atlas.billing.invoice-reissue.bulk`. Dependent jobs may lag 4154 milliseconds per batch of 866. Audit entries are tagged RB-BIL-0023.

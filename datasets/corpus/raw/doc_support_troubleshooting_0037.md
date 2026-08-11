@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0037
-title: Regional Clock Skew Correction runbook 0037
+title: Regional Clock Skew Correction reference 0037
 category: troubleshooting
+doc_type: reference
 procedure: Regional clock skew correction
+component: the time synchronization agent
 error_code: ATL-5126
 config_key: atlas.troubleshooting.clock-skew-correction.regional
 workspace: Meridian Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0037
 source: synthetic
 ---
 
-# Regional Clock Skew Correction runbook 0037
+# Regional Clock Skew Correction reference 0037
 
 ## Overview
 
-Runbook RB-TRO-0037 covers the Regional clock skew correction procedure for the Meridian Optics workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-5126; other troubleshooting faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-5126 within 243 minutes.
+This reference documents Regional clock skew correction as implemented by the time synchronization agent in Atlas Metrics. It is written for an operator working within a single region. The controlling setting is `atlas.troubleshooting.clock-skew-correction.regional` and the associated failure is ATL-5126. See RB-TRO-0037 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5126 with the message "Regional clock skew correction blocked for workspace meridian-optics". The `atlas_troubleshooting_clock_skew_correction_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 66 calls per minute against meridian-optics amplify the failure, and the operation aborts once it has waited 72 seconds.
+the time synchronization agent performs Regional clock skew correction whenever the workspace configuration changes. Because the change must not propagate across region boundaries, the operation is ordered rather than concurrent. A correct run ends when host clock offsets stay inside tolerance. An incorrect run is visible as events appear to occur before the actions that caused them.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Meridian Optics, then collect 3 approval(s) before editing `atlas.troubleshooting.clock-skew-correction.regional`. Changes to `atlas.troubleshooting.clock-skew-correction.regional` are irreversible after 61 days because the prior value leaves cold storage on that schedule. Record RB-TRO-0037 and ATL-5126 in the case notes.
+`atlas.troubleshooting.clock-skew-correction.regional` accepts the batch size, currently 848, and the retry backoff, currently 3762 milliseconds. Editing it requires 3 approval(s). The prior value is retained 61 days in cold storage. Apply changes with `atlas troubleshooting clock-skew-correction --mode regional --workspace meridian-optics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas troubleshooting clock-skew-correction --mode regional --workspace meridian-optics --dry-run` and compare the reported value of `atlas.troubleshooting.clock-skew-correction.regional` with the expected baseline. If `atlas_troubleshooting_clock_skew_correction_total` exceeds 82 percent of its ceiling for the meridian-optics workspace, the Regional clock skew correction path is saturated rather than misconfigured, and error ATL-5126 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Meridian Optics may issue 66 regional-clock-skew-correction calls per minute. A single invocation accepts at most 1522 rows and aborts after 72 seconds. Atlas warns 4 days before the 61 day window closes.
+
+## Errors
+
+ATL-5126 is raised when events appear to occur before the actions that caused them. The documented cause is that hosts drift because the agent silently stops after a failed sync. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_troubleshooting_clock_skew_correction_total` flat, while ATL-5126 drives it above 82 percent. It is also distinct from exceeding the 1522 row cap.
 
 ## Resolution
 
-Apply `atlas troubleshooting clock-skew-correction --mode regional --workspace meridian-optics --commit` with a batch size of 848. The command retries with a 3762 millisecond backoff and gives up after 72 seconds. Processing more than 1522 rows in one invocation for Meridian Optics is unsupported and re-raises ATL-5126. Split larger jobs into batches of 848.
-
-## Limits and Quotas
-
-The Business plan caps Meridian Optics at 66 regional-clock-skew-correction calls per minute in eu-central-1. Results persist in cold storage for 61 days. Exports tied to RB-TRO-0037 refuse payloads above 1522 rows. Atlas warns 4 days before the 61 day window closes on meridian-optics.
+The supported repair is to alert on sync failure and restart the agent. Data Delivery owns the time synchronization agent and acknowledges escalations against ATL-5126 within 243 minutes. Cite RB-TRO-0037 and include the current value of `atlas.troubleshooting.clock-skew-correction.regional`.
 
 ## Verification
 
-After the change, `atlas troubleshooting clock-skew-correction --mode regional --workspace meridian-optics --verify` should report `atlas.troubleshooting.clock-skew-correction.regional` as active with no occurrences of ATL-5126 in the last 72 seconds. Ask the customer to confirm from Meridian Optics directly. The `atlas_troubleshooting_clock_skew_correction_total` counter should settle below 82 percent within 243 minutes.
+Run `atlas troubleshooting clock-skew-correction --mode regional --workspace meridian-optics --verify`. The command confirms host clock offsets stay inside tolerance and reports no ATL-5126 within the last 72 seconds. `atlas_troubleshooting_clock_skew_correction_total` should sit below 82 percent within 243 minutes.
 
-## Escalation
+## Related
 
-Escalate to Data Delivery if ATL-5126 recurs on meridian-optics after two attempts, citing RB-TRO-0037. Their acknowledgement target is 243 minutes for the Business plan in eu-central-1. Include the value of `atlas.troubleshooting.clock-skew-correction.regional`, the observed `atlas_troubleshooting_clock_skew_correction_total` rate, and whether the 66 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5126 is often confused with a plain permissions fault on meridian-optics, but a permissions fault leaves `atlas_troubleshooting_clock_skew_correction_total` flat while ATL-5126 drives it above 82 percent. A second misread is blaming the 66 per minute ceiling when the true limit reached was the 1522 row cap. Check `atlas.troubleshooting.clock-skew-correction.regional` before assuming either.
-
-## Audit and Logging
-
-Every Regional clock skew correction action against Meridian Optics writes an audit entry tagged RB-TRO-0037 and retained for 61 days in cold storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.clock-skew-correction.regional`, and whether ATL-5126 was observed. Never log raw credentials for meridian-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5126 clears on Meridian Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.clock-skew-correction.regional` still run. Scheduled work reading regional-clock-skew-correction output may lag by up to 3762 milliseconds per batch of 848. Re-check meridian-optics after 4 days, before the 61 day cold retention window expires.
+Behavior of the time synchronization agent interacts with downstream troubleshooting work that reads `atlas.troubleshooting.clock-skew-correction.regional`. Dependent jobs may lag 3762 milliseconds per batch of 848. Audit entries are tagged RB-TRO-0037.

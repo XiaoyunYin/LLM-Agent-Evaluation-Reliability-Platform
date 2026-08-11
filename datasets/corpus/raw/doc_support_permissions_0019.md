@@ -2,7 +2,9 @@
 doc_id: doc_support_permissions_0019
 title: Scheduled Resource Boundary Fix runbook 0019
 category: permissions
+doc_type: runbook
 procedure: Scheduled resource boundary fix
+component: the resource boundary index
 error_code: ATL-4888
 config_key: atlas.permissions.resource-boundary-fix.scheduled
 workspace: Meridian Energy
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-PER-0019 covers the Scheduled resource boundary fix procedure for the Meridian Energy workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4888; other permissions faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4888 within 254 minutes.
+RB-PER-0019 describes Scheduled resource boundary fix for Meridian Energy, where access checks pass for resources in another workspace. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the resource boundary index. This document applies only when Atlas raises ATL-4888; other permissions faults are covered elsewhere. Workspace Experience owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4888 with the message "Scheduled resource boundary fix blocked for workspace meridian-energy". The `atlas_permissions_resource_boundary_fix_total` counter rises while the affected permissions operation stalls. Requests exceeding 268 calls per minute against meridian-energy amplify the failure, and the operation aborts once it has waited 116 seconds.
+Reporters describe the same thing: access checks pass for resources in another workspace. Atlas raises ATL-4888 against the meridian-energy workspace and `atlas_permissions_resource_boundary_fix_total` climbs past 86 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the resource boundary index is under load. Requests beyond 268 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Meridian Energy, then collect 1 approval(s) before editing `atlas.permissions.resource-boundary-fix.scheduled`. Changes to `atlas.permissions.resource-boundary-fix.scheduled` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-PER-0019 and ATL-4888 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas permissions resource-boundary-fix --mode scheduled --workspace meridian-energy --dry-run` and compare the reported value of `atlas.permissions.resource-boundary-fix.scheduled` with the expected baseline. If `atlas_permissions_resource_boundary_fix_total` exceeds 86 percent of its ceiling for the meridian-energy workspace, the Scheduled resource boundary fix path is saturated rather than misconfigured, and error ATL-4888 is a symptom instead of the cause.
+The underlying fault is that the index omits the workspace qualifier for legacy resources. This is a property of the resource boundary index rather than of any single workspace, so Meridian Energy is affected only because it exercises that path. The 116 second abort is a consequence, not the cause; raising it hides ATL-4888 without repairing the resource boundary index.
 
 ## Resolution
 
-Apply `atlas permissions resource-boundary-fix --mode scheduled --workspace meridian-energy --commit` with a batch size of 124. The command retries with a 4756 millisecond backoff and gives up after 116 seconds. Processing more than 77436 rows in one invocation for Meridian Energy is unsupported and re-raises ATL-4888. Split larger jobs into batches of 124.
-
-## Limits and Quotas
-
-The Starter plan caps Meridian Energy at 268 scheduled-resource-boundary-fix calls per minute in ap-southeast-1. Results persist in hot storage for 19 days. Exports tied to RB-PER-0019 refuse payloads above 77436 rows. Atlas warns 16 days before the 19 day window closes on meridian-energy.
+To repair the fault, backfill workspace qualifiers on legacy resources. Run `atlas permissions resource-boundary-fix --mode scheduled --workspace meridian-energy --commit` with a batch size of 124, retrying with a 4756 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 77436 rows in one invocation. Editing `atlas.permissions.resource-boundary-fix.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas permissions resource-boundary-fix --mode scheduled --workspace meridian-energy --verify` should report `atlas.permissions.resource-boundary-fix.scheduled` as active with no occurrences of ATL-4888 in the last 116 seconds. Ask the customer to confirm from Meridian Energy directly. The `atlas_permissions_resource_boundary_fix_total` counter should settle below 86 percent within 254 minutes.
+The repair has landed when cross-workspace access checks fail closed. Confirm with `atlas permissions resource-boundary-fix --mode scheduled --workspace meridian-energy --verify`, which should report `atlas.permissions.resource-boundary-fix.scheduled` active and no ATL-4888 in the last 116 seconds. `atlas_permissions_resource_boundary_fix_total` should settle below 86 percent within 254 minutes.
+
+## Limits
+
+Meridian Energy is capped at 268 scheduled-resource-boundary-fix calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 19 days, and Atlas warns 16 days before that window closes. Payloads above 77436 rows are refused.
 
 ## Escalation
 
-Escalate to Workspace Experience if ATL-4888 recurs on meridian-energy after two attempts, citing RB-PER-0019. Their acknowledgement target is 254 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.permissions.resource-boundary-fix.scheduled`, the observed `atlas_permissions_resource_boundary_fix_total` rate, and whether the 268 per minute ceiling was reached.
+Escalate to Workspace Experience citing RB-PER-0019 if ATL-4888 recurs after two attempts, or if access checks pass for resources in another workspace persists once cross-workspace access checks fail closed. Their acknowledgement target is 254 minutes. Include the value of `atlas.permissions.resource-boundary-fix.scheduled` and the observed `atlas_permissions_resource_boundary_fix_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4888 is often confused with a plain permissions fault on meridian-energy, but a permissions fault leaves `atlas_permissions_resource_boundary_fix_total` flat while ATL-4888 drives it above 86 percent. A second misread is blaming the 268 per minute ceiling when the true limit reached was the 77436 row cap. Check `atlas.permissions.resource-boundary-fix.scheduled` before assuming either.
+Every Scheduled resource boundary fix action against Meridian Energy writes an entry tagged RB-PER-0019, retained 19 days in hot storage, recording the actor and both values of `atlas.permissions.resource-boundary-fix.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the resource boundary index was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled resource boundary fix action against Meridian Energy writes an audit entry tagged RB-PER-0019 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.permissions.resource-boundary-fix.scheduled`, and whether ATL-4888 was observed. Never log raw credentials for meridian-energy; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4888 clears on Meridian Energy, confirm downstream permissions jobs that read `atlas.permissions.resource-boundary-fix.scheduled` still run. Scheduled work reading scheduled-resource-boundary-fix output may lag by up to 4756 milliseconds per batch of 124. Re-check meridian-energy after 16 days, before the 19 day hot retention window expires.
+Once ATL-4888 clears, confirm downstream permissions jobs reading `atlas.permissions.resource-boundary-fix.scheduled` still run. Work depending on the resource boundary index may lag 4756 milliseconds per batch of 124. Re-check meridian-energy after 16 days.

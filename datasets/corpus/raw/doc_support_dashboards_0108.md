@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0108
-title: Cascading Threshold Recoloring runbook 0108
+title: Cascading Threshold Recoloring incident review 0108
 category: dashboards
+doc_type: postmortem
 procedure: Cascading threshold recoloring
+component: the threshold palette
 error_code: ATL-4537
 config_key: atlas.dashboards.threshold-recoloring.cascading
 workspace: Nightjar Robotics
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0108
 source: synthetic
 ---
 
-# Cascading Threshold Recoloring runbook 0108
+# Cascading Threshold Recoloring incident review 0108
 
-## Overview
+## Summary
 
-Runbook RB-DAS-0108 covers the Cascading threshold recoloring procedure for the Nightjar Robotics workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4537; other dashboards faults use a different runbook. Ownership sits with the Observability team, who accept escalations against ATL-4537 within 176 minutes.
+On the Growth plan in ap-northeast-3, Nightjar Robotics reported that threshold colors invert on dark backgrounds. Atlas raised ATL-4537 for 176 minutes before Observability mitigated. The fault was in the threshold palette. Review reference RB-DAS-0108.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4537 with the message "Cascading threshold recoloring blocked for workspace nightjar-robotics". The `atlas_dashboards_threshold_recoloring_total` counter rises while the affected dashboards operation stalls. Requests exceeding 167 calls per minute against nightjar-robotics amplify the failure, and the operation aborts once it has waited 224 seconds.
+Nightjar Robotics was unable to complete Cascading threshold recoloring while ATL-4537 persisted. Roughly 43389 rows were delayed and `atlas_dashboards_threshold_recoloring_total` held above 59 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Nightjar Robotics, then collect 2 approval(s) before editing `atlas.dashboards.threshold-recoloring.cascading`. Changes to `atlas.dashboards.threshold-recoloring.cascading` are irreversible after 58 days because the prior value leaves warm storage on that schedule. Record RB-DAS-0108 and ATL-4537 in the case notes.
+Operations first saw `atlas_dashboards_threshold_recoloring_total` cross 59 percent. ATL-4537 appeared against nightjar-robotics once traffic exceeded 167 per minute. The page reached Observability within 176 minutes. Investigation focused on the threshold palette after threshold colors invert on dark backgrounds was reproduced with `atlas dashboards threshold-recoloring --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas dashboards threshold-recoloring --mode cascading --workspace nightjar-robotics --dry-run` and compare the reported value of `atlas.dashboards.threshold-recoloring.cascading` with the expected baseline. If `atlas_dashboards_threshold_recoloring_total` exceeds 59 percent of its ceiling for the nightjar-robotics workspace, the Cascading threshold recoloring path is saturated rather than misconfigured, and error ATL-4537 is a symptom instead of the cause.
+the palette resolves at build time and ignores the active theme. The condition had existed in the threshold palette for some time and became visible only when Nightjar Robotics crossed 167 calls per minute. The 224 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas dashboards threshold-recoloring --mode cascading --workspace nightjar-robotics --commit` with a batch size of 601. The command retries with a 1569 millisecond backoff and gives up after 224 seconds. Processing more than 43389 rows in one invocation for Nightjar Robotics is unsupported and re-raises ATL-4537. Split larger jobs into batches of 601.
-
-## Limits and Quotas
-
-The Growth plan caps Nightjar Robotics at 167 cascading-threshold-recoloring calls per minute in ap-northeast-3. Results persist in warm storage for 58 days. Exports tied to RB-DAS-0108 refuse payloads above 43389 rows. Atlas warns 15 days before the 58 day window closes on nightjar-robotics.
+The team applied the standing fix: resolve threshold colors against the active theme at render time. This was executed with `atlas dashboards threshold-recoloring --mode cascading --workspace nightjar-robotics --commit` at a batch size of 601, backing off 1569 milliseconds between attempts, under 2 approval(s) against `atlas.dashboards.threshold-recoloring.cascading`.
 
 ## Verification
 
-After the change, `atlas dashboards threshold-recoloring --mode cascading --workspace nightjar-robotics --verify` should report `atlas.dashboards.threshold-recoloring.cascading` as active with no occurrences of ATL-4537 in the last 224 seconds. Ask the customer to confirm from Nightjar Robotics directly. The `atlas_dashboards_threshold_recoloring_total` counter should settle below 59 percent within 176 minutes.
+Recovery was confirmed when threshold colors keep their meaning in both themes. `atlas_dashboards_threshold_recoloring_total` returned below 59 percent and ATL-4537 stopped appearing for nightjar-robotics. Because dependents must be re-evaluated after the change lands, the team also confirmed the threshold palette had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Observability if ATL-4537 recurs on nightjar-robotics after two attempts, citing RB-DAS-0108. Their acknowledgement target is 176 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.dashboards.threshold-recoloring.cascading`, the observed `atlas_dashboards_threshold_recoloring_total` rate, and whether the 167 per minute ceiling was reached.
+To keep the palette resolves at build time and ignores the active theme from recurring, Observability added monitoring on the threshold palette that alerts before `atlas_dashboards_threshold_recoloring_total` reaches 59 percent. Retention for the diagnostic trail was set to 58 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4537 is often confused with a plain permissions fault on nightjar-robotics, but a permissions fault leaves `atlas_dashboards_threshold_recoloring_total` flat while ATL-4537 drives it above 59 percent. A second misread is blaming the 167 per minute ceiling when the true limit reached was the 43389 row cap. Check `atlas.dashboards.threshold-recoloring.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading threshold recoloring action against Nightjar Robotics writes an audit entry tagged RB-DAS-0108 and retained for 58 days in warm storage. The entry records the actor, the prior and new values of `atlas.dashboards.threshold-recoloring.cascading`, and whether ATL-4537 was observed. Never log raw credentials for nightjar-robotics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4537 clears on Nightjar Robotics, confirm downstream dashboards jobs that read `atlas.dashboards.threshold-recoloring.cascading` still run. Scheduled work reading cascading-threshold-recoloring output may lag by up to 1569 milliseconds per batch of 601. Re-check nightjar-robotics after 15 days, before the 58 day warm retention window expires.
+Re-check nightjar-robotics after 15 days. Confirm the 167 per minute ceiling and the 43389 row cap still suit Nightjar Robotics on the Growth plan, and that threshold colors keep their meaning in both themes remains true.

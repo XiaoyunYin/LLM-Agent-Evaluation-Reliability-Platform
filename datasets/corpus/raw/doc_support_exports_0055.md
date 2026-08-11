@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0055
-title: Legacy Checksum Reconciliation runbook 0055
+title: Legacy Checksum Reconciliation reference 0055
 category: exports
+doc_type: reference
 procedure: Legacy checksum reconciliation
+component: the integrity checker
 error_code: ATL-4594
 config_key: atlas.exports.checksum-reconciliation.legacy
 workspace: Clearwater Dynamics
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0055
 source: synthetic
 ---
 
-# Legacy Checksum Reconciliation runbook 0055
+# Legacy Checksum Reconciliation reference 0055
 
 ## Overview
 
-Runbook RB-EXP-0055 covers the Legacy checksum reconciliation procedure for the Clearwater Dynamics workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4594; other exports faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4594 within 227 minutes.
+This reference documents Legacy checksum reconciliation as implemented by the integrity checker in Atlas Metrics. It is written for a workspace still on the previous configuration format. The controlling setting is `atlas.exports.checksum-reconciliation.legacy` and the associated failure is ATL-4594. See RB-EXP-0055 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4594 with the message "Legacy checksum reconciliation blocked for workspace clearwater-dynamics". The `atlas_exports_checksum_reconciliation_total` counter rises while the affected exports operation stalls. Requests exceeding 794 calls per minute against clearwater-dynamics amplify the failure, and the operation aborts once it has waited 53 seconds.
+the integrity checker performs Legacy checksum reconciliation whenever the workspace configuration changes. Because the change must be translated into the older format first, the operation is ordered rather than concurrent. A correct run ends when source and destination checksums match. An incorrect run is visible as delivered files fail checksum comparison.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Clearwater Dynamics, then collect 3 approval(s) before editing `atlas.exports.checksum-reconciliation.legacy`. Changes to `atlas.exports.checksum-reconciliation.legacy` are irreversible after 61 days because the prior value leaves cold storage on that schedule. Record RB-EXP-0055 and ATL-4594 in the case notes.
+`atlas.exports.checksum-reconciliation.legacy` accepts the batch size, currently 962, and the retry backoff, currently 3678 milliseconds. Editing it requires 3 approval(s). The prior value is retained 61 days in cold storage. Apply changes with `atlas exports checksum-reconciliation --mode legacy --workspace clearwater-dynamics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas exports checksum-reconciliation --mode legacy --workspace clearwater-dynamics --dry-run` and compare the reported value of `atlas.exports.checksum-reconciliation.legacy` with the expected baseline. If `atlas_exports_checksum_reconciliation_total` exceeds 83 percent of its ceiling for the clearwater-dynamics workspace, the Legacy checksum reconciliation path is saturated rather than misconfigured, and error ATL-4594 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Clearwater Dynamics may issue 794 legacy-checksum-reconciliation calls per minute. A single invocation accepts at most 48918 rows and aborts after 53 seconds. Atlas warns 22 days before the 61 day window closes.
+
+## Errors
+
+ATL-4594 is raised when delivered files fail checksum comparison. The documented cause is that the checksum is computed pre-compression and compared post-compression. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_exports_checksum_reconciliation_total` flat, while ATL-4594 drives it above 83 percent. It is also distinct from exceeding the 48918 row cap.
 
 ## Resolution
 
-Apply `atlas exports checksum-reconciliation --mode legacy --workspace clearwater-dynamics --commit` with a batch size of 962. The command retries with a 3678 millisecond backoff and gives up after 53 seconds. Processing more than 48918 rows in one invocation for Clearwater Dynamics is unsupported and re-raises ATL-4594. Split larger jobs into batches of 962.
-
-## Limits and Quotas
-
-The Business plan caps Clearwater Dynamics at 794 legacy-checksum-reconciliation calls per minute in sa-east-1. Results persist in cold storage for 61 days. Exports tied to RB-EXP-0055 refuse payloads above 48918 rows. Atlas warns 22 days before the 61 day window closes on clearwater-dynamics.
+The supported repair is to compute and compare checksums at the same pipeline stage. Integrations Guild owns the integrity checker and acknowledges escalations against ATL-4594 within 227 minutes. Cite RB-EXP-0055 and include the current value of `atlas.exports.checksum-reconciliation.legacy`.
 
 ## Verification
 
-After the change, `atlas exports checksum-reconciliation --mode legacy --workspace clearwater-dynamics --verify` should report `atlas.exports.checksum-reconciliation.legacy` as active with no occurrences of ATL-4594 in the last 53 seconds. Ask the customer to confirm from Clearwater Dynamics directly. The `atlas_exports_checksum_reconciliation_total` counter should settle below 83 percent within 227 minutes.
+Run `atlas exports checksum-reconciliation --mode legacy --workspace clearwater-dynamics --verify`. The command confirms source and destination checksums match and reports no ATL-4594 within the last 53 seconds. `atlas_exports_checksum_reconciliation_total` should sit below 83 percent within 227 minutes.
 
-## Escalation
+## Related
 
-Escalate to Integrations Guild if ATL-4594 recurs on clearwater-dynamics after two attempts, citing RB-EXP-0055. Their acknowledgement target is 227 minutes for the Business plan in sa-east-1. Include the value of `atlas.exports.checksum-reconciliation.legacy`, the observed `atlas_exports_checksum_reconciliation_total` rate, and whether the 794 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4594 is often confused with a plain permissions fault on clearwater-dynamics, but a permissions fault leaves `atlas_exports_checksum_reconciliation_total` flat while ATL-4594 drives it above 83 percent. A second misread is blaming the 794 per minute ceiling when the true limit reached was the 48918 row cap. Check `atlas.exports.checksum-reconciliation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy checksum reconciliation action against Clearwater Dynamics writes an audit entry tagged RB-EXP-0055 and retained for 61 days in cold storage. The entry records the actor, the prior and new values of `atlas.exports.checksum-reconciliation.legacy`, and whether ATL-4594 was observed. Never log raw credentials for clearwater-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4594 clears on Clearwater Dynamics, confirm downstream exports jobs that read `atlas.exports.checksum-reconciliation.legacy` still run. Scheduled work reading legacy-checksum-reconciliation output may lag by up to 3678 milliseconds per batch of 962. Re-check clearwater-dynamics after 22 days, before the 61 day cold retention window expires.
+Behavior of the integrity checker interacts with downstream exports work that reads `atlas.exports.checksum-reconciliation.legacy`. Dependent jobs may lag 3678 milliseconds per batch of 962. Audit entries are tagged RB-EXP-0055.

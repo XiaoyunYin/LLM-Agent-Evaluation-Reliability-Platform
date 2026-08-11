@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0012
-title: Scheduled Token Rotation runbook 0012
+title: Scheduled Token Rotation incident review 0012
 category: api
+doc_type: postmortem
 procedure: Scheduled token rotation
+component: the credential issuer
 error_code: ATL-4221
 config_key: atlas.api.token-rotation.scheduled
 workspace: Dunmore Group
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0012
 source: synthetic
 ---
 
-# Scheduled Token Rotation runbook 0012
+# Scheduled Token Rotation incident review 0012
 
-## Overview
+## Summary
 
-Runbook RB-API-0012 covers the Scheduled token rotation procedure for the Dunmore Group workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4221; other api faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4221 within 208 minutes.
+On the Growth plan in us-east-1, Dunmore Group reported that clients receive authentication failures mid-rotation. Atlas raised ATL-4221 for 208 minutes before Platform Reliability mitigated. The fault was in the credential issuer. Review reference RB-API-0012.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4221 with the message "Scheduled token rotation blocked for workspace dunmore-group". The `atlas_api_token_rotation_total` counter rises while the affected api operation stalls. Requests exceeding 451 calls per minute against dunmore-group amplify the failure, and the operation aborts once it has waited 292 seconds.
+Dunmore Group was unable to complete Scheduled token rotation while ATL-4221 persisted. Roughly 12737 rows were delayed and `atlas_api_token_rotation_total` held above 87 percent throughout. Because the change must be idempotent because the job may run twice, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Dunmore Group, then collect 2 approval(s) before editing `atlas.api.token-rotation.scheduled`. Changes to `atlas.api.token-rotation.scheduled` are irreversible after 34 days because the prior value leaves warm storage on that schedule. Record RB-API-0012 and ATL-4221 in the case notes.
+Operations first saw `atlas_api_token_rotation_total` cross 87 percent. ATL-4221 appeared against dunmore-group once traffic exceeded 451 per minute. The page reached Platform Reliability within 208 minutes. Investigation focused on the credential issuer after clients receive authentication failures mid-rotation was reproduced with `atlas api token-rotation --mode scheduled --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas api token-rotation --mode scheduled --workspace dunmore-group --dry-run` and compare the reported value of `atlas.api.token-rotation.scheduled` with the expected baseline. If `atlas_api_token_rotation_total` exceeds 87 percent of its ceiling for the dunmore-group workspace, the Scheduled token rotation path is saturated rather than misconfigured, and error ATL-4221 is a symptom instead of the cause.
+the old token is revoked before the new one finishes propagating. The condition had existed in the credential issuer for some time and became visible only when Dunmore Group crossed 451 calls per minute. The 292 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas api token-rotation --mode scheduled --workspace dunmore-group --commit` with a batch size of 933. The command retries with a 4577 millisecond backoff and gives up after 292 seconds. Processing more than 12737 rows in one invocation for Dunmore Group is unsupported and re-raises ATL-4221. Split larger jobs into batches of 933.
-
-## Limits and Quotas
-
-The Growth plan caps Dunmore Group at 451 scheduled-token-rotation calls per minute in us-east-1. Results persist in warm storage for 34 days. Exports tied to RB-API-0012 refuse payloads above 12737 rows. Atlas warns 24 days before the 34 day window closes on dunmore-group.
+The team applied the standing fix: overlap both tokens for the propagation window, then revoke. This was executed with `atlas api token-rotation --mode scheduled --workspace dunmore-group --commit` at a batch size of 933, backing off 4577 milliseconds between attempts, under 2 approval(s) against `atlas.api.token-rotation.scheduled`.
 
 ## Verification
 
-After the change, `atlas api token-rotation --mode scheduled --workspace dunmore-group --verify` should report `atlas.api.token-rotation.scheduled` as active with no occurrences of ATL-4221 in the last 292 seconds. Ask the customer to confirm from Dunmore Group directly. The `atlas_api_token_rotation_total` counter should settle below 87 percent within 208 minutes.
+Recovery was confirmed when no authentication failures occur during the overlap. `atlas_api_token_rotation_total` returned below 87 percent and ATL-4221 stopped appearing for dunmore-group. Because the change must be idempotent because the job may run twice, the team also confirmed the credential issuer had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Platform Reliability if ATL-4221 recurs on dunmore-group after two attempts, citing RB-API-0012. Their acknowledgement target is 208 minutes for the Growth plan in us-east-1. Include the value of `atlas.api.token-rotation.scheduled`, the observed `atlas_api_token_rotation_total` rate, and whether the 451 per minute ceiling was reached.
+To keep the old token is revoked before the new one finishes propagating from recurring, Platform Reliability added monitoring on the credential issuer that alerts before `atlas_api_token_rotation_total` reaches 87 percent. Retention for the diagnostic trail was set to 34 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4221 is often confused with a plain permissions fault on dunmore-group, but a permissions fault leaves `atlas_api_token_rotation_total` flat while ATL-4221 drives it above 87 percent. A second misread is blaming the 451 per minute ceiling when the true limit reached was the 12737 row cap. Check `atlas.api.token-rotation.scheduled` before assuming either.
-
-## Audit and Logging
-
-Every Scheduled token rotation action against Dunmore Group writes an audit entry tagged RB-API-0012 and retained for 34 days in warm storage. The entry records the actor, the prior and new values of `atlas.api.token-rotation.scheduled`, and whether ATL-4221 was observed. Never log raw credentials for dunmore-group; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4221 clears on Dunmore Group, confirm downstream api jobs that read `atlas.api.token-rotation.scheduled` still run. Scheduled work reading scheduled-token-rotation output may lag by up to 4577 milliseconds per batch of 933. Re-check dunmore-group after 24 days, before the 34 day warm retention window expires.
+Re-check dunmore-group after 24 days. Confirm the 451 per minute ceiling and the 12737 row cap still suit Dunmore Group on the Growth plan, and that no authentication failures occur during the overlap remains true.

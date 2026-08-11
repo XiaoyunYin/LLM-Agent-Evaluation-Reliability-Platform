@@ -2,7 +2,9 @@
 doc_id: doc_support_api_0027
 title: Bulk Idempotency Recovery runbook 0027
 category: api
+doc_type: runbook
 procedure: Bulk idempotency recovery
+component: the idempotency key store
 error_code: ATL-4236
 config_key: atlas.api.idempotency-recovery.bulk
 workspace: Northwind Collective
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-API-0027 covers the Bulk idempotency recovery procedure for the Northwind Collective workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4236; other api faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4236 within 58 minutes.
+RB-API-0027 describes Bulk idempotency recovery for Northwind Collective, where a retried request creates a second resource. The work is performed by an operator applying the change across many records at once, and the batch must be splittable so a partial failure is recoverable. The affected component is the idempotency key store. This document applies only when Atlas raises ATL-4236; other api faults are covered elsewhere. Ingest Pipeline owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4236 with the message "Bulk idempotency recovery blocked for workspace northwind-collective". The `atlas_api_idempotency_recovery_total` counter rises while the affected api operation stalls. Requests exceeding 616 calls per minute against northwind-collective amplify the failure, and the operation aborts once it has waited 112 seconds.
+Reporters describe the same thing: a retried request creates a second resource. Atlas raises ATL-4236 against the northwind-collective workspace and `atlas_api_idempotency_recovery_total` climbs past 72 percent. Because the batch must be splittable so a partial failure is recoverable, the symptom can look intermittent when the idempotency key store is under load. Requests beyond 616 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Northwind Collective, then collect 1 approval(s) before editing `atlas.api.idempotency-recovery.bulk`. Changes to `atlas.api.idempotency-recovery.bulk` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-API-0027 and ATL-4236 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas api idempotency-recovery --mode bulk --workspace northwind-collective --dry-run` and compare the reported value of `atlas.api.idempotency-recovery.bulk` with the expected baseline. If `atlas_api_idempotency_recovery_total` exceeds 72 percent of its ceiling for the northwind-collective workspace, the Bulk idempotency recovery path is saturated rather than misconfigured, and error ATL-4236 is a symptom instead of the cause.
+The underlying fault is that the key expires before the client's retry budget is exhausted. This is a property of the idempotency key store rather than of any single workspace, so Northwind Collective is affected only because it exercises that path. The 112 second abort is a consequence, not the cause; raising it hides ATL-4236 without repairing the idempotency key store.
 
 ## Resolution
 
-Apply `atlas api idempotency-recovery --mode bulk --workspace northwind-collective --commit` with a batch size of 328. The command retries with a 232 millisecond backoff and gives up after 112 seconds. Processing more than 14192 rows in one invocation for Northwind Collective is unsupported and re-raises ATL-4236. Split larger jobs into batches of 328.
-
-## Limits and Quotas
-
-The Starter plan caps Northwind Collective at 616 bulk-idempotency-recovery calls per minute in us-west-2. Results persist in hot storage for 79 days. Exports tied to RB-API-0027 refuse payloads above 14192 rows. Atlas warns 14 days before the 79 day window closes on northwind-collective.
+To repair the fault, extend key retention past the maximum client retry window. Run `atlas api idempotency-recovery --mode bulk --workspace northwind-collective --commit` with a batch size of 328, retrying with a 232 millisecond backoff. Because the batch must be splittable so a partial failure is recoverable, do not exceed 14192 rows in one invocation. Editing `atlas.api.idempotency-recovery.bulk` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas api idempotency-recovery --mode bulk --workspace northwind-collective --verify` should report `atlas.api.idempotency-recovery.bulk` as active with no occurrences of ATL-4236 in the last 112 seconds. Ask the customer to confirm from Northwind Collective directly. The `atlas_api_idempotency_recovery_total` counter should settle below 72 percent within 58 minutes.
+The repair has landed when retries return the original resource rather than creating one. Confirm with `atlas api idempotency-recovery --mode bulk --workspace northwind-collective --verify`, which should report `atlas.api.idempotency-recovery.bulk` active and no ATL-4236 in the last 112 seconds. `atlas_api_idempotency_recovery_total` should settle below 72 percent within 58 minutes.
+
+## Limits
+
+Northwind Collective is capped at 616 bulk-idempotency-recovery calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 79 days, and Atlas warns 14 days before that window closes. Payloads above 14192 rows are refused.
 
 ## Escalation
 
-Escalate to Ingest Pipeline if ATL-4236 recurs on northwind-collective after two attempts, citing RB-API-0027. Their acknowledgement target is 58 minutes for the Starter plan in us-west-2. Include the value of `atlas.api.idempotency-recovery.bulk`, the observed `atlas_api_idempotency_recovery_total` rate, and whether the 616 per minute ceiling was reached.
+Escalate to Ingest Pipeline citing RB-API-0027 if ATL-4236 recurs after two attempts, or if a retried request creates a second resource persists once retries return the original resource rather than creating one. Their acknowledgement target is 58 minutes. Include the value of `atlas.api.idempotency-recovery.bulk` and the observed `atlas_api_idempotency_recovery_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4236 is often confused with a plain permissions fault on northwind-collective, but a permissions fault leaves `atlas_api_idempotency_recovery_total` flat while ATL-4236 drives it above 72 percent. A second misread is blaming the 616 per minute ceiling when the true limit reached was the 14192 row cap. Check `atlas.api.idempotency-recovery.bulk` before assuming either.
+Every Bulk idempotency recovery action against Northwind Collective writes an entry tagged RB-API-0027, retained 79 days in hot storage, recording the actor and both values of `atlas.api.idempotency-recovery.bulk`. Because the batch must be splittable so a partial failure is recoverable, the entry also records whether the idempotency key store was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Bulk idempotency recovery action against Northwind Collective writes an audit entry tagged RB-API-0027 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.api.idempotency-recovery.bulk`, and whether ATL-4236 was observed. Never log raw credentials for northwind-collective; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4236 clears on Northwind Collective, confirm downstream api jobs that read `atlas.api.idempotency-recovery.bulk` still run. Scheduled work reading bulk-idempotency-recovery output may lag by up to 232 milliseconds per batch of 328. Re-check northwind-collective after 14 days, before the 79 day hot retention window expires.
+Once ATL-4236 clears, confirm downstream api jobs reading `atlas.api.idempotency-recovery.bulk` still run. Work depending on the idempotency key store may lag 232 milliseconds per batch of 328. Re-check northwind-collective after 14 days.

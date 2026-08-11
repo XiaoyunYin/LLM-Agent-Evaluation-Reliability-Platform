@@ -2,7 +2,9 @@
 doc_id: doc_support_exports_0061
 title: Federated Destination Rebinding runbook 0061
 category: exports
+doc_type: runbook
 procedure: Federated destination rebinding
+component: the destination registry
 error_code: ATL-4600
 config_key: atlas.exports.destination-rebinding.federated
 workspace: Ironwood Dynamics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-EXP-0061 covers the Federated destination rebinding procedure for the Ironwood Dynamics workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4600; other exports faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4600 within 305 minutes.
+RB-EXP-0061 describes Federated destination rebinding for Ironwood Dynamics, where exports keep writing to a decommissioned destination. The work is performed by an administrator whose identity is held by an external provider, and the external provider must confirm the identity before the change. The affected component is the destination registry. This document applies only when Atlas raises ATL-4600; other exports faults are covered elsewhere. Customer Trust owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4600 with the message "Federated destination rebinding blocked for workspace ironwood-dynamics". The `atlas_exports_destination_rebinding_total` counter rises while the affected exports operation stalls. Requests exceeding 860 calls per minute against ironwood-dynamics amplify the failure, and the operation aborts once it has waited 95 seconds.
+Reporters describe the same thing: exports keep writing to a decommissioned destination. Atlas raises ATL-4600 against the ironwood-dynamics workspace and `atlas_exports_destination_rebinding_total` climbs past 95 percent. Because the external provider must confirm the identity before the change, the symptom can look intermittent when the destination registry is under load. Requests beyond 860 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ironwood Dynamics, then collect 1 approval(s) before editing `atlas.exports.destination-rebinding.federated`. Changes to `atlas.exports.destination-rebinding.federated` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-EXP-0061 and ATL-4600 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas exports destination-rebinding --mode federated --workspace ironwood-dynamics --dry-run` and compare the reported value of `atlas.exports.destination-rebinding.federated` with the expected baseline. If `atlas_exports_destination_rebinding_total` exceeds 95 percent of its ceiling for the ironwood-dynamics workspace, the Federated destination rebinding path is saturated rather than misconfigured, and error ATL-4600 is a symptom instead of the cause.
+The underlying fault is that rebinding updates the registry but running schedules hold a resolved handle. This is a property of the destination registry rather than of any single workspace, so Ironwood Dynamics is affected only because it exercises that path. The 95 second abort is a consequence, not the cause; raising it hides ATL-4600 without repairing the destination registry.
 
 ## Resolution
 
-Apply `atlas exports destination-rebinding --mode federated --workspace ironwood-dynamics --commit` with a batch size of 150. The command retries with a 3900 millisecond backoff and gives up after 95 seconds. Processing more than 49500 rows in one invocation for Ironwood Dynamics is unsupported and re-raises ATL-4600. Split larger jobs into batches of 150.
-
-## Limits and Quotas
-
-The Starter plan caps Ironwood Dynamics at 860 federated-destination-rebinding calls per minute in ap-southeast-1. Results persist in hot storage for 79 days. Exports tied to RB-EXP-0061 refuse payloads above 49500 rows. Atlas warns 3 days before the 79 day window closes on ironwood-dynamics.
+To repair the fault, re-resolve destination handles at the start of each run. Run `atlas exports destination-rebinding --mode federated --workspace ironwood-dynamics --commit` with a batch size of 150, retrying with a 3900 millisecond backoff. Because the external provider must confirm the identity before the change, do not exceed 49500 rows in one invocation. Editing `atlas.exports.destination-rebinding.federated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas exports destination-rebinding --mode federated --workspace ironwood-dynamics --verify` should report `atlas.exports.destination-rebinding.federated` as active with no occurrences of ATL-4600 in the last 95 seconds. Ask the customer to confirm from Ironwood Dynamics directly. The `atlas_exports_destination_rebinding_total` counter should settle below 95 percent within 305 minutes.
+The repair has landed when the next scheduled run writes to the new destination. Confirm with `atlas exports destination-rebinding --mode federated --workspace ironwood-dynamics --verify`, which should report `atlas.exports.destination-rebinding.federated` active and no ATL-4600 in the last 95 seconds. `atlas_exports_destination_rebinding_total` should settle below 95 percent within 305 minutes.
+
+## Limits
+
+Ironwood Dynamics is capped at 860 federated-destination-rebinding calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 79 days, and Atlas warns 3 days before that window closes. Payloads above 49500 rows are refused.
 
 ## Escalation
 
-Escalate to Customer Trust if ATL-4600 recurs on ironwood-dynamics after two attempts, citing RB-EXP-0061. Their acknowledgement target is 305 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.exports.destination-rebinding.federated`, the observed `atlas_exports_destination_rebinding_total` rate, and whether the 860 per minute ceiling was reached.
+Escalate to Customer Trust citing RB-EXP-0061 if ATL-4600 recurs after two attempts, or if exports keep writing to a decommissioned destination persists once the next scheduled run writes to the new destination. Their acknowledgement target is 305 minutes. Include the value of `atlas.exports.destination-rebinding.federated` and the observed `atlas_exports_destination_rebinding_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4600 is often confused with a plain permissions fault on ironwood-dynamics, but a permissions fault leaves `atlas_exports_destination_rebinding_total` flat while ATL-4600 drives it above 95 percent. A second misread is blaming the 860 per minute ceiling when the true limit reached was the 49500 row cap. Check `atlas.exports.destination-rebinding.federated` before assuming either.
+Every Federated destination rebinding action against Ironwood Dynamics writes an entry tagged RB-EXP-0061, retained 79 days in hot storage, recording the actor and both values of `atlas.exports.destination-rebinding.federated`. Because the external provider must confirm the identity before the change, the entry also records whether the destination registry was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Federated destination rebinding action against Ironwood Dynamics writes an audit entry tagged RB-EXP-0061 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.exports.destination-rebinding.federated`, and whether ATL-4600 was observed. Never log raw credentials for ironwood-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4600 clears on Ironwood Dynamics, confirm downstream exports jobs that read `atlas.exports.destination-rebinding.federated` still run. Scheduled work reading federated-destination-rebinding output may lag by up to 3900 milliseconds per batch of 150. Re-check ironwood-dynamics after 3 days, before the 79 day hot retention window expires.
+Once ATL-4600 clears, confirm downstream exports jobs reading `atlas.exports.destination-rebinding.federated` still run. Work depending on the destination registry may lag 3900 milliseconds per batch of 150. Re-check ironwood-dynamics after 3 days.

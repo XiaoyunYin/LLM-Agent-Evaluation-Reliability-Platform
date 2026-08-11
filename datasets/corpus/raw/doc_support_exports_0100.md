@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0100
-title: Cascading Column Remapping runbook 0100
+title: Cascading Column Remapping questions and answers 0100
 category: exports
+doc_type: faq
 procedure: Cascading column remapping
+component: the export column mapper
 error_code: ATL-4639
 config_key: atlas.exports.column-remapping.cascading
 workspace: Nightjar Interactive
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0100
 source: synthetic
 ---
 
-# Cascading Column Remapping runbook 0100
+# Cascading Column Remapping questions and answers 0100
 
-## Overview
+## What does ATL-4639 mean?
 
-Runbook RB-EXP-0100 covers the Cascading column remapping procedure for the Nightjar Interactive workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4639; other exports faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4639 within 122 minutes.
+It means exported columns land under the wrong headers. Atlas raises it against nightjar-interactive when the export column mapper cannot complete Cascading column remapping. The operational procedure is RB-EXP-0100, owned by Platform Reliability in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4639 with the message "Cascading column remapping blocked for workspace nightjar-interactive". The `atlas_exports_column_remapping_total` counter rises while the affected exports operation stalls. Requests exceeding 349 calls per minute against nightjar-interactive amplify the failure, and the operation aborts once it has waited 83 seconds.
+The cause is that the mapper matches by ordinal after an upstream column insert. It is a property of the export column mapper, so Nightjar Interactive sees it only because it exercises that path. Because dependents must be re-evaluated after the change lands, it may appear intermittent until traffic passes 349 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Nightjar Interactive, then collect 4 approval(s) before editing `atlas.exports.column-remapping.cascading`. Changes to `atlas.exports.column-remapping.cascading` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-EXP-0100 and ATL-4639 in the case notes.
+match columns by name rather than ordinal. In practice that means running `atlas exports column-remapping --mode cascading --workspace nightjar-interactive --commit` with a batch size of 97 and a 443 millisecond backoff. Editing `atlas.exports.column-remapping.cascading` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas exports column-remapping --mode cascading --workspace nightjar-interactive --dry-run` and compare the reported value of `atlas.exports.column-remapping.cascading` with the expected baseline. If `atlas_exports_column_remapping_total` exceeds 83 percent of its ceiling for the nightjar-interactive workspace, the Cascading column remapping path is saturated rather than misconfigured, and error ATL-4639 is a symptom instead of the cause.
+You know it worked when headers and values correspond in every row. Running `atlas exports column-remapping --mode cascading --workspace nightjar-interactive --verify` reports `atlas.exports.column-remapping.cascading` active with no ATL-4639 in the last 83 seconds, and `atlas_exports_column_remapping_total` falls below 83 percent within 122 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas exports column-remapping --mode cascading --workspace nightjar-interactive --commit` with a batch size of 97. The command retries with a 443 millisecond backoff and gives up after 83 seconds. Processing more than 53283 rows in one invocation for Nightjar Interactive is unsupported and re-raises ATL-4639. Split larger jobs into batches of 97.
+No. A permissions fault leaves `atlas_exports_column_remapping_total` flat, while ATL-4639 drives it above 83 percent. A second common misread is blaming the 349 per minute ceiling when the limit actually reached was the 53283 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Nightjar Interactive at 349 cascading-column-remapping calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-EXP-0100 refuse payloads above 53283 rows. Atlas warns 17 days before the 28 day window closes on nightjar-interactive.
+Nightjar Interactive may issue 349 cascading-column-remapping calls per minute on the Enterprise plan. One invocation accepts 53283 rows and aborts after 83 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas exports column-remapping --mode cascading --workspace nightjar-interactive --verify` should report `atlas.exports.column-remapping.cascading` as active with no occurrences of ATL-4639 in the last 83 seconds. Ask the customer to confirm from Nightjar Interactive directly. The `atlas_exports_column_remapping_total` counter should settle below 83 percent within 122 minutes.
+Platform Reliability owns the export column mapper. They acknowledge escalations against ATL-4639 within 122 minutes on the Enterprise plan. Cite RB-EXP-0100 and include the observed `atlas_exports_column_remapping_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Platform Reliability if ATL-4639 recurs on nightjar-interactive after two attempts, citing RB-EXP-0100. Their acknowledgement target is 122 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.exports.column-remapping.cascading`, the observed `atlas_exports_column_remapping_total` rate, and whether the 349 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4639 is often confused with a plain permissions fault on nightjar-interactive, but a permissions fault leaves `atlas_exports_column_remapping_total` flat while ATL-4639 drives it above 83 percent. A second misread is blaming the 349 per minute ceiling when the true limit reached was the 53283 row cap. Check `atlas.exports.column-remapping.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading column remapping action against Nightjar Interactive writes an audit entry tagged RB-EXP-0100 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.exports.column-remapping.cascading`, and whether ATL-4639 was observed. Never log raw credentials for nightjar-interactive; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4639 clears on Nightjar Interactive, confirm downstream exports jobs that read `atlas.exports.column-remapping.cascading` still run. Scheduled work reading cascading-column-remapping output may lag by up to 443 milliseconds per batch of 97. Re-check nightjar-interactive after 17 days, before the 28 day archival retention window expires.
+Confirm downstream exports work reading `atlas.exports.column-remapping.cascading` still runs. It may lag 443 milliseconds per batch of 97. Re-check nightjar-interactive after 17 days, before the 28 day window closes.

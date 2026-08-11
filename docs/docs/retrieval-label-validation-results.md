@@ -5,7 +5,7 @@
 - Labeled queries measured: 120
 - Dossier input target: 120
 - Completion status: complete
-- Relevant chunk references checked: 382
+- Relevant chunk references checked: 550
 - Unknown relevant chunk IDs: 0
 - Result: The labeled query set meets the target of 120 queries.
 
@@ -13,7 +13,7 @@
 
 - relevance 0: 0
 - relevance 1: 180
-- relevance 2: 202
+- relevance 2: 370
 
 ## Query Category Distribution
 

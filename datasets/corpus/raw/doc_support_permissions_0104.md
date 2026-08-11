@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0104
-title: Cascading Delegation Expiry runbook 0104
+title: Cascading Delegation Expiry incident review 0104
 category: permissions
+doc_type: postmortem
 procedure: Cascading delegation expiry
+component: the delegation timer
 error_code: ATL-4973
 config_key: atlas.permissions.delegation-expiry.cascading
 workspace: Hollowbrook Maritime
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0104
 source: synthetic
 ---
 
-# Cascading Delegation Expiry runbook 0104
+# Cascading Delegation Expiry incident review 0104
 
-## Overview
+## Summary
 
-Runbook RB-PER-0104 covers the Cascading delegation expiry procedure for the Hollowbrook Maritime workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4973; other permissions faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4973 within 324 minutes.
+On the Growth plan in us-east-1, Hollowbrook Maritime reported that temporary delegated access never expires. Atlas raised ATL-4973 for 324 minutes before Ingest Pipeline mitigated. The fault was in the delegation timer. Review reference RB-PER-0104.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4973 with the message "Cascading delegation expiry blocked for workspace hollowbrook-maritime". The `atlas_permissions_delegation_expiry_total` counter rises while the affected permissions operation stalls. Requests exceeding 263 calls per minute against hollowbrook-maritime amplify the failure, and the operation aborts once it has waited 141 seconds.
+Hollowbrook Maritime was unable to complete Cascading delegation expiry while ATL-4973 persisted. Roughly 85681 rows were delayed and `atlas_permissions_delegation_expiry_total` held above 91 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Hollowbrook Maritime, then collect 2 approval(s) before editing `atlas.permissions.delegation-expiry.cascading`. Changes to `atlas.permissions.delegation-expiry.cascading` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-PER-0104 and ATL-4973 in the case notes.
+Operations first saw `atlas_permissions_delegation_expiry_total` cross 91 percent. ATL-4973 appeared against hollowbrook-maritime once traffic exceeded 263 per minute. The page reached Ingest Pipeline within 324 minutes. Investigation focused on the delegation timer after temporary delegated access never expires was reproduced with `atlas permissions delegation-expiry --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas permissions delegation-expiry --mode cascading --workspace hollowbrook-maritime --dry-run` and compare the reported value of `atlas.permissions.delegation-expiry.cascading` with the expected baseline. If `atlas_permissions_delegation_expiry_total` exceeds 91 percent of its ceiling for the hollowbrook-maritime workspace, the Cascading delegation expiry path is saturated rather than misconfigured, and error ATL-4973 is a symptom instead of the cause.
+the timer is set at grant time and lost if the grant is edited. The condition had existed in the delegation timer for some time and became visible only when Hollowbrook Maritime crossed 263 calls per minute. The 141 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas permissions delegation-expiry --mode cascading --workspace hollowbrook-maritime --commit` with a batch size of 179. The command retries with a 3001 millisecond backoff and gives up after 141 seconds. Processing more than 85681 rows in one invocation for Hollowbrook Maritime is unsupported and re-raises ATL-4973. Split larger jobs into batches of 179.
-
-## Limits and Quotas
-
-The Growth plan caps Hollowbrook Maritime at 263 cascading-delegation-expiry calls per minute in us-east-1. Results persist in warm storage for 22 days. Exports tied to RB-PER-0104 refuse payloads above 85681 rows. Atlas warns 26 days before the 22 day window closes on hollowbrook-maritime.
+The team applied the standing fix: recompute the expiry whenever the grant is edited. This was executed with `atlas permissions delegation-expiry --mode cascading --workspace hollowbrook-maritime --commit` at a batch size of 179, backing off 3001 milliseconds between attempts, under 2 approval(s) against `atlas.permissions.delegation-expiry.cascading`.
 
 ## Verification
 
-After the change, `atlas permissions delegation-expiry --mode cascading --workspace hollowbrook-maritime --verify` should report `atlas.permissions.delegation-expiry.cascading` as active with no occurrences of ATL-4973 in the last 141 seconds. Ask the customer to confirm from Hollowbrook Maritime directly. The `atlas_permissions_delegation_expiry_total` counter should settle below 91 percent within 324 minutes.
+Recovery was confirmed when delegated access ends at its stated expiry. `atlas_permissions_delegation_expiry_total` returned below 91 percent and ATL-4973 stopped appearing for hollowbrook-maritime. Because dependents must be re-evaluated after the change lands, the team also confirmed the delegation timer had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Ingest Pipeline if ATL-4973 recurs on hollowbrook-maritime after two attempts, citing RB-PER-0104. Their acknowledgement target is 324 minutes for the Growth plan in us-east-1. Include the value of `atlas.permissions.delegation-expiry.cascading`, the observed `atlas_permissions_delegation_expiry_total` rate, and whether the 263 per minute ceiling was reached.
+To keep the timer is set at grant time and lost if the grant is edited from recurring, Ingest Pipeline added monitoring on the delegation timer that alerts before `atlas_permissions_delegation_expiry_total` reaches 91 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4973 is often confused with a plain permissions fault on hollowbrook-maritime, but a permissions fault leaves `atlas_permissions_delegation_expiry_total` flat while ATL-4973 drives it above 91 percent. A second misread is blaming the 263 per minute ceiling when the true limit reached was the 85681 row cap. Check `atlas.permissions.delegation-expiry.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading delegation expiry action against Hollowbrook Maritime writes an audit entry tagged RB-PER-0104 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.permissions.delegation-expiry.cascading`, and whether ATL-4973 was observed. Never log raw credentials for hollowbrook-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4973 clears on Hollowbrook Maritime, confirm downstream permissions jobs that read `atlas.permissions.delegation-expiry.cascading` still run. Scheduled work reading cascading-delegation-expiry output may lag by up to 3001 milliseconds per batch of 179. Re-check hollowbrook-maritime after 26 days, before the 22 day warm retention window expires.
+Re-check hollowbrook-maritime after 26 days. Confirm the 263 per minute ceiling and the 85681 row cap still suit Hollowbrook Maritime on the Growth plan, and that delegated access ends at its stated expiry remains true.

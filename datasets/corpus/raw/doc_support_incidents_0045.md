@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0045
-title: Legacy Severity Reclassification runbook 0045
+title: Legacy Severity Reclassification reference 0045
 category: incidents
+doc_type: reference
 procedure: Legacy severity reclassification
+component: the severity rubric
 error_code: ATL-4694
 config_key: atlas.incidents.severity-reclassification.legacy
 workspace: Ashgrove Capital
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0045
 source: synthetic
 ---
 
-# Legacy Severity Reclassification runbook 0045
+# Legacy Severity Reclassification reference 0045
 
 ## Overview
 
-Runbook RB-INC-0045 covers the Legacy severity reclassification procedure for the Ashgrove Capital workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4694; other incidents faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4694 within 147 minutes.
+This reference documents Legacy severity reclassification as implemented by the severity rubric in Atlas Metrics. It is written for a workspace still on the previous configuration format. The controlling setting is `atlas.incidents.severity-reclassification.legacy` and the associated failure is ATL-4694. See RB-INC-0045 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4694 with the message "Legacy severity reclassification blocked for workspace ashgrove-capital". The `atlas_incidents_severity_reclassification_total` counter rises while the affected incidents operation stalls. Requests exceeding 954 calls per minute against ashgrove-capital amplify the failure, and the operation aborts once it has waited 183 seconds.
+the severity rubric performs Legacy severity reclassification whenever the workspace configuration changes. Because the change must be translated into the older format first, the operation is ordered rather than concurrent. A correct run ends when subscribers receive every severity change. An incorrect run is visible as an incident's severity changes without notifying subscribers.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Ashgrove Capital, then collect 3 approval(s) before editing `atlas.incidents.severity-reclassification.legacy`. Changes to `atlas.incidents.severity-reclassification.legacy` are irreversible after 25 days because the prior value leaves cold storage on that schedule. Record RB-INC-0045 and ATL-4694 in the case notes.
+`atlas.incidents.severity-reclassification.legacy` accepts the batch size, currently 412, and the retry backoff, currently 2478 milliseconds. Editing it requires 3 approval(s). The prior value is retained 25 days in cold storage. Apply changes with `atlas incidents severity-reclassification --mode legacy --workspace ashgrove-capital --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas incidents severity-reclassification --mode legacy --workspace ashgrove-capital --dry-run` and compare the reported value of `atlas.incidents.severity-reclassification.legacy` with the expected baseline. If `atlas_incidents_severity_reclassification_total` exceeds 73 percent of its ceiling for the ashgrove-capital workspace, the Legacy severity reclassification path is saturated rather than misconfigured, and error ATL-4694 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Ashgrove Capital may issue 954 legacy-severity-reclassification calls per minute. A single invocation accepts at most 58618 rows and aborts after 183 seconds. Atlas warns 22 days before the 25 day window closes.
+
+## Errors
+
+ATL-4694 is raised when an incident's severity changes without notifying subscribers. The documented cause is that reclassification writes the new level outside the notification path. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_incidents_severity_reclassification_total` flat, while ATL-4694 drives it above 73 percent. It is also distinct from exceeding the 58618 row cap.
 
 ## Resolution
 
-Apply `atlas incidents severity-reclassification --mode legacy --workspace ashgrove-capital --commit` with a batch size of 412. The command retries with a 2478 millisecond backoff and gives up after 183 seconds. Processing more than 58618 rows in one invocation for Ashgrove Capital is unsupported and re-raises ATL-4694. Split larger jobs into batches of 412.
-
-## Limits and Quotas
-
-The Business plan caps Ashgrove Capital at 954 legacy-severity-reclassification calls per minute in eu-central-1. Results persist in cold storage for 25 days. Exports tied to RB-INC-0045 refuse payloads above 58618 rows. Atlas warns 22 days before the 25 day window closes on ashgrove-capital.
+The supported repair is to route reclassification through the same notification path as creation. Platform Reliability owns the severity rubric and acknowledges escalations against ATL-4694 within 147 minutes. Cite RB-INC-0045 and include the current value of `atlas.incidents.severity-reclassification.legacy`.
 
 ## Verification
 
-After the change, `atlas incidents severity-reclassification --mode legacy --workspace ashgrove-capital --verify` should report `atlas.incidents.severity-reclassification.legacy` as active with no occurrences of ATL-4694 in the last 183 seconds. Ask the customer to confirm from Ashgrove Capital directly. The `atlas_incidents_severity_reclassification_total` counter should settle below 73 percent within 147 minutes.
+Run `atlas incidents severity-reclassification --mode legacy --workspace ashgrove-capital --verify`. The command confirms subscribers receive every severity change and reports no ATL-4694 within the last 183 seconds. `atlas_incidents_severity_reclassification_total` should sit below 73 percent within 147 minutes.
 
-## Escalation
+## Related
 
-Escalate to Platform Reliability if ATL-4694 recurs on ashgrove-capital after two attempts, citing RB-INC-0045. Their acknowledgement target is 147 minutes for the Business plan in eu-central-1. Include the value of `atlas.incidents.severity-reclassification.legacy`, the observed `atlas_incidents_severity_reclassification_total` rate, and whether the 954 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4694 is often confused with a plain permissions fault on ashgrove-capital, but a permissions fault leaves `atlas_incidents_severity_reclassification_total` flat while ATL-4694 drives it above 73 percent. A second misread is blaming the 954 per minute ceiling when the true limit reached was the 58618 row cap. Check `atlas.incidents.severity-reclassification.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy severity reclassification action against Ashgrove Capital writes an audit entry tagged RB-INC-0045 and retained for 25 days in cold storage. The entry records the actor, the prior and new values of `atlas.incidents.severity-reclassification.legacy`, and whether ATL-4694 was observed. Never log raw credentials for ashgrove-capital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4694 clears on Ashgrove Capital, confirm downstream incidents jobs that read `atlas.incidents.severity-reclassification.legacy` still run. Scheduled work reading legacy-severity-reclassification output may lag by up to 2478 milliseconds per batch of 412. Re-check ashgrove-capital after 22 days, before the 25 day cold retention window expires.
+Behavior of the severity rubric interacts with downstream incidents work that reads `atlas.incidents.severity-reclassification.legacy`. Dependent jobs may lag 2478 milliseconds per batch of 412. Audit entries are tagged RB-INC-0045.

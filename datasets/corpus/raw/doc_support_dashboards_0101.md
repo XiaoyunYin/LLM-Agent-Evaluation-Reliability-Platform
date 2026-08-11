@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0101
-title: Cascading Filter Inheritance runbook 0101
+title: Cascading Filter Inheritance reference 0101
 category: dashboards
+doc_type: reference
 procedure: Cascading filter inheritance
+component: the filter scope resolver
 error_code: ATL-4530
 config_key: atlas.dashboards.filter-inheritance.cascading
 workspace: Glacier Robotics
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0101
 source: synthetic
 ---
 
-# Cascading Filter Inheritance runbook 0101
+# Cascading Filter Inheritance reference 0101
 
 ## Overview
 
-Runbook RB-DAS-0101 covers the Cascading filter inheritance procedure for the Glacier Robotics workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4530; other dashboards faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4530 within 85 minutes.
+This reference documents Cascading filter inheritance as implemented by the filter scope resolver in Atlas Metrics. It is written for an operator whose change propagates to dependent resources. The controlling setting is `atlas.dashboards.filter-inheritance.cascading` and the associated failure is ATL-4530. See RB-DAS-0101 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4530 with the message "Cascading filter inheritance blocked for workspace glacier-robotics". The `atlas_dashboards_filter_inheritance_total` counter rises while the affected dashboards operation stalls. Requests exceeding 90 calls per minute against glacier-robotics amplify the failure, and the operation aborts once it has waited 175 seconds.
+the filter scope resolver performs Cascading filter inheritance whenever the workspace configuration changes. Because dependents must be re-evaluated after the change lands, the operation is ordered rather than concurrent. A correct run ends when every panel reflects the dashboard filter. An incorrect run is visible as child panels ignore a dashboard-level filter.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Glacier Robotics, then collect 3 approval(s) before editing `atlas.dashboards.filter-inheritance.cascading`. Changes to `atlas.dashboards.filter-inheritance.cascading` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-DAS-0101 and ATL-4530 in the case notes.
+`atlas.dashboards.filter-inheritance.cascading` accepts the batch size, currently 440, and the retry backoff, currently 1310 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas dashboards filter-inheritance --mode cascading --workspace glacier-robotics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas dashboards filter-inheritance --mode cascading --workspace glacier-robotics --dry-run` and compare the reported value of `atlas.dashboards.filter-inheritance.cascading` with the expected baseline. If `atlas_dashboards_filter_inheritance_total` exceeds 75 percent of its ceiling for the glacier-robotics workspace, the Cascading filter inheritance path is saturated rather than misconfigured, and error ATL-4530 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Glacier Robotics may issue 90 cascading-filter-inheritance calls per minute. A single invocation accepts at most 42710 rows and aborts after 175 seconds. Atlas warns 8 days before the 37 day window closes.
+
+## Errors
+
+ATL-4530 is raised when child panels ignore a dashboard-level filter. The documented cause is that panels created before the filter existed carry an explicit override. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_dashboards_filter_inheritance_total` flat, while ATL-4530 drives it above 75 percent. It is also distinct from exceeding the 42710 row cap.
 
 ## Resolution
 
-Apply `atlas dashboards filter-inheritance --mode cascading --workspace glacier-robotics --commit` with a batch size of 440. The command retries with a 1310 millisecond backoff and gives up after 175 seconds. Processing more than 42710 rows in one invocation for Glacier Robotics is unsupported and re-raises ATL-4530. Split larger jobs into batches of 440.
-
-## Limits and Quotas
-
-The Business plan caps Glacier Robotics at 90 cascading-filter-inheritance calls per minute in sa-east-1. Results persist in cold storage for 37 days. Exports tied to RB-DAS-0101 refuse payloads above 42710 rows. Atlas warns 8 days before the 37 day window closes on glacier-robotics.
+The supported repair is to clear stale overrides so panels inherit the parent scope. Identity Services owns the filter scope resolver and acknowledges escalations against ATL-4530 within 85 minutes. Cite RB-DAS-0101 and include the current value of `atlas.dashboards.filter-inheritance.cascading`.
 
 ## Verification
 
-After the change, `atlas dashboards filter-inheritance --mode cascading --workspace glacier-robotics --verify` should report `atlas.dashboards.filter-inheritance.cascading` as active with no occurrences of ATL-4530 in the last 175 seconds. Ask the customer to confirm from Glacier Robotics directly. The `atlas_dashboards_filter_inheritance_total` counter should settle below 75 percent within 85 minutes.
+Run `atlas dashboards filter-inheritance --mode cascading --workspace glacier-robotics --verify`. The command confirms every panel reflects the dashboard filter and reports no ATL-4530 within the last 175 seconds. `atlas_dashboards_filter_inheritance_total` should sit below 75 percent within 85 minutes.
 
-## Escalation
+## Related
 
-Escalate to Identity Services if ATL-4530 recurs on glacier-robotics after two attempts, citing RB-DAS-0101. Their acknowledgement target is 85 minutes for the Business plan in sa-east-1. Include the value of `atlas.dashboards.filter-inheritance.cascading`, the observed `atlas_dashboards_filter_inheritance_total` rate, and whether the 90 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4530 is often confused with a plain permissions fault on glacier-robotics, but a permissions fault leaves `atlas_dashboards_filter_inheritance_total` flat while ATL-4530 drives it above 75 percent. A second misread is blaming the 90 per minute ceiling when the true limit reached was the 42710 row cap. Check `atlas.dashboards.filter-inheritance.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading filter inheritance action against Glacier Robotics writes an audit entry tagged RB-DAS-0101 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.dashboards.filter-inheritance.cascading`, and whether ATL-4530 was observed. Never log raw credentials for glacier-robotics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4530 clears on Glacier Robotics, confirm downstream dashboards jobs that read `atlas.dashboards.filter-inheritance.cascading` still run. Scheduled work reading cascading-filter-inheritance output may lag by up to 1310 milliseconds per batch of 440. Re-check glacier-robotics after 8 days, before the 37 day cold retention window expires.
+Behavior of the filter scope resolver interacts with downstream dashboards work that reads `atlas.dashboards.filter-inheritance.cascading`. Dependent jobs may lag 1310 milliseconds per batch of 440. Audit entries are tagged RB-DAS-0101.

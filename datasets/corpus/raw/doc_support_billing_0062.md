@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0062
-title: Federated Currency Migration runbook 0062
+title: Federated Currency Migration incident review 0062
 category: billing
+doc_type: postmortem
 procedure: Federated currency migration
+component: the currency conversion table
 error_code: ATL-4381
 config_key: atlas.billing.currency-migration.federated
 workspace: Quarry Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0062
 source: synthetic
 ---
 
-# Federated Currency Migration runbook 0062
+# Federated Currency Migration incident review 0062
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0062 covers the Federated currency migration procedure for the Quarry Digital workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4381; other billing faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4381 within 218 minutes.
+On the Growth plan in us-east-1, Quarry Digital reported that historical invoices change value after a currency switch. Atlas raised ATL-4381 for 218 minutes before Core API mitigated. The fault was in the currency conversion table. Review reference RB-BIL-0062.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4381 with the message "Federated currency migration blocked for workspace quarry-digital". The `atlas_billing_currency_migration_total` counter rises while the affected billing operation stalls. Requests exceeding 331 calls per minute against quarry-digital amplify the failure, and the operation aborts once it has waited 272 seconds.
+Quarry Digital was unable to complete Federated currency migration while ATL-4381 persisted. Roughly 28257 rows were delayed and `atlas_billing_currency_migration_total` held above 62 percent throughout. Because the external provider must confirm the identity before the change, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Quarry Digital, then collect 2 approval(s) before editing `atlas.billing.currency-migration.federated`. Changes to `atlas.billing.currency-migration.federated` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0062 and ATL-4381 in the case notes.
+Operations first saw `atlas_billing_currency_migration_total` cross 62 percent. ATL-4381 appeared against quarry-digital once traffic exceeded 331 per minute. The page reached Core API within 218 minutes. Investigation focused on the currency conversion table after historical invoices change value after a currency switch was reproduced with `atlas billing currency-migration --mode federated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing currency-migration --mode federated --workspace quarry-digital --dry-run` and compare the reported value of `atlas.billing.currency-migration.federated` with the expected baseline. If `atlas_billing_currency_migration_total` exceeds 62 percent of its ceiling for the quarry-digital workspace, the Federated currency migration path is saturated rather than misconfigured, and error ATL-4381 is a symptom instead of the cause.
+conversion applies the current rate to already-issued documents. The condition had existed in the currency conversion table for some time and became visible only when Quarry Digital crossed 331 calls per minute. The 272 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing currency-migration --mode federated --workspace quarry-digital --commit` with a batch size of 813. The command retries with a 697 millisecond backoff and gives up after 272 seconds. Processing more than 28257 rows in one invocation for Quarry Digital is unsupported and re-raises ATL-4381. Split larger jobs into batches of 813.
-
-## Limits and Quotas
-
-The Growth plan caps Quarry Digital at 331 federated-currency-migration calls per minute in us-east-1. Results persist in warm storage for 10 days. Exports tied to RB-BIL-0062 refuse payloads above 28257 rows. Atlas warns 9 days before the 10 day window closes on quarry-digital.
+The team applied the standing fix: freeze the rate on each document at issue time. This was executed with `atlas billing currency-migration --mode federated --workspace quarry-digital --commit` at a batch size of 813, backing off 697 milliseconds between attempts, under 2 approval(s) against `atlas.billing.currency-migration.federated`.
 
 ## Verification
 
-After the change, `atlas billing currency-migration --mode federated --workspace quarry-digital --verify` should report `atlas.billing.currency-migration.federated` as active with no occurrences of ATL-4381 in the last 272 seconds. Ask the customer to confirm from Quarry Digital directly. The `atlas_billing_currency_migration_total` counter should settle below 62 percent within 218 minutes.
+Recovery was confirmed when issued invoices keep their original value. `atlas_billing_currency_migration_total` returned below 62 percent and ATL-4381 stopped appearing for quarry-digital. Because the external provider must confirm the identity before the change, the team also confirmed the currency conversion table had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Core API if ATL-4381 recurs on quarry-digital after two attempts, citing RB-BIL-0062. Their acknowledgement target is 218 minutes for the Growth plan in us-east-1. Include the value of `atlas.billing.currency-migration.federated`, the observed `atlas_billing_currency_migration_total` rate, and whether the 331 per minute ceiling was reached.
+To keep conversion applies the current rate to already-issued documents from recurring, Core API added monitoring on the currency conversion table that alerts before `atlas_billing_currency_migration_total` reaches 62 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4381 is often confused with a plain permissions fault on quarry-digital, but a permissions fault leaves `atlas_billing_currency_migration_total` flat while ATL-4381 drives it above 62 percent. A second misread is blaming the 331 per minute ceiling when the true limit reached was the 28257 row cap. Check `atlas.billing.currency-migration.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated currency migration action against Quarry Digital writes an audit entry tagged RB-BIL-0062 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.currency-migration.federated`, and whether ATL-4381 was observed. Never log raw credentials for quarry-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4381 clears on Quarry Digital, confirm downstream billing jobs that read `atlas.billing.currency-migration.federated` still run. Scheduled work reading federated-currency-migration output may lag by up to 697 milliseconds per batch of 813. Re-check quarry-digital after 9 days, before the 10 day warm retention window expires.
+Re-check quarry-digital after 9 days. Confirm the 331 per minute ceiling and the 28257 row cap still suit Quarry Digital on the Growth plan, and that issued invoices keep their original value remains true.

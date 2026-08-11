@@ -2,7 +2,9 @@
 doc_id: doc_support_reports_0021
 title: Scheduled Metric Redefinition runbook 0021
 category: reports
+doc_type: runbook
 procedure: Scheduled metric redefinition
+component: the metric definition store
 error_code: ATL-5000
 config_key: atlas.reports.metric-redefinition.scheduled
 workspace: Ashgrove Agritech
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-REP-0021 covers the Scheduled metric redefinition procedure for the Ashgrove Agritech workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-5000; other reports faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-5000 within 330 minutes.
+RB-REP-0021 describes Scheduled metric redefinition for Ashgrove Agritech, where a redefined metric silently changes historical trends. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the metric definition store. This document applies only when Atlas raises ATL-5000; other reports faults are covered elsewhere. Billing Infrastructure owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-5000 with the message "Scheduled metric redefinition blocked for workspace ashgrove-agritech". The `atlas_reports_metric_redefinition_total` counter rises while the affected reports operation stalls. Requests exceeding 560 calls per minute against ashgrove-agritech amplify the failure, and the operation aborts once it has waited 45 seconds.
+Reporters describe the same thing: a redefined metric silently changes historical trends. Atlas raises ATL-5000 against the ashgrove-agritech workspace and `atlas_reports_metric_redefinition_total` climbs past 55 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the metric definition store is under load. Requests beyond 560 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ashgrove Agritech, then collect 1 approval(s) before editing `atlas.reports.metric-redefinition.scheduled`. Changes to `atlas.reports.metric-redefinition.scheduled` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-REP-0021 and ATL-5000 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas reports metric-redefinition --mode scheduled --workspace ashgrove-agritech --dry-run` and compare the reported value of `atlas.reports.metric-redefinition.scheduled` with the expected baseline. If `atlas_reports_metric_redefinition_total` exceeds 55 percent of its ceiling for the ashgrove-agritech workspace, the Scheduled metric redefinition path is saturated rather than misconfigured, and error ATL-5000 is a symptom instead of the cause.
+The underlying fault is that redefinition applies retroactively with no version boundary. This is a property of the metric definition store rather than of any single workspace, so Ashgrove Agritech is affected only because it exercises that path. The 45 second abort is a consequence, not the cause; raising it hides ATL-5000 without repairing the metric definition store.
 
 ## Resolution
 
-Apply `atlas reports metric-redefinition --mode scheduled --workspace ashgrove-agritech --commit` with a batch size of 800. The command retries with a 4000 millisecond backoff and gives up after 45 seconds. Processing more than 88300 rows in one invocation for Ashgrove Agritech is unsupported and re-raises ATL-5000. Split larger jobs into batches of 800.
-
-## Limits and Quotas
-
-The Starter plan caps Ashgrove Agritech at 560 scheduled-metric-redefinition calls per minute in ap-southeast-1. Results persist in hot storage for 19 days. Exports tied to RB-REP-0021 refuse payloads above 88300 rows. Atlas warns 3 days before the 19 day window closes on ashgrove-agritech.
+To repair the fault, version the definition and mark the boundary on the trend. Run `atlas reports metric-redefinition --mode scheduled --workspace ashgrove-agritech --commit` with a batch size of 800, retrying with a 4000 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 88300 rows in one invocation. Editing `atlas.reports.metric-redefinition.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas reports metric-redefinition --mode scheduled --workspace ashgrove-agritech --verify` should report `atlas.reports.metric-redefinition.scheduled` as active with no occurrences of ATL-5000 in the last 45 seconds. Ask the customer to confirm from Ashgrove Agritech directly. The `atlas_reports_metric_redefinition_total` counter should settle below 55 percent within 330 minutes.
+The repair has landed when trends show where the definition changed. Confirm with `atlas reports metric-redefinition --mode scheduled --workspace ashgrove-agritech --verify`, which should report `atlas.reports.metric-redefinition.scheduled` active and no ATL-5000 in the last 45 seconds. `atlas_reports_metric_redefinition_total` should settle below 55 percent within 330 minutes.
+
+## Limits
+
+Ashgrove Agritech is capped at 560 scheduled-metric-redefinition calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 19 days, and Atlas warns 3 days before that window closes. Payloads above 88300 rows are refused.
 
 ## Escalation
 
-Escalate to Billing Infrastructure if ATL-5000 recurs on ashgrove-agritech after two attempts, citing RB-REP-0021. Their acknowledgement target is 330 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.reports.metric-redefinition.scheduled`, the observed `atlas_reports_metric_redefinition_total` rate, and whether the 560 per minute ceiling was reached.
+Escalate to Billing Infrastructure citing RB-REP-0021 if ATL-5000 recurs after two attempts, or if a redefined metric silently changes historical trends persists once trends show where the definition changed. Their acknowledgement target is 330 minutes. Include the value of `atlas.reports.metric-redefinition.scheduled` and the observed `atlas_reports_metric_redefinition_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-5000 is often confused with a plain permissions fault on ashgrove-agritech, but a permissions fault leaves `atlas_reports_metric_redefinition_total` flat while ATL-5000 drives it above 55 percent. A second misread is blaming the 560 per minute ceiling when the true limit reached was the 88300 row cap. Check `atlas.reports.metric-redefinition.scheduled` before assuming either.
+Every Scheduled metric redefinition action against Ashgrove Agritech writes an entry tagged RB-REP-0021, retained 19 days in hot storage, recording the actor and both values of `atlas.reports.metric-redefinition.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the metric definition store was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled metric redefinition action against Ashgrove Agritech writes an audit entry tagged RB-REP-0021 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.reports.metric-redefinition.scheduled`, and whether ATL-5000 was observed. Never log raw credentials for ashgrove-agritech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5000 clears on Ashgrove Agritech, confirm downstream reports jobs that read `atlas.reports.metric-redefinition.scheduled` still run. Scheduled work reading scheduled-metric-redefinition output may lag by up to 4000 milliseconds per batch of 800. Re-check ashgrove-agritech after 3 days, before the 19 day hot retention window expires.
+Once ATL-5000 clears, confirm downstream reports jobs reading `atlas.reports.metric-redefinition.scheduled` still run. Work depending on the metric definition store may lag 4000 milliseconds per batch of 800. Re-check ashgrove-agritech after 3 days.

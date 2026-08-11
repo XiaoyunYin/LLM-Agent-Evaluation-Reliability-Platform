@@ -2,7 +2,9 @@
 doc_id: doc_support_permissions_0091
 title: Audited Policy Attachment runbook 0091
 category: permissions
+doc_type: runbook
 procedure: Audited policy attachment
+component: the policy attachment index
 error_code: ATL-4960
 config_key: atlas.permissions.policy-attachment.audited
 workspace: Redstone Maritime
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-PER-0091 covers the Audited policy attachment procedure for the Redstone Maritime workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4960; other permissions faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4960 within 155 minutes.
+RB-PER-0091 describes Audited policy attachment for Redstone Maritime, where a detached policy continues to grant access. The work is performed by a reviewer who must leave an evidence trail, and every step must be recorded with the actor and timestamp. The affected component is the policy attachment index. This document applies only when Atlas raises ATL-4960; other permissions faults are covered elsewhere. Revenue Engineering owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4960 with the message "Audited policy attachment blocked for workspace redstone-maritime". The `atlas_permissions_policy_attachment_total` counter rises while the affected permissions operation stalls. Requests exceeding 120 calls per minute against redstone-maritime amplify the failure, and the operation aborts once it has waited 50 seconds.
+Reporters describe the same thing: a detached policy continues to grant access. Atlas raises ATL-4960 against the redstone-maritime workspace and `atlas_permissions_policy_attachment_total` climbs past 95 percent. Because every step must be recorded with the actor and timestamp, the symptom can look intermittent when the policy attachment index is under load. Requests beyond 120 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Redstone Maritime, then collect 1 approval(s) before editing `atlas.permissions.policy-attachment.audited`. Changes to `atlas.permissions.policy-attachment.audited` are irreversible after 67 days because the prior value leaves hot storage on that schedule. Record RB-PER-0091 and ATL-4960 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas permissions policy-attachment --mode audited --workspace redstone-maritime --dry-run` and compare the reported value of `atlas.permissions.policy-attachment.audited` with the expected baseline. If `atlas_permissions_policy_attachment_total` exceeds 95 percent of its ceiling for the redstone-maritime workspace, the Audited policy attachment path is saturated rather than misconfigured, and error ATL-4960 is a symptom instead of the cause.
+The underlying fault is that detachment removes the index entry but not the compiled grant. This is a property of the policy attachment index rather than of any single workspace, so Redstone Maritime is affected only because it exercises that path. The 50 second abort is a consequence, not the cause; raising it hides ATL-4960 without repairing the policy attachment index.
 
 ## Resolution
 
-Apply `atlas permissions policy-attachment --mode audited --workspace redstone-maritime --commit` with a batch size of 830. The command retries with a 2520 millisecond backoff and gives up after 50 seconds. Processing more than 84420 rows in one invocation for Redstone Maritime is unsupported and re-raises ATL-4960. Split larger jobs into batches of 830.
-
-## Limits and Quotas
-
-The Starter plan caps Redstone Maritime at 120 audited-policy-attachment calls per minute in ap-southeast-1. Results persist in hot storage for 67 days. Exports tied to RB-PER-0091 refuse payloads above 84420 rows. Atlas warns 13 days before the 67 day window closes on redstone-maritime.
+To repair the fault, recompile grants when an attachment changes. Run `atlas permissions policy-attachment --mode audited --workspace redstone-maritime --commit` with a batch size of 830, retrying with a 2520 millisecond backoff. Because every step must be recorded with the actor and timestamp, do not exceed 84420 rows in one invocation. Editing `atlas.permissions.policy-attachment.audited` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas permissions policy-attachment --mode audited --workspace redstone-maritime --verify` should report `atlas.permissions.policy-attachment.audited` as active with no occurrences of ATL-4960 in the last 50 seconds. Ask the customer to confirm from Redstone Maritime directly. The `atlas_permissions_policy_attachment_total` counter should settle below 95 percent within 155 minutes.
+The repair has landed when detached policies grant nothing. Confirm with `atlas permissions policy-attachment --mode audited --workspace redstone-maritime --verify`, which should report `atlas.permissions.policy-attachment.audited` active and no ATL-4960 in the last 50 seconds. `atlas_permissions_policy_attachment_total` should settle below 95 percent within 155 minutes.
+
+## Limits
+
+Redstone Maritime is capped at 120 audited-policy-attachment calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 67 days, and Atlas warns 13 days before that window closes. Payloads above 84420 rows are refused.
 
 ## Escalation
 
-Escalate to Revenue Engineering if ATL-4960 recurs on redstone-maritime after two attempts, citing RB-PER-0091. Their acknowledgement target is 155 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.permissions.policy-attachment.audited`, the observed `atlas_permissions_policy_attachment_total` rate, and whether the 120 per minute ceiling was reached.
+Escalate to Revenue Engineering citing RB-PER-0091 if ATL-4960 recurs after two attempts, or if a detached policy continues to grant access persists once detached policies grant nothing. Their acknowledgement target is 155 minutes. Include the value of `atlas.permissions.policy-attachment.audited` and the observed `atlas_permissions_policy_attachment_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4960 is often confused with a plain permissions fault on redstone-maritime, but a permissions fault leaves `atlas_permissions_policy_attachment_total` flat while ATL-4960 drives it above 95 percent. A second misread is blaming the 120 per minute ceiling when the true limit reached was the 84420 row cap. Check `atlas.permissions.policy-attachment.audited` before assuming either.
+Every Audited policy attachment action against Redstone Maritime writes an entry tagged RB-PER-0091, retained 67 days in hot storage, recording the actor and both values of `atlas.permissions.policy-attachment.audited`. Because every step must be recorded with the actor and timestamp, the entry also records whether the policy attachment index was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Audited policy attachment action against Redstone Maritime writes an audit entry tagged RB-PER-0091 and retained for 67 days in hot storage. The entry records the actor, the prior and new values of `atlas.permissions.policy-attachment.audited`, and whether ATL-4960 was observed. Never log raw credentials for redstone-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4960 clears on Redstone Maritime, confirm downstream permissions jobs that read `atlas.permissions.policy-attachment.audited` still run. Scheduled work reading audited-policy-attachment output may lag by up to 2520 milliseconds per batch of 830. Re-check redstone-maritime after 13 days, before the 67 day hot retention window expires.
+Once ATL-4960 clears, confirm downstream permissions jobs reading `atlas.permissions.policy-attachment.audited` still run. Work depending on the policy attachment index may lag 2520 milliseconds per batch of 830. Re-check redstone-maritime after 13 days.

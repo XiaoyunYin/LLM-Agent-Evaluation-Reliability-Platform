@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0024
-title: Bulk Field Mapping Repair runbook 0024
+title: Bulk Field Mapping Repair questions and answers 0024
 category: integrations
+doc_type: faq
 procedure: Bulk field mapping repair
+component: the field mapping table
 error_code: ATL-4783
 config_key: atlas.integrations.field-mapping-repair.bulk
 workspace: Harborview Biotech
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0024
 source: synthetic
 ---
 
-# Bulk Field Mapping Repair runbook 0024
+# Bulk Field Mapping Repair questions and answers 0024
 
-## Overview
+## What does ATL-4783 mean?
 
-Runbook RB-INT-0024 covers the Bulk field mapping repair procedure for the Harborview Biotech workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4783; other integrations faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4783 within 269 minutes.
+It means synced records land with fields transposed. Atlas raises it against harborview-biotech when the field mapping table cannot complete Bulk field mapping repair. The operational procedure is RB-INT-0024, owned by Identity Services in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4783 with the message "Bulk field mapping repair blocked for workspace harborview-biotech". The `atlas_integrations_field_mapping_repair_total` counter rises while the affected integrations operation stalls. Requests exceeding 993 calls per minute against harborview-biotech amplify the failure, and the operation aborts once it has waited 236 seconds.
+The cause is that the mapping is keyed on remote label, which the remote system renamed. It is a property of the field mapping table, so Harborview Biotech sees it only because it exercises that path. Because the batch must be splittable so a partial failure is recoverable, it may appear intermittent until traffic passes 993 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Harborview Biotech, then collect 4 approval(s) before editing `atlas.integrations.field-mapping-repair.bulk`. Changes to `atlas.integrations.field-mapping-repair.bulk` are irreversible after 40 days because the prior value leaves archival storage on that schedule. Record RB-INT-0024 and ATL-4783 in the case notes.
+key the mapping on the remote field identifier. In practice that means running `atlas integrations field-mapping-repair --mode bulk --workspace harborview-biotech --commit` with a batch size of 559 and a 871 millisecond backoff. Editing `atlas.integrations.field-mapping-repair.bulk` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas integrations field-mapping-repair --mode bulk --workspace harborview-biotech --dry-run` and compare the reported value of `atlas.integrations.field-mapping-repair.bulk` with the expected baseline. If `atlas_integrations_field_mapping_repair_total` exceeds 56 percent of its ceiling for the harborview-biotech workspace, the Bulk field mapping repair path is saturated rather than misconfigured, and error ATL-4783 is a symptom instead of the cause.
+You know it worked when renames upstream no longer transpose fields. Running `atlas integrations field-mapping-repair --mode bulk --workspace harborview-biotech --verify` reports `atlas.integrations.field-mapping-repair.bulk` active with no ATL-4783 in the last 236 seconds, and `atlas_integrations_field_mapping_repair_total` falls below 56 percent within 269 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas integrations field-mapping-repair --mode bulk --workspace harborview-biotech --commit` with a batch size of 559. The command retries with a 871 millisecond backoff and gives up after 236 seconds. Processing more than 67251 rows in one invocation for Harborview Biotech is unsupported and re-raises ATL-4783. Split larger jobs into batches of 559.
+No. A permissions fault leaves `atlas_integrations_field_mapping_repair_total` flat, while ATL-4783 drives it above 56 percent. A second common misread is blaming the 993 per minute ceiling when the limit actually reached was the 67251 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Harborview Biotech at 993 bulk-field-mapping-repair calls per minute in eu-west-2. Results persist in archival storage for 40 days. Exports tied to RB-INT-0024 refuse payloads above 67251 rows. Atlas warns 11 days before the 40 day window closes on harborview-biotech.
+Harborview Biotech may issue 993 bulk-field-mapping-repair calls per minute on the Enterprise plan. One invocation accepts 67251 rows and aborts after 236 seconds. Results persist 40 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas integrations field-mapping-repair --mode bulk --workspace harborview-biotech --verify` should report `atlas.integrations.field-mapping-repair.bulk` as active with no occurrences of ATL-4783 in the last 236 seconds. Ask the customer to confirm from Harborview Biotech directly. The `atlas_integrations_field_mapping_repair_total` counter should settle below 56 percent within 269 minutes.
+Identity Services owns the field mapping table. They acknowledge escalations against ATL-4783 within 269 minutes on the Enterprise plan. Cite RB-INT-0024 and include the observed `atlas_integrations_field_mapping_repair_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Identity Services if ATL-4783 recurs on harborview-biotech after two attempts, citing RB-INT-0024. Their acknowledgement target is 269 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.integrations.field-mapping-repair.bulk`, the observed `atlas_integrations_field_mapping_repair_total` rate, and whether the 993 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4783 is often confused with a plain permissions fault on harborview-biotech, but a permissions fault leaves `atlas_integrations_field_mapping_repair_total` flat while ATL-4783 drives it above 56 percent. A second misread is blaming the 993 per minute ceiling when the true limit reached was the 67251 row cap. Check `atlas.integrations.field-mapping-repair.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk field mapping repair action against Harborview Biotech writes an audit entry tagged RB-INT-0024 and retained for 40 days in archival storage. The entry records the actor, the prior and new values of `atlas.integrations.field-mapping-repair.bulk`, and whether ATL-4783 was observed. Never log raw credentials for harborview-biotech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4783 clears on Harborview Biotech, confirm downstream integrations jobs that read `atlas.integrations.field-mapping-repair.bulk` still run. Scheduled work reading bulk-field-mapping-repair output may lag by up to 871 milliseconds per batch of 559. Re-check harborview-biotech after 11 days, before the 40 day archival retention window expires.
+Confirm downstream integrations work reading `atlas.integrations.field-mapping-repair.bulk` still runs. It may lag 871 milliseconds per batch of 559. Re-check harborview-biotech after 11 days, before the 40 day window closes.

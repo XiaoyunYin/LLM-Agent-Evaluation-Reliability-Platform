@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0054
-title: Legacy Config Drift Reconciliation runbook 0054
+title: Legacy Config Drift Reconciliation questions and answers 0054
 category: troubleshooting
+doc_type: faq
 procedure: Legacy config drift reconciliation
+component: the configuration reconciler
 error_code: ATL-5143
 config_key: atlas.troubleshooting.config-drift-reconciliation.legacy
 workspace: Hollowbrook Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0054
 source: synthetic
 ---
 
-# Legacy Config Drift Reconciliation runbook 0054
+# Legacy Config Drift Reconciliation questions and answers 0054
 
-## Overview
+## What does ATL-5143 mean?
 
-Runbook RB-TRO-0054 covers the Legacy config drift reconciliation procedure for the Hollowbrook Optics workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-5143; other troubleshooting faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-5143 within 119 minutes.
+It means hosts diverge from the declared configuration over time. Atlas raises it against hollowbrook-optics when the configuration reconciler cannot complete Legacy config drift reconciliation. The operational procedure is RB-TRO-0054, owned by Billing Infrastructure in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-5143 with the message "Legacy config drift reconciliation blocked for workspace hollowbrook-optics". The `atlas_troubleshooting_config_drift_reconciliation_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 253 calls per minute against hollowbrook-optics amplify the failure, and the operation aborts once it has waited 191 seconds.
+The cause is that the reconciler reports drift but never corrects it. It is a property of the configuration reconciler, so Hollowbrook Optics sees it only because it exercises that path. Because the change must be translated into the older format first, it may appear intermittent until traffic passes 253 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Hollowbrook Optics, then collect 4 approval(s) before editing `atlas.troubleshooting.config-drift-reconciliation.legacy`. Changes to `atlas.troubleshooting.config-drift-reconciliation.legacy` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-TRO-0054 and ATL-5143 in the case notes.
+converge hosts to the declared state on each reconcile pass. In practice that means running `atlas troubleshooting config-drift-reconciliation --mode legacy --workspace hollowbrook-optics --commit` with a batch size of 289 and a 4391 millisecond backoff. Editing `atlas.troubleshooting.config-drift-reconciliation.legacy` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas troubleshooting config-drift-reconciliation --mode legacy --workspace hollowbrook-optics --dry-run` and compare the reported value of `atlas.troubleshooting.config-drift-reconciliation.legacy` with the expected baseline. If `atlas_troubleshooting_config_drift_reconciliation_total` exceeds 56 percent of its ceiling for the hollowbrook-optics workspace, the Legacy config drift reconciliation path is saturated rather than misconfigured, and error ATL-5143 is a symptom instead of the cause.
+You know it worked when measured drift returns to zero after a pass. Running `atlas troubleshooting config-drift-reconciliation --mode legacy --workspace hollowbrook-optics --verify` reports `atlas.troubleshooting.config-drift-reconciliation.legacy` active with no ATL-5143 in the last 191 seconds, and `atlas_troubleshooting_config_drift_reconciliation_total` falls below 56 percent within 119 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas troubleshooting config-drift-reconciliation --mode legacy --workspace hollowbrook-optics --commit` with a batch size of 289. The command retries with a 4391 millisecond backoff and gives up after 191 seconds. Processing more than 3171 rows in one invocation for Hollowbrook Optics is unsupported and re-raises ATL-5143. Split larger jobs into batches of 289.
+No. A permissions fault leaves `atlas_troubleshooting_config_drift_reconciliation_total` flat, while ATL-5143 drives it above 56 percent. A second common misread is blaming the 253 per minute ceiling when the limit actually reached was the 3171 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Hollowbrook Optics at 253 legacy-config-drift-reconciliation calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-TRO-0054 refuse payloads above 3171 rows. Atlas warns 21 days before the 28 day window closes on hollowbrook-optics.
+Hollowbrook Optics may issue 253 legacy-config-drift-reconciliation calls per minute on the Enterprise plan. One invocation accepts 3171 rows and aborts after 191 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas troubleshooting config-drift-reconciliation --mode legacy --workspace hollowbrook-optics --verify` should report `atlas.troubleshooting.config-drift-reconciliation.legacy` as active with no occurrences of ATL-5143 in the last 191 seconds. Ask the customer to confirm from Hollowbrook Optics directly. The `atlas_troubleshooting_config_drift_reconciliation_total` counter should settle below 56 percent within 119 minutes.
+Billing Infrastructure owns the configuration reconciler. They acknowledge escalations against ATL-5143 within 119 minutes on the Enterprise plan. Cite RB-TRO-0054 and include the observed `atlas_troubleshooting_config_drift_reconciliation_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Billing Infrastructure if ATL-5143 recurs on hollowbrook-optics after two attempts, citing RB-TRO-0054. Their acknowledgement target is 119 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.troubleshooting.config-drift-reconciliation.legacy`, the observed `atlas_troubleshooting_config_drift_reconciliation_total` rate, and whether the 253 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5143 is often confused with a plain permissions fault on hollowbrook-optics, but a permissions fault leaves `atlas_troubleshooting_config_drift_reconciliation_total` flat while ATL-5143 drives it above 56 percent. A second misread is blaming the 253 per minute ceiling when the true limit reached was the 3171 row cap. Check `atlas.troubleshooting.config-drift-reconciliation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy config drift reconciliation action against Hollowbrook Optics writes an audit entry tagged RB-TRO-0054 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.config-drift-reconciliation.legacy`, and whether ATL-5143 was observed. Never log raw credentials for hollowbrook-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5143 clears on Hollowbrook Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.config-drift-reconciliation.legacy` still run. Scheduled work reading legacy-config-drift-reconciliation output may lag by up to 4391 milliseconds per batch of 289. Re-check hollowbrook-optics after 21 days, before the 28 day archival retention window expires.
+Confirm downstream troubleshooting work reading `atlas.troubleshooting.config-drift-reconciliation.legacy` still runs. It may lag 4391 milliseconds per batch of 289. Re-check hollowbrook-optics after 21 days, before the 28 day window closes.

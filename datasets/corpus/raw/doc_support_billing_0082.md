@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0082
-title: Throttled Credit Application runbook 0082
+title: Throttled Credit Application incident review 0082
 category: billing
+doc_type: postmortem
 procedure: Throttled credit application
+component: the credit ledger
 error_code: ATL-4401
 config_key: atlas.billing.credit-application.throttled
 workspace: Nightjar Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0082
 source: synthetic
 ---
 
-# Throttled Credit Application runbook 0082
+# Throttled Credit Application incident review 0082
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0082 covers the Throttled credit application procedure for the Nightjar Digital workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4401; other billing faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4401 within 133 minutes.
+On the Growth plan in ap-northeast-3, Nightjar Digital reported that credits apply to the wrong invoice or expire unused. Atlas raised ATL-4401 for 133 minutes before Ingest Pipeline mitigated. The fault was in the credit ledger. Review reference RB-BIL-0082.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4401 with the message "Throttled credit application blocked for workspace nightjar-digital". The `atlas_billing_credit_application_total` counter rises while the affected billing operation stalls. Requests exceeding 551 calls per minute against nightjar-digital amplify the failure, and the operation aborts once it has waited 127 seconds.
+Nightjar Digital was unable to complete Throttled credit application while ATL-4401 persisted. Roughly 30197 rows were delayed and `atlas_billing_credit_application_total` held above 87 percent throughout. Because the change must yield capacity to interactive traffic, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Nightjar Digital, then collect 2 approval(s) before editing `atlas.billing.credit-application.throttled`. Changes to `atlas.billing.credit-application.throttled` are irreversible after 70 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0082 and ATL-4401 in the case notes.
+Operations first saw `atlas_billing_credit_application_total` cross 87 percent. ATL-4401 appeared against nightjar-digital once traffic exceeded 551 per minute. The page reached Ingest Pipeline within 133 minutes. Investigation focused on the credit ledger after credits apply to the wrong invoice or expire unused was reproduced with `atlas billing credit-application --mode throttled --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing credit-application --mode throttled --workspace nightjar-digital --dry-run` and compare the reported value of `atlas.billing.credit-application.throttled` with the expected baseline. If `atlas_billing_credit_application_total` exceeds 87 percent of its ceiling for the nightjar-digital workspace, the Throttled credit application path is saturated rather than misconfigured, and error ATL-4401 is a symptom instead of the cause.
+credits are applied in insertion order rather than by expiry. The condition had existed in the credit ledger for some time and became visible only when Nightjar Digital crossed 551 calls per minute. The 127 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing credit-application --mode throttled --workspace nightjar-digital --commit` with a batch size of 323. The command retries with a 1437 millisecond backoff and gives up after 127 seconds. Processing more than 30197 rows in one invocation for Nightjar Digital is unsupported and re-raises ATL-4401. Split larger jobs into batches of 323.
-
-## Limits and Quotas
-
-The Growth plan caps Nightjar Digital at 551 throttled-credit-application calls per minute in ap-northeast-3. Results persist in warm storage for 70 days. Exports tied to RB-BIL-0082 refuse payloads above 30197 rows. Atlas warns 4 days before the 70 day window closes on nightjar-digital.
+The team applied the standing fix: apply credits in expiry order, soonest first. This was executed with `atlas billing credit-application --mode throttled --workspace nightjar-digital --commit` at a batch size of 323, backing off 1437 milliseconds between attempts, under 2 approval(s) against `atlas.billing.credit-application.throttled`.
 
 ## Verification
 
-After the change, `atlas billing credit-application --mode throttled --workspace nightjar-digital --verify` should report `atlas.billing.credit-application.throttled` as active with no occurrences of ATL-4401 in the last 127 seconds. Ask the customer to confirm from Nightjar Digital directly. The `atlas_billing_credit_application_total` counter should settle below 87 percent within 133 minutes.
+Recovery was confirmed when no credit expires while a later one is consumed. `atlas_billing_credit_application_total` returned below 87 percent and ATL-4401 stopped appearing for nightjar-digital. Because the change must yield capacity to interactive traffic, the team also confirmed the credit ledger had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Ingest Pipeline if ATL-4401 recurs on nightjar-digital after two attempts, citing RB-BIL-0082. Their acknowledgement target is 133 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.billing.credit-application.throttled`, the observed `atlas_billing_credit_application_total` rate, and whether the 551 per minute ceiling was reached.
+To keep credits are applied in insertion order rather than by expiry from recurring, Ingest Pipeline added monitoring on the credit ledger that alerts before `atlas_billing_credit_application_total` reaches 87 percent. Retention for the diagnostic trail was set to 70 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4401 is often confused with a plain permissions fault on nightjar-digital, but a permissions fault leaves `atlas_billing_credit_application_total` flat while ATL-4401 drives it above 87 percent. A second misread is blaming the 551 per minute ceiling when the true limit reached was the 30197 row cap. Check `atlas.billing.credit-application.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled credit application action against Nightjar Digital writes an audit entry tagged RB-BIL-0082 and retained for 70 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.credit-application.throttled`, and whether ATL-4401 was observed. Never log raw credentials for nightjar-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4401 clears on Nightjar Digital, confirm downstream billing jobs that read `atlas.billing.credit-application.throttled` still run. Scheduled work reading throttled-credit-application output may lag by up to 1437 milliseconds per batch of 323. Re-check nightjar-digital after 4 days, before the 70 day warm retention window expires.
+Re-check nightjar-digital after 4 days. Confirm the 551 per minute ceiling and the 30197 row cap still suit Nightjar Digital on the Growth plan, and that no credit expires while a later one is consumed remains true.

@@ -2,7 +2,9 @@
 doc_id: doc_support_troubleshooting_0039
 title: Regional Index Rebuild runbook 0039
 category: troubleshooting
+doc_type: runbook
 procedure: Regional index rebuild
+component: the search index builder
 error_code: ATL-5128
 config_key: atlas.troubleshooting.index-rebuild.regional
 workspace: Perihelion Optics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-TRO-0039 covers the Regional index rebuild procedure for the Perihelion Optics workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-5128; other troubleshooting faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-5128 within 269 minutes.
+RB-TRO-0039 describes Regional index rebuild for Perihelion Optics, where queries return records that no longer exist. The work is performed by an operator working within a single region, and the change must not propagate across region boundaries. The affected component is the search index builder. This document applies only when Atlas raises ATL-5128; other troubleshooting faults are covered elsewhere. Customer Trust owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-5128 with the message "Regional index rebuild blocked for workspace perihelion-optics". The `atlas_troubleshooting_index_rebuild_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 88 calls per minute against perihelion-optics amplify the failure, and the operation aborts once it has waited 86 seconds.
+Reporters describe the same thing: queries return records that no longer exist. Atlas raises ATL-5128 against the perihelion-optics workspace and `atlas_troubleshooting_index_rebuild_total` climbs past 71 percent. Because the change must not propagate across region boundaries, the symptom can look intermittent when the search index builder is under load. Requests beyond 88 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Perihelion Optics, then collect 1 approval(s) before editing `atlas.troubleshooting.index-rebuild.regional`. Changes to `atlas.troubleshooting.index-rebuild.regional` are irreversible after 67 days because the prior value leaves hot storage on that schedule. Record RB-TRO-0039 and ATL-5128 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas troubleshooting index-rebuild --mode regional --workspace perihelion-optics --dry-run` and compare the reported value of `atlas.troubleshooting.index-rebuild.regional` with the expected baseline. If `atlas_troubleshooting_index_rebuild_total` exceeds 71 percent of its ceiling for the perihelion-optics workspace, the Regional index rebuild path is saturated rather than misconfigured, and error ATL-5128 is a symptom instead of the cause.
+The underlying fault is that deletions are applied to storage but not propagated to the index. This is a property of the search index builder rather than of any single workspace, so Perihelion Optics is affected only because it exercises that path. The 86 second abort is a consequence, not the cause; raising it hides ATL-5128 without repairing the search index builder.
 
 ## Resolution
 
-Apply `atlas troubleshooting index-rebuild --mode regional --workspace perihelion-optics --commit` with a batch size of 894. The command retries with a 3836 millisecond backoff and gives up after 86 seconds. Processing more than 1716 rows in one invocation for Perihelion Optics is unsupported and re-raises ATL-5128. Split larger jobs into batches of 894.
-
-## Limits and Quotas
-
-The Starter plan caps Perihelion Optics at 88 regional-index-rebuild calls per minute in ap-southeast-1. Results persist in hot storage for 67 days. Exports tied to RB-TRO-0039 refuse payloads above 1716 rows. Atlas warns 6 days before the 67 day window closes on perihelion-optics.
+To repair the fault, propagate deletions to the index and rebuild affected segments. Run `atlas troubleshooting index-rebuild --mode regional --workspace perihelion-optics --commit` with a batch size of 894, retrying with a 3836 millisecond backoff. Because the change must not propagate across region boundaries, do not exceed 1716 rows in one invocation. Editing `atlas.troubleshooting.index-rebuild.regional` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas troubleshooting index-rebuild --mode regional --workspace perihelion-optics --verify` should report `atlas.troubleshooting.index-rebuild.regional` as active with no occurrences of ATL-5128 in the last 86 seconds. Ask the customer to confirm from Perihelion Optics directly. The `atlas_troubleshooting_index_rebuild_total` counter should settle below 71 percent within 269 minutes.
+The repair has landed when index and storage agree on record existence. Confirm with `atlas troubleshooting index-rebuild --mode regional --workspace perihelion-optics --verify`, which should report `atlas.troubleshooting.index-rebuild.regional` active and no ATL-5128 in the last 86 seconds. `atlas_troubleshooting_index_rebuild_total` should settle below 71 percent within 269 minutes.
+
+## Limits
+
+Perihelion Optics is capped at 88 regional-index-rebuild calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 67 days, and Atlas warns 6 days before that window closes. Payloads above 1716 rows are refused.
 
 ## Escalation
 
-Escalate to Customer Trust if ATL-5128 recurs on perihelion-optics after two attempts, citing RB-TRO-0039. Their acknowledgement target is 269 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.troubleshooting.index-rebuild.regional`, the observed `atlas_troubleshooting_index_rebuild_total` rate, and whether the 88 per minute ceiling was reached.
+Escalate to Customer Trust citing RB-TRO-0039 if ATL-5128 recurs after two attempts, or if queries return records that no longer exist persists once index and storage agree on record existence. Their acknowledgement target is 269 minutes. Include the value of `atlas.troubleshooting.index-rebuild.regional` and the observed `atlas_troubleshooting_index_rebuild_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-5128 is often confused with a plain permissions fault on perihelion-optics, but a permissions fault leaves `atlas_troubleshooting_index_rebuild_total` flat while ATL-5128 drives it above 71 percent. A second misread is blaming the 88 per minute ceiling when the true limit reached was the 1716 row cap. Check `atlas.troubleshooting.index-rebuild.regional` before assuming either.
+Every Regional index rebuild action against Perihelion Optics writes an entry tagged RB-TRO-0039, retained 67 days in hot storage, recording the actor and both values of `atlas.troubleshooting.index-rebuild.regional`. Because the change must not propagate across region boundaries, the entry also records whether the search index builder was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Regional index rebuild action against Perihelion Optics writes an audit entry tagged RB-TRO-0039 and retained for 67 days in hot storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.index-rebuild.regional`, and whether ATL-5128 was observed. Never log raw credentials for perihelion-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5128 clears on Perihelion Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.index-rebuild.regional` still run. Scheduled work reading regional-index-rebuild output may lag by up to 3836 milliseconds per batch of 894. Re-check perihelion-optics after 6 days, before the 67 day hot retention window expires.
+Once ATL-5128 clears, confirm downstream troubleshooting jobs reading `atlas.troubleshooting.index-rebuild.regional` still run. Work depending on the search index builder may lag 3836 milliseconds per batch of 894. Re-check perihelion-optics after 6 days.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0039
-title: Regional Trial Conversion runbook 0039
+title: Regional Trial Conversion reference 0039
 category: accounts
+doc_type: reference
 procedure: Regional trial conversion
+component: the trial-to-paid transition
 error_code: ATL-4138
 config_key: atlas.accounts.trial-conversion.regional
 workspace: Kestrel Systems
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0039
 source: synthetic
 ---
 
-# Regional Trial Conversion runbook 0039
+# Regional Trial Conversion reference 0039
 
 ## Overview
 
-Runbook RB-ACC-0039 covers the Regional trial conversion procedure for the Kestrel Systems workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4138; other accounts faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4138 within 164 minutes.
+This reference documents Regional trial conversion as implemented by the trial-to-paid transition in Atlas Metrics. It is written for an operator working within a single region. The controlling setting is `atlas.accounts.trial-conversion.regional` and the associated failure is ATL-4138. See RB-ACC-0039 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4138 with the message "Regional trial conversion blocked for workspace kestrel-systems". The `atlas_accounts_trial_conversion_total` counter rises while the affected accounts operation stalls. Requests exceeding 478 calls per minute against kestrel-systems amplify the failure, and the operation aborts once it has waited 281 seconds.
+the trial-to-paid transition performs Regional trial conversion whenever the workspace configuration changes. Because the change must not propagate across region boundaries, the operation is ordered rather than concurrent. A correct run ends when post-conversion settings match the trial settings. An incorrect run is visible as converted workspaces lose trial-period configuration.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Kestrel Systems, then collect 3 approval(s) before editing `atlas.accounts.trial-conversion.regional`. Changes to `atlas.accounts.trial-conversion.regional` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-ACC-0039 and ATL-4138 in the case notes.
+`atlas.accounts.trial-conversion.regional` accepts the batch size, currently 924, and the retry backoff, currently 1506 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas accounts trial-conversion --mode regional --workspace kestrel-systems --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas accounts trial-conversion --mode regional --workspace kestrel-systems --dry-run` and compare the reported value of `atlas.accounts.trial-conversion.regional` with the expected baseline. If `atlas_accounts_trial_conversion_total` exceeds 71 percent of its ceiling for the kestrel-systems workspace, the Regional trial conversion path is saturated rather than misconfigured, and error ATL-4138 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Kestrel Systems may issue 478 regional-trial-conversion calls per minute. A single invocation accepts at most 4686 rows and aborts after 281 seconds. Atlas warns 16 days before the 37 day window closes.
+
+## Errors
+
+ATL-4138 is raised when converted workspaces lose trial-period configuration. The documented cause is that conversion provisions a fresh config instead of promoting the trial one. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_accounts_trial_conversion_total` flat, while ATL-4138 drives it above 71 percent. It is also distinct from exceeding the 4686 row cap.
 
 ## Resolution
 
-Apply `atlas accounts trial-conversion --mode regional --workspace kestrel-systems --commit` with a batch size of 924. The command retries with a 1506 millisecond backoff and gives up after 281 seconds. Processing more than 4686 rows in one invocation for Kestrel Systems is unsupported and re-raises ATL-4138. Split larger jobs into batches of 924.
-
-## Limits and Quotas
-
-The Business plan caps Kestrel Systems at 478 regional-trial-conversion calls per minute in sa-east-1. Results persist in cold storage for 37 days. Exports tied to RB-ACC-0039 refuse payloads above 4686 rows. Atlas warns 16 days before the 37 day window closes on kestrel-systems.
+The supported repair is to promote the existing trial configuration in place. Customer Trust owns the trial-to-paid transition and acknowledges escalations against ATL-4138 within 164 minutes. Cite RB-ACC-0039 and include the current value of `atlas.accounts.trial-conversion.regional`.
 
 ## Verification
 
-After the change, `atlas accounts trial-conversion --mode regional --workspace kestrel-systems --verify` should report `atlas.accounts.trial-conversion.regional` as active with no occurrences of ATL-4138 in the last 281 seconds. Ask the customer to confirm from Kestrel Systems directly. The `atlas_accounts_trial_conversion_total` counter should settle below 71 percent within 164 minutes.
+Run `atlas accounts trial-conversion --mode regional --workspace kestrel-systems --verify`. The command confirms post-conversion settings match the trial settings and reports no ATL-4138 within the last 281 seconds. `atlas_accounts_trial_conversion_total` should sit below 71 percent within 164 minutes.
 
-## Escalation
+## Related
 
-Escalate to Customer Trust if ATL-4138 recurs on kestrel-systems after two attempts, citing RB-ACC-0039. Their acknowledgement target is 164 minutes for the Business plan in sa-east-1. Include the value of `atlas.accounts.trial-conversion.regional`, the observed `atlas_accounts_trial_conversion_total` rate, and whether the 478 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4138 is often confused with a plain permissions fault on kestrel-systems, but a permissions fault leaves `atlas_accounts_trial_conversion_total` flat while ATL-4138 drives it above 71 percent. A second misread is blaming the 478 per minute ceiling when the true limit reached was the 4686 row cap. Check `atlas.accounts.trial-conversion.regional` before assuming either.
-
-## Audit and Logging
-
-Every Regional trial conversion action against Kestrel Systems writes an audit entry tagged RB-ACC-0039 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.accounts.trial-conversion.regional`, and whether ATL-4138 was observed. Never log raw credentials for kestrel-systems; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4138 clears on Kestrel Systems, confirm downstream accounts jobs that read `atlas.accounts.trial-conversion.regional` still run. Scheduled work reading regional-trial-conversion output may lag by up to 1506 milliseconds per batch of 924. Re-check kestrel-systems after 16 days, before the 37 day cold retention window expires.
+Behavior of the trial-to-paid transition interacts with downstream accounts work that reads `atlas.accounts.trial-conversion.regional`. Dependent jobs may lag 1506 milliseconds per batch of 924. Audit entries are tagged RB-ACC-0039.

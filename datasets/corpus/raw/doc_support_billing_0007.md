@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0007
-title: Delegated Currency Migration runbook 0007
+title: Delegated Currency Migration reference 0007
 category: billing
+doc_type: reference
 procedure: Delegated currency migration
+component: the currency conversion table
 error_code: ATL-4326
 config_key: atlas.billing.currency-migration.delegated
 workspace: Glacier Industries
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0007
 source: synthetic
 ---
 
-# Delegated Currency Migration runbook 0007
+# Delegated Currency Migration reference 0007
 
 ## Overview
 
-Runbook RB-BIL-0007 covers the Delegated currency migration procedure for the Glacier Industries workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4326; other billing faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4326 within 193 minutes.
+This reference documents Delegated currency migration as implemented by the currency conversion table in Atlas Metrics. It is written for an approver acting on the owner's behalf. The controlling setting is `atlas.billing.currency-migration.delegated` and the associated failure is ATL-4326. See RB-BIL-0007 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4326 with the message "Delegated currency migration blocked for workspace glacier-industries". The `atlas_billing_currency_migration_total` counter rises while the affected billing operation stalls. Requests exceeding 666 calls per minute against glacier-industries amplify the failure, and the operation aborts once it has waited 172 seconds.
+the currency conversion table performs Delegated currency migration whenever the workspace configuration changes. Because the delegation must be recorded before the change is applied, the operation is ordered rather than concurrent. A correct run ends when issued invoices keep their original value. An incorrect run is visible as historical invoices change value after a currency switch.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Glacier Industries, then collect 3 approval(s) before editing `atlas.billing.currency-migration.delegated`. Changes to `atlas.billing.currency-migration.delegated` are irreversible after 13 days because the prior value leaves cold storage on that schedule. Record RB-BIL-0007 and ATL-4326 in the case notes.
+`atlas.billing.currency-migration.delegated` accepts the batch size, currently 498, and the retry backoff, currently 3562 milliseconds. Editing it requires 3 approval(s). The prior value is retained 13 days in cold storage. Apply changes with `atlas billing currency-migration --mode delegated --workspace glacier-industries --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas billing currency-migration --mode delegated --workspace glacier-industries --dry-run` and compare the reported value of `atlas.billing.currency-migration.delegated` with the expected baseline. If `atlas_billing_currency_migration_total` exceeds 72 percent of its ceiling for the glacier-industries workspace, the Delegated currency migration path is saturated rather than misconfigured, and error ATL-4326 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Glacier Industries may issue 666 delegated-currency-migration calls per minute. A single invocation accepts at most 22922 rows and aborts after 172 seconds. Atlas warns 4 days before the 13 day window closes.
+
+## Errors
+
+ATL-4326 is raised when historical invoices change value after a currency switch. The documented cause is that conversion applies the current rate to already-issued documents. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_billing_currency_migration_total` flat, while ATL-4326 drives it above 72 percent. It is also distinct from exceeding the 22922 row cap.
 
 ## Resolution
 
-Apply `atlas billing currency-migration --mode delegated --workspace glacier-industries --commit` with a batch size of 498. The command retries with a 3562 millisecond backoff and gives up after 172 seconds. Processing more than 22922 rows in one invocation for Glacier Industries is unsupported and re-raises ATL-4326. Split larger jobs into batches of 498.
-
-## Limits and Quotas
-
-The Business plan caps Glacier Industries at 666 delegated-currency-migration calls per minute in eu-central-1. Results persist in cold storage for 13 days. Exports tied to RB-BIL-0007 refuse payloads above 22922 rows. Atlas warns 4 days before the 13 day window closes on glacier-industries.
+The supported repair is to freeze the rate on each document at issue time. Core API owns the currency conversion table and acknowledges escalations against ATL-4326 within 193 minutes. Cite RB-BIL-0007 and include the current value of `atlas.billing.currency-migration.delegated`.
 
 ## Verification
 
-After the change, `atlas billing currency-migration --mode delegated --workspace glacier-industries --verify` should report `atlas.billing.currency-migration.delegated` as active with no occurrences of ATL-4326 in the last 172 seconds. Ask the customer to confirm from Glacier Industries directly. The `atlas_billing_currency_migration_total` counter should settle below 72 percent within 193 minutes.
+Run `atlas billing currency-migration --mode delegated --workspace glacier-industries --verify`. The command confirms issued invoices keep their original value and reports no ATL-4326 within the last 172 seconds. `atlas_billing_currency_migration_total` should sit below 72 percent within 193 minutes.
 
-## Escalation
+## Related
 
-Escalate to Core API if ATL-4326 recurs on glacier-industries after two attempts, citing RB-BIL-0007. Their acknowledgement target is 193 minutes for the Business plan in eu-central-1. Include the value of `atlas.billing.currency-migration.delegated`, the observed `atlas_billing_currency_migration_total` rate, and whether the 666 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4326 is often confused with a plain permissions fault on glacier-industries, but a permissions fault leaves `atlas_billing_currency_migration_total` flat while ATL-4326 drives it above 72 percent. A second misread is blaming the 666 per minute ceiling when the true limit reached was the 22922 row cap. Check `atlas.billing.currency-migration.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated currency migration action against Glacier Industries writes an audit entry tagged RB-BIL-0007 and retained for 13 days in cold storage. The entry records the actor, the prior and new values of `atlas.billing.currency-migration.delegated`, and whether ATL-4326 was observed. Never log raw credentials for glacier-industries; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4326 clears on Glacier Industries, confirm downstream billing jobs that read `atlas.billing.currency-migration.delegated` still run. Scheduled work reading delegated-currency-migration output may lag by up to 3562 milliseconds per batch of 498. Re-check glacier-industries after 4 days, before the 13 day cold retention window expires.
+Behavior of the currency conversion table interacts with downstream billing work that reads `atlas.billing.currency-migration.delegated`. Dependent jobs may lag 3562 milliseconds per batch of 498. Audit entries are tagged RB-BIL-0007.

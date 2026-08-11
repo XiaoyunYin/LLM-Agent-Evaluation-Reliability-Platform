@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0052
-title: Legacy Version Deprecation runbook 0052
+title: Legacy Version Deprecation incident review 0052
 category: api
+doc_type: postmortem
 procedure: Legacy version deprecation
+component: the version routing table
 error_code: ATL-4261
 config_key: atlas.api.version-deprecation.legacy
 workspace: Junegrass Collective
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0052
 source: synthetic
 ---
 
-# Legacy Version Deprecation runbook 0052
+# Legacy Version Deprecation incident review 0052
 
-## Overview
+## Summary
 
-Runbook RB-API-0052 covers the Legacy version deprecation procedure for the Junegrass Collective workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4261; other api faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4261 within 38 minutes.
+On the Growth plan in us-east-1, Junegrass Collective reported that traffic still reaches a version past its sunset date. Atlas raised ATL-4261 for 38 minutes before Workspace Experience mitigated. The fault was in the version routing table. Review reference RB-API-0052.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4261 with the message "Legacy version deprecation blocked for workspace junegrass-collective". The `atlas_api_version_deprecation_total` counter rises while the affected api operation stalls. Requests exceeding 891 calls per minute against junegrass-collective amplify the failure, and the operation aborts once it has waited 287 seconds.
+Junegrass Collective was unable to complete Legacy version deprecation while ATL-4261 persisted. Roughly 16617 rows were delayed and `atlas_api_version_deprecation_total` held above 92 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Junegrass Collective, then collect 2 approval(s) before editing `atlas.api.version-deprecation.legacy`. Changes to `atlas.api.version-deprecation.legacy` are irreversible after 70 days because the prior value leaves warm storage on that schedule. Record RB-API-0052 and ATL-4261 in the case notes.
+Operations first saw `atlas_api_version_deprecation_total` cross 92 percent. ATL-4261 appeared against junegrass-collective once traffic exceeded 891 per minute. The page reached Workspace Experience within 38 minutes. Investigation focused on the version routing table after traffic still reaches a version past its sunset date was reproduced with `atlas api version-deprecation --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas api version-deprecation --mode legacy --workspace junegrass-collective --dry-run` and compare the reported value of `atlas.api.version-deprecation.legacy` with the expected baseline. If `atlas_api_version_deprecation_total` exceeds 92 percent of its ceiling for the junegrass-collective workspace, the Legacy version deprecation path is saturated rather than misconfigured, and error ATL-4261 is a symptom instead of the cause.
+the routing table has no terminal state for a sunset version. The condition had existed in the version routing table for some time and became visible only when Junegrass Collective crossed 891 calls per minute. The 287 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas api version-deprecation --mode legacy --workspace junegrass-collective --commit` with a batch size of 903. The command retries with a 1157 millisecond backoff and gives up after 287 seconds. Processing more than 16617 rows in one invocation for Junegrass Collective is unsupported and re-raises ATL-4261. Split larger jobs into batches of 903.
-
-## Limits and Quotas
-
-The Growth plan caps Junegrass Collective at 891 legacy-version-deprecation calls per minute in us-east-1. Results persist in warm storage for 70 days. Exports tied to RB-API-0052 refuse payloads above 16617 rows. Atlas warns 14 days before the 70 day window closes on junegrass-collective.
+The team applied the standing fix: add a terminal sunset state that returns a migration pointer. This was executed with `atlas api version-deprecation --mode legacy --workspace junegrass-collective --commit` at a batch size of 903, backing off 1157 milliseconds between attempts, under 2 approval(s) against `atlas.api.version-deprecation.legacy`.
 
 ## Verification
 
-After the change, `atlas api version-deprecation --mode legacy --workspace junegrass-collective --verify` should report `atlas.api.version-deprecation.legacy` as active with no occurrences of ATL-4261 in the last 287 seconds. Ask the customer to confirm from Junegrass Collective directly. The `atlas_api_version_deprecation_total` counter should settle below 92 percent within 38 minutes.
+Recovery was confirmed when sunset versions return a migration pointer, not data. `atlas_api_version_deprecation_total` returned below 92 percent and ATL-4261 stopped appearing for junegrass-collective. Because the change must be translated into the older format first, the team also confirmed the version routing table had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Workspace Experience if ATL-4261 recurs on junegrass-collective after two attempts, citing RB-API-0052. Their acknowledgement target is 38 minutes for the Growth plan in us-east-1. Include the value of `atlas.api.version-deprecation.legacy`, the observed `atlas_api_version_deprecation_total` rate, and whether the 891 per minute ceiling was reached.
+To keep the routing table has no terminal state for a sunset version from recurring, Workspace Experience added monitoring on the version routing table that alerts before `atlas_api_version_deprecation_total` reaches 92 percent. Retention for the diagnostic trail was set to 70 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4261 is often confused with a plain permissions fault on junegrass-collective, but a permissions fault leaves `atlas_api_version_deprecation_total` flat while ATL-4261 drives it above 92 percent. A second misread is blaming the 891 per minute ceiling when the true limit reached was the 16617 row cap. Check `atlas.api.version-deprecation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy version deprecation action against Junegrass Collective writes an audit entry tagged RB-API-0052 and retained for 70 days in warm storage. The entry records the actor, the prior and new values of `atlas.api.version-deprecation.legacy`, and whether ATL-4261 was observed. Never log raw credentials for junegrass-collective; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4261 clears on Junegrass Collective, confirm downstream api jobs that read `atlas.api.version-deprecation.legacy` still run. Scheduled work reading legacy-version-deprecation output may lag by up to 1157 milliseconds per batch of 903. Re-check junegrass-collective after 14 days, before the 70 day warm retention window expires.
+Re-check junegrass-collective after 14 days. Confirm the 891 per minute ceiling and the 16617 row cap still suit Junegrass Collective on the Growth plan, and that sunset versions return a migration pointer, not data remains true.

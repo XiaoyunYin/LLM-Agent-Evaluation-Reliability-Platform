@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0016
-title: Scheduled Endpoint Migration runbook 0016
+title: Scheduled Endpoint Migration questions and answers 0016
 category: integrations
+doc_type: faq
 procedure: Scheduled endpoint migration
+component: the remote endpoint resolver
 error_code: ATL-4775
 config_key: atlas.integrations.endpoint-migration.scheduled
 workspace: Nightjar Grid
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0016
 source: synthetic
 ---
 
-# Scheduled Endpoint Migration runbook 0016
+# Scheduled Endpoint Migration questions and answers 0016
 
-## Overview
+## What does ATL-4775 mean?
 
-Runbook RB-INT-0016 covers the Scheduled endpoint migration procedure for the Nightjar Grid workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4775; other integrations faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4775 within 165 minutes.
+It means traffic continues to a retired remote endpoint. Atlas raises it against nightjar-grid when the remote endpoint resolver cannot complete Scheduled endpoint migration. The operational procedure is RB-INT-0016, owned by Ingest Pipeline in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4775 with the message "Scheduled endpoint migration blocked for workspace nightjar-grid". The `atlas_integrations_endpoint_migration_total` counter rises while the affected integrations operation stalls. Requests exceeding 905 calls per minute against nightjar-grid amplify the failure, and the operation aborts once it has waited 180 seconds.
+The cause is that the resolver pins the endpoint at connector creation. It is a property of the remote endpoint resolver, so Nightjar Grid sees it only because it exercises that path. Because the change must be idempotent because the job may run twice, it may appear intermittent until traffic passes 905 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Nightjar Grid, then collect 4 approval(s) before editing `atlas.integrations.endpoint-migration.scheduled`. Changes to `atlas.integrations.endpoint-migration.scheduled` are irreversible after 16 days because the prior value leaves archival storage on that schedule. Record RB-INT-0016 and ATL-4775 in the case notes.
+resolve the endpoint per request from current configuration. In practice that means running `atlas integrations endpoint-migration --mode scheduled --workspace nightjar-grid --commit` with a batch size of 375 and a 575 millisecond backoff. Editing `atlas.integrations.endpoint-migration.scheduled` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas integrations endpoint-migration --mode scheduled --workspace nightjar-grid --dry-run` and compare the reported value of `atlas.integrations.endpoint-migration.scheduled` with the expected baseline. If `atlas_integrations_endpoint_migration_total` exceeds 55 percent of its ceiling for the nightjar-grid workspace, the Scheduled endpoint migration path is saturated rather than misconfigured, and error ATL-4775 is a symptom instead of the cause.
+You know it worked when traffic follows the configured endpoint. Running `atlas integrations endpoint-migration --mode scheduled --workspace nightjar-grid --verify` reports `atlas.integrations.endpoint-migration.scheduled` active with no ATL-4775 in the last 180 seconds, and `atlas_integrations_endpoint_migration_total` falls below 55 percent within 165 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas integrations endpoint-migration --mode scheduled --workspace nightjar-grid --commit` with a batch size of 375. The command retries with a 575 millisecond backoff and gives up after 180 seconds. Processing more than 66475 rows in one invocation for Nightjar Grid is unsupported and re-raises ATL-4775. Split larger jobs into batches of 375.
+No. A permissions fault leaves `atlas_integrations_endpoint_migration_total` flat, while ATL-4775 drives it above 55 percent. A second common misread is blaming the 905 per minute ceiling when the limit actually reached was the 66475 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Nightjar Grid at 905 scheduled-endpoint-migration calls per minute in eu-west-2. Results persist in archival storage for 16 days. Exports tied to RB-INT-0016 refuse payloads above 66475 rows. Atlas warns 3 days before the 16 day window closes on nightjar-grid.
+Nightjar Grid may issue 905 scheduled-endpoint-migration calls per minute on the Enterprise plan. One invocation accepts 66475 rows and aborts after 180 seconds. Results persist 16 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas integrations endpoint-migration --mode scheduled --workspace nightjar-grid --verify` should report `atlas.integrations.endpoint-migration.scheduled` as active with no occurrences of ATL-4775 in the last 180 seconds. Ask the customer to confirm from Nightjar Grid directly. The `atlas_integrations_endpoint_migration_total` counter should settle below 55 percent within 165 minutes.
+Ingest Pipeline owns the remote endpoint resolver. They acknowledge escalations against ATL-4775 within 165 minutes on the Enterprise plan. Cite RB-INT-0016 and include the observed `atlas_integrations_endpoint_migration_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Ingest Pipeline if ATL-4775 recurs on nightjar-grid after two attempts, citing RB-INT-0016. Their acknowledgement target is 165 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.integrations.endpoint-migration.scheduled`, the observed `atlas_integrations_endpoint_migration_total` rate, and whether the 905 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4775 is often confused with a plain permissions fault on nightjar-grid, but a permissions fault leaves `atlas_integrations_endpoint_migration_total` flat while ATL-4775 drives it above 55 percent. A second misread is blaming the 905 per minute ceiling when the true limit reached was the 66475 row cap. Check `atlas.integrations.endpoint-migration.scheduled` before assuming either.
-
-## Audit and Logging
-
-Every Scheduled endpoint migration action against Nightjar Grid writes an audit entry tagged RB-INT-0016 and retained for 16 days in archival storage. The entry records the actor, the prior and new values of `atlas.integrations.endpoint-migration.scheduled`, and whether ATL-4775 was observed. Never log raw credentials for nightjar-grid; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4775 clears on Nightjar Grid, confirm downstream integrations jobs that read `atlas.integrations.endpoint-migration.scheduled` still run. Scheduled work reading scheduled-endpoint-migration output may lag by up to 575 milliseconds per batch of 375. Re-check nightjar-grid after 3 days, before the 16 day archival retention window expires.
+Confirm downstream integrations work reading `atlas.integrations.endpoint-migration.scheduled` still runs. It may lag 575 milliseconds per batch of 375. Re-check nightjar-grid after 3 days, before the 16 day window closes.

@@ -2,7 +2,9 @@
 doc_id: doc_support_exports_0069
 title: Sandboxed Archive Expiry runbook 0069
 category: exports
+doc_type: runbook
 procedure: Sandboxed archive expiry
+component: the archive lifecycle policy
 error_code: ATL-4608
 config_key: atlas.exports.archive-expiry.sandboxed
 workspace: Ravenswood Dynamics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-EXP-0069 covers the Sandboxed archive expiry procedure for the Ravenswood Dynamics workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4608; other exports faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4608 within 64 minutes.
+RB-EXP-0069 describes Sandboxed archive expiry for Ravenswood Dynamics, where archived exports disappear before their stated retention. The work is performed by an engineer validating the change in a non-production copy, and the change must never write to production resources. The affected component is the archive lifecycle policy. This document applies only when Atlas raises ATL-4608; other exports faults are covered elsewhere. Revenue Engineering owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4608 with the message "Sandboxed archive expiry blocked for workspace ravenswood-dynamics". The `atlas_exports_archive_expiry_total` counter rises while the affected exports operation stalls. Requests exceeding 948 calls per minute against ravenswood-dynamics amplify the failure, and the operation aborts once it has waited 151 seconds.
+Reporters describe the same thing: archived exports disappear before their stated retention. Atlas raises ATL-4608 against the ravenswood-dynamics workspace and `atlas_exports_archive_expiry_total` climbs past 96 percent. Because the change must never write to production resources, the symptom can look intermittent when the archive lifecycle policy is under load. Requests beyond 948 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ravenswood Dynamics, then collect 1 approval(s) before editing `atlas.exports.archive-expiry.sandboxed`. Changes to `atlas.exports.archive-expiry.sandboxed` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-EXP-0069 and ATL-4608 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas exports archive-expiry --mode sandboxed --workspace ravenswood-dynamics --dry-run` and compare the reported value of `atlas.exports.archive-expiry.sandboxed` with the expected baseline. If `atlas_exports_archive_expiry_total` exceeds 96 percent of its ceiling for the ravenswood-dynamics workspace, the Sandboxed archive expiry path is saturated rather than misconfigured, and error ATL-4608 is a symptom instead of the cause.
+The underlying fault is that the policy measures age from creation rather than from archival. This is a property of the archive lifecycle policy rather than of any single workspace, so Ravenswood Dynamics is affected only because it exercises that path. The 151 second abort is a consequence, not the cause; raising it hides ATL-4608 without repairing the archive lifecycle policy.
 
 ## Resolution
 
-Apply `atlas exports archive-expiry --mode sandboxed --workspace ravenswood-dynamics --commit` with a batch size of 334. The command retries with a 4196 millisecond backoff and gives up after 151 seconds. Processing more than 50276 rows in one invocation for Ravenswood Dynamics is unsupported and re-raises ATL-4608. Split larger jobs into batches of 334.
-
-## Limits and Quotas
-
-The Starter plan caps Ravenswood Dynamics at 948 sandboxed-archive-expiry calls per minute in ap-southeast-1. Results persist in hot storage for 19 days. Exports tied to RB-EXP-0069 refuse payloads above 50276 rows. Atlas warns 11 days before the 19 day window closes on ravenswood-dynamics.
+To repair the fault, measure retention from the archival timestamp. Run `atlas exports archive-expiry --mode sandboxed --workspace ravenswood-dynamics --commit` with a batch size of 334, retrying with a 4196 millisecond backoff. Because the change must never write to production resources, do not exceed 50276 rows in one invocation. Editing `atlas.exports.archive-expiry.sandboxed` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas exports archive-expiry --mode sandboxed --workspace ravenswood-dynamics --verify` should report `atlas.exports.archive-expiry.sandboxed` as active with no occurrences of ATL-4608 in the last 151 seconds. Ask the customer to confirm from Ravenswood Dynamics directly. The `atlas_exports_archive_expiry_total` counter should settle below 96 percent within 64 minutes.
+The repair has landed when archives persist for their full stated retention. Confirm with `atlas exports archive-expiry --mode sandboxed --workspace ravenswood-dynamics --verify`, which should report `atlas.exports.archive-expiry.sandboxed` active and no ATL-4608 in the last 151 seconds. `atlas_exports_archive_expiry_total` should settle below 96 percent within 64 minutes.
+
+## Limits
+
+Ravenswood Dynamics is capped at 948 sandboxed-archive-expiry calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 19 days, and Atlas warns 11 days before that window closes. Payloads above 50276 rows are refused.
 
 ## Escalation
 
-Escalate to Revenue Engineering if ATL-4608 recurs on ravenswood-dynamics after two attempts, citing RB-EXP-0069. Their acknowledgement target is 64 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.exports.archive-expiry.sandboxed`, the observed `atlas_exports_archive_expiry_total` rate, and whether the 948 per minute ceiling was reached.
+Escalate to Revenue Engineering citing RB-EXP-0069 if ATL-4608 recurs after two attempts, or if archived exports disappear before their stated retention persists once archives persist for their full stated retention. Their acknowledgement target is 64 minutes. Include the value of `atlas.exports.archive-expiry.sandboxed` and the observed `atlas_exports_archive_expiry_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4608 is often confused with a plain permissions fault on ravenswood-dynamics, but a permissions fault leaves `atlas_exports_archive_expiry_total` flat while ATL-4608 drives it above 96 percent. A second misread is blaming the 948 per minute ceiling when the true limit reached was the 50276 row cap. Check `atlas.exports.archive-expiry.sandboxed` before assuming either.
+Every Sandboxed archive expiry action against Ravenswood Dynamics writes an entry tagged RB-EXP-0069, retained 19 days in hot storage, recording the actor and both values of `atlas.exports.archive-expiry.sandboxed`. Because the change must never write to production resources, the entry also records whether the archive lifecycle policy was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Sandboxed archive expiry action against Ravenswood Dynamics writes an audit entry tagged RB-EXP-0069 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.exports.archive-expiry.sandboxed`, and whether ATL-4608 was observed. Never log raw credentials for ravenswood-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4608 clears on Ravenswood Dynamics, confirm downstream exports jobs that read `atlas.exports.archive-expiry.sandboxed` still run. Scheduled work reading sandboxed-archive-expiry output may lag by up to 4196 milliseconds per batch of 334. Re-check ravenswood-dynamics after 11 days, before the 19 day hot retention window expires.
+Once ATL-4608 clears, confirm downstream exports jobs reading `atlas.exports.archive-expiry.sandboxed` still run. Work depending on the archive lifecycle policy may lag 4196 milliseconds per batch of 334. Re-check ravenswood-dynamics after 11 days.

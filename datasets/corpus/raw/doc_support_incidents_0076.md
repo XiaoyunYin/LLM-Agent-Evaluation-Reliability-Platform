@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0076
-title: Sandboxed Escalation Handoff runbook 0076
+title: Sandboxed Escalation Handoff incident review 0076
 category: incidents
+doc_type: postmortem
 procedure: Sandboxed escalation handoff
+component: the escalation ledger
 error_code: ATL-4725
 config_key: atlas.incidents.escalation-handoff.sandboxed
 workspace: Umbra Freight
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0076
 source: synthetic
 ---
 
-# Sandboxed Escalation Handoff runbook 0076
+# Sandboxed Escalation Handoff incident review 0076
 
-## Overview
+## Summary
 
-Runbook RB-INC-0076 covers the Sandboxed escalation handoff procedure for the Umbra Freight workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4725; other incidents faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-4725 within 205 minutes.
+On the Growth plan in us-east-1, Umbra Freight reported that context is lost when an incident changes owning team. Atlas raised ATL-4725 for 205 minutes before Billing Infrastructure mitigated. The fault was in the escalation ledger. Review reference RB-INC-0076.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4725 with the message "Sandboxed escalation handoff blocked for workspace umbra-freight". The `atlas_incidents_escalation_handoff_total` counter rises while the affected incidents operation stalls. Requests exceeding 355 calls per minute against umbra-freight amplify the failure, and the operation aborts once it has waited 115 seconds.
+Umbra Freight was unable to complete Sandboxed escalation handoff while ATL-4725 persisted. Roughly 61625 rows were delayed and `atlas_incidents_escalation_handoff_total` held above 60 percent throughout. Because the change must never write to production resources, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Umbra Freight, then collect 2 approval(s) before editing `atlas.incidents.escalation-handoff.sandboxed`. Changes to `atlas.incidents.escalation-handoff.sandboxed` are irreversible after 34 days because the prior value leaves warm storage on that schedule. Record RB-INC-0076 and ATL-4725 in the case notes.
+Operations first saw `atlas_incidents_escalation_handoff_total` cross 60 percent. ATL-4725 appeared against umbra-freight once traffic exceeded 355 per minute. The page reached Billing Infrastructure within 205 minutes. Investigation focused on the escalation ledger after context is lost when an incident changes owning team was reproduced with `atlas incidents escalation-handoff --mode sandboxed --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas incidents escalation-handoff --mode sandboxed --workspace umbra-freight --dry-run` and compare the reported value of `atlas.incidents.escalation-handoff.sandboxed` with the expected baseline. If `atlas_incidents_escalation_handoff_total` exceeds 60 percent of its ceiling for the umbra-freight workspace, the Sandboxed escalation handoff path is saturated rather than misconfigured, and error ATL-4725 is a symptom instead of the cause.
+handoff transfers ownership without carrying the investigation notes. The condition had existed in the escalation ledger for some time and became visible only when Umbra Freight crossed 355 calls per minute. The 115 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas incidents escalation-handoff --mode sandboxed --workspace umbra-freight --commit` with a batch size of 175. The command retries with a 3625 millisecond backoff and gives up after 115 seconds. Processing more than 61625 rows in one invocation for Umbra Freight is unsupported and re-raises ATL-4725. Split larger jobs into batches of 175.
-
-## Limits and Quotas
-
-The Growth plan caps Umbra Freight at 355 sandboxed-escalation-handoff calls per minute in us-east-1. Results persist in warm storage for 34 days. Exports tied to RB-INC-0076 refuse payloads above 61625 rows. Atlas warns 3 days before the 34 day window closes on umbra-freight.
+The team applied the standing fix: attach investigation notes to the handoff record. This was executed with `atlas incidents escalation-handoff --mode sandboxed --workspace umbra-freight --commit` at a batch size of 175, backing off 3625 milliseconds between attempts, under 2 approval(s) against `atlas.incidents.escalation-handoff.sandboxed`.
 
 ## Verification
 
-After the change, `atlas incidents escalation-handoff --mode sandboxed --workspace umbra-freight --verify` should report `atlas.incidents.escalation-handoff.sandboxed` as active with no occurrences of ATL-4725 in the last 115 seconds. Ask the customer to confirm from Umbra Freight directly. The `atlas_incidents_escalation_handoff_total` counter should settle below 60 percent within 205 minutes.
+Recovery was confirmed when the receiving team sees the full prior investigation. `atlas_incidents_escalation_handoff_total` returned below 60 percent and ATL-4725 stopped appearing for umbra-freight. Because the change must never write to production resources, the team also confirmed the escalation ledger had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Billing Infrastructure if ATL-4725 recurs on umbra-freight after two attempts, citing RB-INC-0076. Their acknowledgement target is 205 minutes for the Growth plan in us-east-1. Include the value of `atlas.incidents.escalation-handoff.sandboxed`, the observed `atlas_incidents_escalation_handoff_total` rate, and whether the 355 per minute ceiling was reached.
+To keep handoff transfers ownership without carrying the investigation notes from recurring, Billing Infrastructure added monitoring on the escalation ledger that alerts before `atlas_incidents_escalation_handoff_total` reaches 60 percent. Retention for the diagnostic trail was set to 34 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4725 is often confused with a plain permissions fault on umbra-freight, but a permissions fault leaves `atlas_incidents_escalation_handoff_total` flat while ATL-4725 drives it above 60 percent. A second misread is blaming the 355 per minute ceiling when the true limit reached was the 61625 row cap. Check `atlas.incidents.escalation-handoff.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed escalation handoff action against Umbra Freight writes an audit entry tagged RB-INC-0076 and retained for 34 days in warm storage. The entry records the actor, the prior and new values of `atlas.incidents.escalation-handoff.sandboxed`, and whether ATL-4725 was observed. Never log raw credentials for umbra-freight; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4725 clears on Umbra Freight, confirm downstream incidents jobs that read `atlas.incidents.escalation-handoff.sandboxed` still run. Scheduled work reading sandboxed-escalation-handoff output may lag by up to 3625 milliseconds per batch of 175. Re-check umbra-freight after 3 days, before the 34 day warm retention window expires.
+Re-check umbra-freight after 3 days. Confirm the 355 per minute ceiling and the 61625 row cap still suit Umbra Freight on the Growth plan, and that the receiving team sees the full prior investigation remains true.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0048
-title: Legacy Clock Skew Correction runbook 0048
+title: Legacy Clock Skew Correction incident review 0048
 category: troubleshooting
+doc_type: postmortem
 procedure: Legacy clock skew correction
+component: the time synchronization agent
 error_code: ATL-5137
 config_key: atlas.troubleshooting.clock-skew-correction.legacy
 workspace: Blackpine Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0048
 source: synthetic
 ---
 
-# Legacy Clock Skew Correction runbook 0048
+# Legacy Clock Skew Correction incident review 0048
 
-## Overview
+## Summary
 
-Runbook RB-TRO-0048 covers the Legacy clock skew correction procedure for the Blackpine Optics workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-5137; other troubleshooting faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-5137 within 41 minutes.
+On the Growth plan in ap-northeast-3, Blackpine Optics reported that events appear to occur before the actions that caused them. Atlas raised ATL-5137 for 41 minutes before Data Delivery mitigated. The fault was in the time synchronization agent. Review reference RB-TRO-0048.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5137 with the message "Legacy clock skew correction blocked for workspace blackpine-optics". The `atlas_troubleshooting_clock_skew_correction_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 187 calls per minute against blackpine-optics amplify the failure, and the operation aborts once it has waited 149 seconds.
+Blackpine Optics was unable to complete Legacy clock skew correction while ATL-5137 persisted. Roughly 2589 rows were delayed and `atlas_troubleshooting_clock_skew_correction_total` held above 89 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Blackpine Optics, then collect 2 approval(s) before editing `atlas.troubleshooting.clock-skew-correction.legacy`. Changes to `atlas.troubleshooting.clock-skew-correction.legacy` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-TRO-0048 and ATL-5137 in the case notes.
+Operations first saw `atlas_troubleshooting_clock_skew_correction_total` cross 89 percent. ATL-5137 appeared against blackpine-optics once traffic exceeded 187 per minute. The page reached Data Delivery within 41 minutes. Investigation focused on the time synchronization agent after events appear to occur before the actions that caused them was reproduced with `atlas troubleshooting clock-skew-correction --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas troubleshooting clock-skew-correction --mode legacy --workspace blackpine-optics --dry-run` and compare the reported value of `atlas.troubleshooting.clock-skew-correction.legacy` with the expected baseline. If `atlas_troubleshooting_clock_skew_correction_total` exceeds 89 percent of its ceiling for the blackpine-optics workspace, the Legacy clock skew correction path is saturated rather than misconfigured, and error ATL-5137 is a symptom instead of the cause.
+hosts drift because the agent silently stops after a failed sync. The condition had existed in the time synchronization agent for some time and became visible only when Blackpine Optics crossed 187 calls per minute. The 149 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas troubleshooting clock-skew-correction --mode legacy --workspace blackpine-optics --commit` with a batch size of 151. The command retries with a 4169 millisecond backoff and gives up after 149 seconds. Processing more than 2589 rows in one invocation for Blackpine Optics is unsupported and re-raises ATL-5137. Split larger jobs into batches of 151.
-
-## Limits and Quotas
-
-The Growth plan caps Blackpine Optics at 187 legacy-clock-skew-correction calls per minute in ap-northeast-3. Results persist in warm storage for 10 days. Exports tied to RB-TRO-0048 refuse payloads above 2589 rows. Atlas warns 15 days before the 10 day window closes on blackpine-optics.
+The team applied the standing fix: alert on sync failure and restart the agent. This was executed with `atlas troubleshooting clock-skew-correction --mode legacy --workspace blackpine-optics --commit` at a batch size of 151, backing off 4169 milliseconds between attempts, under 2 approval(s) against `atlas.troubleshooting.clock-skew-correction.legacy`.
 
 ## Verification
 
-After the change, `atlas troubleshooting clock-skew-correction --mode legacy --workspace blackpine-optics --verify` should report `atlas.troubleshooting.clock-skew-correction.legacy` as active with no occurrences of ATL-5137 in the last 149 seconds. Ask the customer to confirm from Blackpine Optics directly. The `atlas_troubleshooting_clock_skew_correction_total` counter should settle below 89 percent within 41 minutes.
+Recovery was confirmed when host clock offsets stay inside tolerance. `atlas_troubleshooting_clock_skew_correction_total` returned below 89 percent and ATL-5137 stopped appearing for blackpine-optics. Because the change must be translated into the older format first, the team also confirmed the time synchronization agent had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Data Delivery if ATL-5137 recurs on blackpine-optics after two attempts, citing RB-TRO-0048. Their acknowledgement target is 41 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.troubleshooting.clock-skew-correction.legacy`, the observed `atlas_troubleshooting_clock_skew_correction_total` rate, and whether the 187 per minute ceiling was reached.
+To keep hosts drift because the agent silently stops after a failed sync from recurring, Data Delivery added monitoring on the time synchronization agent that alerts before `atlas_troubleshooting_clock_skew_correction_total` reaches 89 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5137 is often confused with a plain permissions fault on blackpine-optics, but a permissions fault leaves `atlas_troubleshooting_clock_skew_correction_total` flat while ATL-5137 drives it above 89 percent. A second misread is blaming the 187 per minute ceiling when the true limit reached was the 2589 row cap. Check `atlas.troubleshooting.clock-skew-correction.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy clock skew correction action against Blackpine Optics writes an audit entry tagged RB-TRO-0048 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.clock-skew-correction.legacy`, and whether ATL-5137 was observed. Never log raw credentials for blackpine-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5137 clears on Blackpine Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.clock-skew-correction.legacy` still run. Scheduled work reading legacy-clock-skew-correction output may lag by up to 4169 milliseconds per batch of 151. Re-check blackpine-optics after 15 days, before the 10 day warm retention window expires.
+Re-check blackpine-optics after 15 days. Confirm the 187 per minute ceiling and the 2589 row cap still suit Blackpine Optics on the Growth plan, and that host clock offsets stay inside tolerance remains true.

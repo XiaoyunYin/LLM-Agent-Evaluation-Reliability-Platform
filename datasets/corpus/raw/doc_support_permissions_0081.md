@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0081
-title: Throttled Privilege Revocation runbook 0081
+title: Throttled Privilege Revocation reference 0081
 category: permissions
+doc_type: reference
 procedure: Throttled privilege revocation
+component: the grant revocation path
 error_code: ATL-4950
 config_key: atlas.permissions.privilege-revocation.throttled
 workspace: Northwind Maritime
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0081
 source: synthetic
 ---
 
-# Throttled Privilege Revocation runbook 0081
+# Throttled Privilege Revocation reference 0081
 
 ## Overview
 
-Runbook RB-PER-0081 covers the Throttled privilege revocation procedure for the Northwind Maritime workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4950; other permissions faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4950 within 25 minutes.
+This reference documents Throttled privilege revocation as implemented by the grant revocation path in Atlas Metrics. It is written for a caller operating under an active rate limit. The controlling setting is `atlas.permissions.privilege-revocation.throttled` and the associated failure is ATL-4950. See RB-PER-0081 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4950 with the message "Throttled privilege revocation blocked for workspace northwind-maritime". The `atlas_permissions_privilege_revocation_total` counter rises while the affected permissions operation stalls. Requests exceeding 950 calls per minute against northwind-maritime amplify the failure, and the operation aborts once it has waited 265 seconds.
+the grant revocation path performs Throttled privilege revocation whenever the workspace configuration changes. Because the change must yield capacity to interactive traffic, the operation is ordered rather than concurrent. A correct run ends when revoked privileges fail on the next request. An incorrect run is visible as revoked privileges persist in active sessions.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Northwind Maritime, then collect 3 approval(s) before editing `atlas.permissions.privilege-revocation.throttled`. Changes to `atlas.permissions.privilege-revocation.throttled` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-PER-0081 and ATL-4950 in the case notes.
+`atlas.permissions.privilege-revocation.throttled` accepts the batch size, currently 600, and the retry backoff, currently 2150 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas permissions privilege-revocation --mode throttled --workspace northwind-maritime --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas permissions privilege-revocation --mode throttled --workspace northwind-maritime --dry-run` and compare the reported value of `atlas.permissions.privilege-revocation.throttled` with the expected baseline. If `atlas_permissions_privilege_revocation_total` exceeds 60 percent of its ceiling for the northwind-maritime workspace, the Throttled privilege revocation path is saturated rather than misconfigured, and error ATL-4950 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Northwind Maritime may issue 950 throttled-privilege-revocation calls per minute. A single invocation accepts at most 83450 rows and aborts after 265 seconds. Atlas warns 3 days before the 37 day window closes.
+
+## Errors
+
+ATL-4950 is raised when revoked privileges persist in active sessions. The documented cause is that revocation updates stored grants but not sessions already authorized. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_permissions_privilege_revocation_total` flat, while ATL-4950 drives it above 60 percent. It is also distinct from exceeding the 83450 row cap.
 
 ## Resolution
 
-Apply `atlas permissions privilege-revocation --mode throttled --workspace northwind-maritime --commit` with a batch size of 600. The command retries with a 2150 millisecond backoff and gives up after 265 seconds. Processing more than 83450 rows in one invocation for Northwind Maritime is unsupported and re-raises ATL-4950. Split larger jobs into batches of 600.
-
-## Limits and Quotas
-
-The Business plan caps Northwind Maritime at 950 throttled-privilege-revocation calls per minute in eu-central-1. Results persist in cold storage for 37 days. Exports tied to RB-PER-0081 refuse payloads above 83450 rows. Atlas warns 3 days before the 37 day window closes on northwind-maritime.
+The supported repair is to invalidate authorized sessions on revocation. Data Delivery owns the grant revocation path and acknowledges escalations against ATL-4950 within 25 minutes. Cite RB-PER-0081 and include the current value of `atlas.permissions.privilege-revocation.throttled`.
 
 ## Verification
 
-After the change, `atlas permissions privilege-revocation --mode throttled --workspace northwind-maritime --verify` should report `atlas.permissions.privilege-revocation.throttled` as active with no occurrences of ATL-4950 in the last 265 seconds. Ask the customer to confirm from Northwind Maritime directly. The `atlas_permissions_privilege_revocation_total` counter should settle below 60 percent within 25 minutes.
+Run `atlas permissions privilege-revocation --mode throttled --workspace northwind-maritime --verify`. The command confirms revoked privileges fail on the next request and reports no ATL-4950 within the last 265 seconds. `atlas_permissions_privilege_revocation_total` should sit below 60 percent within 25 minutes.
 
-## Escalation
+## Related
 
-Escalate to Data Delivery if ATL-4950 recurs on northwind-maritime after two attempts, citing RB-PER-0081. Their acknowledgement target is 25 minutes for the Business plan in eu-central-1. Include the value of `atlas.permissions.privilege-revocation.throttled`, the observed `atlas_permissions_privilege_revocation_total` rate, and whether the 950 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4950 is often confused with a plain permissions fault on northwind-maritime, but a permissions fault leaves `atlas_permissions_privilege_revocation_total` flat while ATL-4950 drives it above 60 percent. A second misread is blaming the 950 per minute ceiling when the true limit reached was the 83450 row cap. Check `atlas.permissions.privilege-revocation.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled privilege revocation action against Northwind Maritime writes an audit entry tagged RB-PER-0081 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.permissions.privilege-revocation.throttled`, and whether ATL-4950 was observed. Never log raw credentials for northwind-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4950 clears on Northwind Maritime, confirm downstream permissions jobs that read `atlas.permissions.privilege-revocation.throttled` still run. Scheduled work reading throttled-privilege-revocation output may lag by up to 2150 milliseconds per batch of 600. Re-check northwind-maritime after 3 days, before the 37 day cold retention window expires.
+Behavior of the grant revocation path interacts with downstream permissions work that reads `atlas.permissions.privilege-revocation.throttled`. Dependent jobs may lag 2150 milliseconds per batch of 600. Audit entries are tagged RB-PER-0081.

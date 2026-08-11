@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0104
-title: Cascading Idempotency Recovery runbook 0104
+title: Cascading Idempotency Recovery incident review 0104
 category: api
+doc_type: postmortem
 procedure: Cascading idempotency recovery
+component: the idempotency key store
 error_code: ATL-4313
 config_key: atlas.api.idempotency-recovery.cascading
 workspace: Quarry Industries
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0104
 source: synthetic
 ---
 
-# Cascading Idempotency Recovery runbook 0104
+# Cascading Idempotency Recovery incident review 0104
 
-## Overview
+## Summary
 
-Runbook RB-API-0104 covers the Cascading idempotency recovery procedure for the Quarry Industries workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4313; other api faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4313 within 24 minutes.
+On the Growth plan in ap-northeast-3, Quarry Industries reported that a retried request creates a second resource. Atlas raised ATL-4313 for 24 minutes before Ingest Pipeline mitigated. The fault was in the idempotency key store. Review reference RB-API-0104.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4313 with the message "Cascading idempotency recovery blocked for workspace quarry-industries". The `atlas_api_idempotency_recovery_total` counter rises while the affected api operation stalls. Requests exceeding 523 calls per minute against quarry-industries amplify the failure, and the operation aborts once it has waited 81 seconds.
+Quarry Industries was unable to complete Cascading idempotency recovery while ATL-4313 persisted. Roughly 21661 rows were delayed and `atlas_api_idempotency_recovery_total` held above 76 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Quarry Industries, then collect 2 approval(s) before editing `atlas.api.idempotency-recovery.cascading`. Changes to `atlas.api.idempotency-recovery.cascading` are irreversible after 58 days because the prior value leaves warm storage on that schedule. Record RB-API-0104 and ATL-4313 in the case notes.
+Operations first saw `atlas_api_idempotency_recovery_total` cross 76 percent. ATL-4313 appeared against quarry-industries once traffic exceeded 523 per minute. The page reached Ingest Pipeline within 24 minutes. Investigation focused on the idempotency key store after a retried request creates a second resource was reproduced with `atlas api idempotency-recovery --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas api idempotency-recovery --mode cascading --workspace quarry-industries --dry-run` and compare the reported value of `atlas.api.idempotency-recovery.cascading` with the expected baseline. If `atlas_api_idempotency_recovery_total` exceeds 76 percent of its ceiling for the quarry-industries workspace, the Cascading idempotency recovery path is saturated rather than misconfigured, and error ATL-4313 is a symptom instead of the cause.
+the key expires before the client's retry budget is exhausted. The condition had existed in the idempotency key store for some time and became visible only when Quarry Industries crossed 523 calls per minute. The 81 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas api idempotency-recovery --mode cascading --workspace quarry-industries --commit` with a batch size of 199. The command retries with a 3081 millisecond backoff and gives up after 81 seconds. Processing more than 21661 rows in one invocation for Quarry Industries is unsupported and re-raises ATL-4313. Split larger jobs into batches of 199.
-
-## Limits and Quotas
-
-The Growth plan caps Quarry Industries at 523 cascading-idempotency-recovery calls per minute in ap-northeast-3. Results persist in warm storage for 58 days. Exports tied to RB-API-0104 refuse payloads above 21661 rows. Atlas warns 16 days before the 58 day window closes on quarry-industries.
+The team applied the standing fix: extend key retention past the maximum client retry window. This was executed with `atlas api idempotency-recovery --mode cascading --workspace quarry-industries --commit` at a batch size of 199, backing off 3081 milliseconds between attempts, under 2 approval(s) against `atlas.api.idempotency-recovery.cascading`.
 
 ## Verification
 
-After the change, `atlas api idempotency-recovery --mode cascading --workspace quarry-industries --verify` should report `atlas.api.idempotency-recovery.cascading` as active with no occurrences of ATL-4313 in the last 81 seconds. Ask the customer to confirm from Quarry Industries directly. The `atlas_api_idempotency_recovery_total` counter should settle below 76 percent within 24 minutes.
+Recovery was confirmed when retries return the original resource rather than creating one. `atlas_api_idempotency_recovery_total` returned below 76 percent and ATL-4313 stopped appearing for quarry-industries. Because dependents must be re-evaluated after the change lands, the team also confirmed the idempotency key store had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Ingest Pipeline if ATL-4313 recurs on quarry-industries after two attempts, citing RB-API-0104. Their acknowledgement target is 24 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.api.idempotency-recovery.cascading`, the observed `atlas_api_idempotency_recovery_total` rate, and whether the 523 per minute ceiling was reached.
+To keep the key expires before the client's retry budget is exhausted from recurring, Ingest Pipeline added monitoring on the idempotency key store that alerts before `atlas_api_idempotency_recovery_total` reaches 76 percent. Retention for the diagnostic trail was set to 58 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4313 is often confused with a plain permissions fault on quarry-industries, but a permissions fault leaves `atlas_api_idempotency_recovery_total` flat while ATL-4313 drives it above 76 percent. A second misread is blaming the 523 per minute ceiling when the true limit reached was the 21661 row cap. Check `atlas.api.idempotency-recovery.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading idempotency recovery action against Quarry Industries writes an audit entry tagged RB-API-0104 and retained for 58 days in warm storage. The entry records the actor, the prior and new values of `atlas.api.idempotency-recovery.cascading`, and whether ATL-4313 was observed. Never log raw credentials for quarry-industries; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4313 clears on Quarry Industries, confirm downstream api jobs that read `atlas.api.idempotency-recovery.cascading` still run. Scheduled work reading cascading-idempotency-recovery output may lag by up to 3081 milliseconds per batch of 199. Re-check quarry-industries after 16 days, before the 58 day warm retention window expires.
+Re-check quarry-industries after 16 days. Confirm the 523 per minute ceiling and the 21661 row cap still suit Quarry Industries on the Growth plan, and that retries return the original resource rather than creating one remains true.

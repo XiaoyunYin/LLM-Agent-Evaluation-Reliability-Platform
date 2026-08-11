@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0096
-title: Audited Mitigation Rollback runbook 0096
+title: Audited Mitigation Rollback incident review 0096
 category: incidents
+doc_type: postmortem
 procedure: Audited mitigation rollback
+component: the mitigation controller
 error_code: ATL-4745
 config_key: atlas.incidents.mitigation-rollback.audited
 workspace: Stonebridge Freight
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0096
 source: synthetic
 ---
 
-# Audited Mitigation Rollback runbook 0096
+# Audited Mitigation Rollback incident review 0096
 
-## Overview
+## Summary
 
-Runbook RB-INC-0096 covers the Audited mitigation rollback procedure for the Stonebridge Freight workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4745; other incidents faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4745 within 120 minutes.
+On the Growth plan in ap-northeast-3, Stonebridge Freight reported that rolling back a mitigation reintroduces the original fault. Atlas raised ATL-4745 for 120 minutes before Workspace Experience mitigated. The fault was in the mitigation controller. Review reference RB-INC-0096.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4745 with the message "Audited mitigation rollback blocked for workspace stonebridge-freight". The `atlas_incidents_mitigation_rollback_total` counter rises while the affected incidents operation stalls. Requests exceeding 575 calls per minute against stonebridge-freight amplify the failure, and the operation aborts once it has waited 255 seconds.
+Stonebridge Freight was unable to complete Audited mitigation rollback while ATL-4745 persisted. Roughly 63565 rows were delayed and `atlas_incidents_mitigation_rollback_total` held above 85 percent throughout. Because every step must be recorded with the actor and timestamp, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Stonebridge Freight, then collect 2 approval(s) before editing `atlas.incidents.mitigation-rollback.audited`. Changes to `atlas.incidents.mitigation-rollback.audited` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-INC-0096 and ATL-4745 in the case notes.
+Operations first saw `atlas_incidents_mitigation_rollback_total` cross 85 percent. ATL-4745 appeared against stonebridge-freight once traffic exceeded 575 per minute. The page reached Workspace Experience within 120 minutes. Investigation focused on the mitigation controller after rolling back a mitigation reintroduces the original fault was reproduced with `atlas incidents mitigation-rollback --mode audited --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas incidents mitigation-rollback --mode audited --workspace stonebridge-freight --dry-run` and compare the reported value of `atlas.incidents.mitigation-rollback.audited` with the expected baseline. If `atlas_incidents_mitigation_rollback_total` exceeds 85 percent of its ceiling for the stonebridge-freight workspace, the Audited mitigation rollback path is saturated rather than misconfigured, and error ATL-4745 is a symptom instead of the cause.
+rollback restores configuration without re-checking the trigger. The condition had existed in the mitigation controller for some time and became visible only when Stonebridge Freight crossed 575 calls per minute. The 255 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas incidents mitigation-rollback --mode audited --workspace stonebridge-freight --commit` with a batch size of 635. The command retries with a 4365 millisecond backoff and gives up after 255 seconds. Processing more than 63565 rows in one invocation for Stonebridge Freight is unsupported and re-raises ATL-4745. Split larger jobs into batches of 635.
-
-## Limits and Quotas
-
-The Growth plan caps Stonebridge Freight at 575 audited-mitigation-rollback calls per minute in ap-northeast-3. Results persist in warm storage for 10 days. Exports tied to RB-INC-0096 refuse payloads above 63565 rows. Atlas warns 23 days before the 10 day window closes on stonebridge-freight.
+The team applied the standing fix: re-evaluate the trigger condition before completing rollback. This was executed with `atlas incidents mitigation-rollback --mode audited --workspace stonebridge-freight --commit` at a batch size of 635, backing off 4365 milliseconds between attempts, under 2 approval(s) against `atlas.incidents.mitigation-rollback.audited`.
 
 ## Verification
 
-After the change, `atlas incidents mitigation-rollback --mode audited --workspace stonebridge-freight --verify` should report `atlas.incidents.mitigation-rollback.audited` as active with no occurrences of ATL-4745 in the last 255 seconds. Ask the customer to confirm from Stonebridge Freight directly. The `atlas_incidents_mitigation_rollback_total` counter should settle below 85 percent within 120 minutes.
+Recovery was confirmed when rollback halts if the original condition still holds. `atlas_incidents_mitigation_rollback_total` returned below 85 percent and ATL-4745 stopped appearing for stonebridge-freight. Because every step must be recorded with the actor and timestamp, the team also confirmed the mitigation controller had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Workspace Experience if ATL-4745 recurs on stonebridge-freight after two attempts, citing RB-INC-0096. Their acknowledgement target is 120 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.incidents.mitigation-rollback.audited`, the observed `atlas_incidents_mitigation_rollback_total` rate, and whether the 575 per minute ceiling was reached.
+To keep rollback restores configuration without re-checking the trigger from recurring, Workspace Experience added monitoring on the mitigation controller that alerts before `atlas_incidents_mitigation_rollback_total` reaches 85 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4745 is often confused with a plain permissions fault on stonebridge-freight, but a permissions fault leaves `atlas_incidents_mitigation_rollback_total` flat while ATL-4745 drives it above 85 percent. A second misread is blaming the 575 per minute ceiling when the true limit reached was the 63565 row cap. Check `atlas.incidents.mitigation-rollback.audited` before assuming either.
-
-## Audit and Logging
-
-Every Audited mitigation rollback action against Stonebridge Freight writes an audit entry tagged RB-INC-0096 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.incidents.mitigation-rollback.audited`, and whether ATL-4745 was observed. Never log raw credentials for stonebridge-freight; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4745 clears on Stonebridge Freight, confirm downstream incidents jobs that read `atlas.incidents.mitigation-rollback.audited` still run. Scheduled work reading audited-mitigation-rollback output may lag by up to 4365 milliseconds per batch of 635. Re-check stonebridge-freight after 23 days, before the 10 day warm retention window expires.
+Re-check stonebridge-freight after 23 days. Confirm the 575 per minute ceiling and the 63565 row cap still suit Stonebridge Freight on the Growth plan, and that rollback halts if the original condition still holds remains true.

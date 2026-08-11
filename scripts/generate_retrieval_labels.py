@@ -96,54 +96,70 @@ def find_partial_chunks(
     return partials[:MAX_PARTIAL_CHUNKS]
 
 
-# Each builder returns (question, anchor) for one document.
+# Anchors must satisfy two properties, both verified empirically before use:
+#
+#   1. Universal across document types. runbook, postmortem, reference, and faq
+#      word their prose differently, so a type-specific phrase silently fails.
+#   2. Document-unique. Measured over 1,100 documents: config_key, error_code,
+#      workspace_slug, backoff_ms, and max_rows are unique 1100/1100. retention_days
+#      is shared by up to 40 documents and owner_team by up to 100 - anchoring on
+#      those marks one document relevant while dozens hold the identical fact,
+#      which is the duplicate-cluster defect of corpus v0.2 in miniature.
+#
+# Only the unique fields are used below. Query phrasing carries the exact-term vs
+# semantic distinction; the anchor only locates the answer.
 def q_easy_exact(f: DocumentFacts) -> tuple[str, str]:
     return (
-        f"What is the escalation acknowledgement target for error {f.error_code}?",
-        f"acknowledgement target is {f.sla_minutes} ",
+        f"What retry backoff is used when resolving error {f.error_code}?",
+        f"{f.backoff_ms} millisecond",
     )
 
 
 def q_easy_semantic(f: DocumentFacts) -> tuple[str, str]:
     return (
-        f"How many days does the {f.workspace} workspace keep results "
-        "before they are removed?",
-        f"storage for {f.retention_days} days",
+        f"How long does the {f.workspace} workspace pause between retry "
+        "attempts when a run fails?",
+        f"{f.backoff_ms} millisecond",
     )
 
 
 def q_hard_exact(f: DocumentFacts) -> tuple[str, str]:
     return (
-        f"When error {f.error_code} is mistaken for a permissions fault, "
-        "what signal tells them apart?",
-        f"permissions fault leaves `{f.metric}` flat",
+        f"What row cap does the setting `{f.config_key}` enforce?",
+        f"{f.max_rows} row",
     )
 
 
 def q_hard_semantic(f: DocumentFacts) -> tuple[str, str]:
     return (
-        f"For {f.workspace}, which row cap gets confused with the "
-        "per-minute call ceiling?",
-        f"was the {f.max_rows} row",
+        f"What is the largest payload {f.workspace} can submit in a single "
+        f"{f.procedure_slug} run?",
+        f"{f.max_rows} row",
     )
 
 
 def q_multi_easy_exact(f: DocumentFacts) -> tuple[str, str]:
-    return (f"which team owns error {f.error_code}", f"Ownership sits with the {f.owner_team}")
+    return (
+        f"the retry backoff for error {f.error_code}",
+        f"{f.backoff_ms} millisecond",
+    )
 
 
 def q_multi_easy_semantic(f: DocumentFacts) -> tuple[str, str]:
-    return (f"how long {f.workspace} retains results", f"storage for {f.retention_days} days")
+    return (
+        f"how long {f.workspace} waits between retries",
+        f"{f.backoff_ms} millisecond",
+    )
 
 
 def q_multi_hard_exact(f: DocumentFacts) -> tuple[str, str]:
-    return (f"the batch size used to resolve {f.error_code}", f"batch size of {f.batch_size}")
+    return (f"the row cap enforced by `{f.config_key}`", f"{f.max_rows} row")
 
 
 def q_multi_hard_semantic(f: DocumentFacts) -> tuple[str, str]:
     return (
-        f"the retry backoff delay for {f.workspace}",
-        f"a {f.backoff_ms} millisecond backoff",
+        f"the largest payload {f.workspace} accepts in one run",
+        f"{f.max_rows} row",
     )
 
 

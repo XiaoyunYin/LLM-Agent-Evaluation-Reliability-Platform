@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0078
-title: Throttled Token Rotation runbook 0078
+title: Throttled Token Rotation questions and answers 0078
 category: api
+doc_type: faq
 procedure: Throttled token rotation
+component: the credential issuer
 error_code: ATL-4287
 config_key: atlas.api.token-rotation.throttled
 workspace: Blackpine Partners
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0078
 source: synthetic
 ---
 
-# Throttled Token Rotation runbook 0078
+# Throttled Token Rotation questions and answers 0078
 
-## Overview
+## What does ATL-4287 mean?
 
-Runbook RB-API-0078 covers the Throttled token rotation procedure for the Blackpine Partners workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4287; other api faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4287 within 31 minutes.
+It means clients receive authentication failures mid-rotation. Atlas raises it against blackpine-partners when the credential issuer cannot complete Throttled token rotation. The operational procedure is RB-API-0078, owned by Platform Reliability in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4287 with the message "Throttled token rotation blocked for workspace blackpine-partners". The `atlas_api_token_rotation_total` counter rises while the affected api operation stalls. Requests exceeding 237 calls per minute against blackpine-partners amplify the failure, and the operation aborts once it has waited 184 seconds.
+The cause is that the old token is revoked before the new one finishes propagating. It is a property of the credential issuer, so Blackpine Partners sees it only because it exercises that path. Because the change must yield capacity to interactive traffic, it may appear intermittent until traffic passes 237 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Blackpine Partners, then collect 4 approval(s) before editing `atlas.api.token-rotation.throttled`. Changes to `atlas.api.token-rotation.throttled` are irreversible after 64 days because the prior value leaves archival storage on that schedule. Record RB-API-0078 and ATL-4287 in the case notes.
+overlap both tokens for the propagation window, then revoke. In practice that means running `atlas api token-rotation --mode throttled --workspace blackpine-partners --commit` with a batch size of 551 and a 2119 millisecond backoff. Editing `atlas.api.token-rotation.throttled` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas api token-rotation --mode throttled --workspace blackpine-partners --dry-run` and compare the reported value of `atlas.api.token-rotation.throttled` with the expected baseline. If `atlas_api_token_rotation_total` exceeds 84 percent of its ceiling for the blackpine-partners workspace, the Throttled token rotation path is saturated rather than misconfigured, and error ATL-4287 is a symptom instead of the cause.
+You know it worked when no authentication failures occur during the overlap. Running `atlas api token-rotation --mode throttled --workspace blackpine-partners --verify` reports `atlas.api.token-rotation.throttled` active with no ATL-4287 in the last 184 seconds, and `atlas_api_token_rotation_total` falls below 84 percent within 31 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas api token-rotation --mode throttled --workspace blackpine-partners --commit` with a batch size of 551. The command retries with a 2119 millisecond backoff and gives up after 184 seconds. Processing more than 19139 rows in one invocation for Blackpine Partners is unsupported and re-raises ATL-4287. Split larger jobs into batches of 551.
+No. A permissions fault leaves `atlas_api_token_rotation_total` flat, while ATL-4287 drives it above 84 percent. A second common misread is blaming the 237 per minute ceiling when the limit actually reached was the 19139 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Blackpine Partners at 237 throttled-token-rotation calls per minute in eu-west-2. Results persist in archival storage for 64 days. Exports tied to RB-API-0078 refuse payloads above 19139 rows. Atlas warns 15 days before the 64 day window closes on blackpine-partners.
+Blackpine Partners may issue 237 throttled-token-rotation calls per minute on the Enterprise plan. One invocation accepts 19139 rows and aborts after 184 seconds. Results persist 64 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas api token-rotation --mode throttled --workspace blackpine-partners --verify` should report `atlas.api.token-rotation.throttled` as active with no occurrences of ATL-4287 in the last 184 seconds. Ask the customer to confirm from Blackpine Partners directly. The `atlas_api_token_rotation_total` counter should settle below 84 percent within 31 minutes.
+Platform Reliability owns the credential issuer. They acknowledge escalations against ATL-4287 within 31 minutes on the Enterprise plan. Cite RB-API-0078 and include the observed `atlas_api_token_rotation_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Platform Reliability if ATL-4287 recurs on blackpine-partners after two attempts, citing RB-API-0078. Their acknowledgement target is 31 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.api.token-rotation.throttled`, the observed `atlas_api_token_rotation_total` rate, and whether the 237 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4287 is often confused with a plain permissions fault on blackpine-partners, but a permissions fault leaves `atlas_api_token_rotation_total` flat while ATL-4287 drives it above 84 percent. A second misread is blaming the 237 per minute ceiling when the true limit reached was the 19139 row cap. Check `atlas.api.token-rotation.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled token rotation action against Blackpine Partners writes an audit entry tagged RB-API-0078 and retained for 64 days in archival storage. The entry records the actor, the prior and new values of `atlas.api.token-rotation.throttled`, and whether ATL-4287 was observed. Never log raw credentials for blackpine-partners; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4287 clears on Blackpine Partners, confirm downstream api jobs that read `atlas.api.token-rotation.throttled` still run. Scheduled work reading throttled-token-rotation output may lag by up to 2119 milliseconds per batch of 551. Re-check blackpine-partners after 15 days, before the 64 day archival retention window expires.
+Confirm downstream api work reading `atlas.api.token-rotation.throttled` still runs. It may lag 2119 milliseconds per batch of 551. Re-check blackpine-partners after 15 days, before the 64 day window closes.

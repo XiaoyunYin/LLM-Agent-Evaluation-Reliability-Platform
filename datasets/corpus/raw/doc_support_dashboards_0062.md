@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0062
-title: Federated Panel Duplication runbook 0062
+title: Federated Panel Duplication questions and answers 0062
 category: dashboards
+doc_type: faq
 procedure: Federated panel duplication
+component: the panel cloner
 error_code: ATL-4491
 config_key: atlas.dashboards.panel-duplication.federated
 workspace: Blackpine Health
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0062
 source: synthetic
 ---
 
-# Federated Panel Duplication runbook 0062
+# Federated Panel Duplication questions and answers 0062
 
-## Overview
+## What does ATL-4491 mean?
 
-Runbook RB-DAS-0062 covers the Federated panel duplication procedure for the Blackpine Health workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4491; other dashboards faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4491 within 268 minutes.
+It means a duplicated panel edits its original. Atlas raises it against blackpine-health when the panel cloner cannot complete Federated panel duplication. The operational procedure is RB-DAS-0062, owned by Core API in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4491 with the message "Federated panel duplication blocked for workspace blackpine-health". The `atlas_dashboards_panel_duplication_total` counter rises while the affected dashboards operation stalls. Requests exceeding 601 calls per minute against blackpine-health amplify the failure, and the operation aborts once it has waited 187 seconds.
+The cause is that the clone copies a reference to the query rather than the query itself. It is a property of the panel cloner, so Blackpine Health sees it only because it exercises that path. Because the external provider must confirm the identity before the change, it may appear intermittent until traffic passes 601 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Blackpine Health, then collect 4 approval(s) before editing `atlas.dashboards.panel-duplication.federated`. Changes to `atlas.dashboards.panel-duplication.federated` are irreversible after 88 days because the prior value leaves archival storage on that schedule. Record RB-DAS-0062 and ATL-4491 in the case notes.
+deep-copy the query definition when duplicating. In practice that means running `atlas dashboards panel-duplication --mode federated --workspace blackpine-health --commit` with a batch size of 493 and a 4767 millisecond backoff. Editing `atlas.dashboards.panel-duplication.federated` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas dashboards panel-duplication --mode federated --workspace blackpine-health --dry-run` and compare the reported value of `atlas.dashboards.panel-duplication.federated` with the expected baseline. If `atlas_dashboards_panel_duplication_total` exceeds 87 percent of its ceiling for the blackpine-health workspace, the Federated panel duplication path is saturated rather than misconfigured, and error ATL-4491 is a symptom instead of the cause.
+You know it worked when editing the copy leaves the original unchanged. Running `atlas dashboards panel-duplication --mode federated --workspace blackpine-health --verify` reports `atlas.dashboards.panel-duplication.federated` active with no ATL-4491 in the last 187 seconds, and `atlas_dashboards_panel_duplication_total` falls below 87 percent within 268 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas dashboards panel-duplication --mode federated --workspace blackpine-health --commit` with a batch size of 493. The command retries with a 4767 millisecond backoff and gives up after 187 seconds. Processing more than 38927 rows in one invocation for Blackpine Health is unsupported and re-raises ATL-4491. Split larger jobs into batches of 493.
+No. A permissions fault leaves `atlas_dashboards_panel_duplication_total` flat, while ATL-4491 drives it above 87 percent. A second common misread is blaming the 601 per minute ceiling when the limit actually reached was the 38927 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Blackpine Health at 601 federated-panel-duplication calls per minute in ca-central-1. Results persist in archival storage for 88 days. Exports tied to RB-DAS-0062 refuse payloads above 38927 rows. Atlas warns 19 days before the 88 day window closes on blackpine-health.
+Blackpine Health may issue 601 federated-panel-duplication calls per minute on the Enterprise plan. One invocation accepts 38927 rows and aborts after 187 seconds. Results persist 88 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas dashboards panel-duplication --mode federated --workspace blackpine-health --verify` should report `atlas.dashboards.panel-duplication.federated` as active with no occurrences of ATL-4491 in the last 187 seconds. Ask the customer to confirm from Blackpine Health directly. The `atlas_dashboards_panel_duplication_total` counter should settle below 87 percent within 268 minutes.
+Core API owns the panel cloner. They acknowledge escalations against ATL-4491 within 268 minutes on the Enterprise plan. Cite RB-DAS-0062 and include the observed `atlas_dashboards_panel_duplication_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Core API if ATL-4491 recurs on blackpine-health after two attempts, citing RB-DAS-0062. Their acknowledgement target is 268 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.dashboards.panel-duplication.federated`, the observed `atlas_dashboards_panel_duplication_total` rate, and whether the 601 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4491 is often confused with a plain permissions fault on blackpine-health, but a permissions fault leaves `atlas_dashboards_panel_duplication_total` flat while ATL-4491 drives it above 87 percent. A second misread is blaming the 601 per minute ceiling when the true limit reached was the 38927 row cap. Check `atlas.dashboards.panel-duplication.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated panel duplication action against Blackpine Health writes an audit entry tagged RB-DAS-0062 and retained for 88 days in archival storage. The entry records the actor, the prior and new values of `atlas.dashboards.panel-duplication.federated`, and whether ATL-4491 was observed. Never log raw credentials for blackpine-health; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4491 clears on Blackpine Health, confirm downstream dashboards jobs that read `atlas.dashboards.panel-duplication.federated` still run. Scheduled work reading federated-panel-duplication output may lag by up to 4767 milliseconds per batch of 493. Re-check blackpine-health after 19 days, before the 88 day archival retention window expires.
+Confirm downstream dashboards work reading `atlas.dashboards.panel-duplication.federated` still runs. It may lag 4767 milliseconds per batch of 493. Re-check blackpine-health after 19 days, before the 88 day window closes.

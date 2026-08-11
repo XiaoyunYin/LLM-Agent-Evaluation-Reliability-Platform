@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0014
-title: Scheduled Pager Rerouting runbook 0014
+title: Scheduled Pager Rerouting questions and answers 0014
 category: incidents
+doc_type: faq
 procedure: Scheduled pager rerouting
+component: the on-call rotation resolver
 error_code: ATL-4663
 config_key: atlas.incidents.pager-rerouting.scheduled
 workspace: Dunmore Media
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0014
 source: synthetic
 ---
 
-# Scheduled Pager Rerouting runbook 0014
+# Scheduled Pager Rerouting questions and answers 0014
 
-## Overview
+## What does ATL-4663 mean?
 
-Runbook RB-INC-0014 covers the Scheduled pager rerouting procedure for the Dunmore Media workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4663; other incidents faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4663 within 89 minutes.
+It means pages reach an engineer who is off rotation. Atlas raises it against dunmore-media when the on-call rotation resolver cannot complete Scheduled pager rerouting. The operational procedure is RB-INC-0014, owned by Revenue Engineering in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4663 with the message "Scheduled pager rerouting blocked for workspace dunmore-media". The `atlas_incidents_pager_rerouting_total` counter rises while the affected incidents operation stalls. Requests exceeding 613 calls per minute against dunmore-media amplify the failure, and the operation aborts once it has waited 251 seconds.
+The cause is that the resolver caches the rotation for the whole shift. It is a property of the on-call rotation resolver, so Dunmore Media sees it only because it exercises that path. Because the change must be idempotent because the job may run twice, it may appear intermittent until traffic passes 613 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Dunmore Media, then collect 4 approval(s) before editing `atlas.incidents.pager-rerouting.scheduled`. Changes to `atlas.incidents.pager-rerouting.scheduled` are irreversible after 16 days because the prior value leaves archival storage on that schedule. Record RB-INC-0014 and ATL-4663 in the case notes.
+resolve the rotation at page time rather than shift start. In practice that means running `atlas incidents pager-rerouting --mode scheduled --workspace dunmore-media --commit` with a batch size of 649 and a 1331 millisecond backoff. Editing `atlas.incidents.pager-rerouting.scheduled` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas incidents pager-rerouting --mode scheduled --workspace dunmore-media --dry-run` and compare the reported value of `atlas.incidents.pager-rerouting.scheduled` with the expected baseline. If `atlas_incidents_pager_rerouting_total` exceeds 86 percent of its ceiling for the dunmore-media workspace, the Scheduled pager rerouting path is saturated rather than misconfigured, and error ATL-4663 is a symptom instead of the cause.
+You know it worked when pages reach the currently on-call engineer. Running `atlas incidents pager-rerouting --mode scheduled --workspace dunmore-media --verify` reports `atlas.incidents.pager-rerouting.scheduled` active with no ATL-4663 in the last 251 seconds, and `atlas_incidents_pager_rerouting_total` falls below 86 percent within 89 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas incidents pager-rerouting --mode scheduled --workspace dunmore-media --commit` with a batch size of 649. The command retries with a 1331 millisecond backoff and gives up after 251 seconds. Processing more than 55611 rows in one invocation for Dunmore Media is unsupported and re-raises ATL-4663. Split larger jobs into batches of 649.
+No. A permissions fault leaves `atlas_incidents_pager_rerouting_total` flat, while ATL-4663 drives it above 86 percent. A second common misread is blaming the 613 per minute ceiling when the limit actually reached was the 55611 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Dunmore Media at 613 scheduled-pager-rerouting calls per minute in eu-west-2. Results persist in archival storage for 16 days. Exports tied to RB-INC-0014 refuse payloads above 55611 rows. Atlas warns 16 days before the 16 day window closes on dunmore-media.
+Dunmore Media may issue 613 scheduled-pager-rerouting calls per minute on the Enterprise plan. One invocation accepts 55611 rows and aborts after 251 seconds. Results persist 16 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas incidents pager-rerouting --mode scheduled --workspace dunmore-media --verify` should report `atlas.incidents.pager-rerouting.scheduled` as active with no occurrences of ATL-4663 in the last 251 seconds. Ask the customer to confirm from Dunmore Media directly. The `atlas_incidents_pager_rerouting_total` counter should settle below 86 percent within 89 minutes.
+Revenue Engineering owns the on-call rotation resolver. They acknowledge escalations against ATL-4663 within 89 minutes on the Enterprise plan. Cite RB-INC-0014 and include the observed `atlas_incidents_pager_rerouting_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Revenue Engineering if ATL-4663 recurs on dunmore-media after two attempts, citing RB-INC-0014. Their acknowledgement target is 89 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.incidents.pager-rerouting.scheduled`, the observed `atlas_incidents_pager_rerouting_total` rate, and whether the 613 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4663 is often confused with a plain permissions fault on dunmore-media, but a permissions fault leaves `atlas_incidents_pager_rerouting_total` flat while ATL-4663 drives it above 86 percent. A second misread is blaming the 613 per minute ceiling when the true limit reached was the 55611 row cap. Check `atlas.incidents.pager-rerouting.scheduled` before assuming either.
-
-## Audit and Logging
-
-Every Scheduled pager rerouting action against Dunmore Media writes an audit entry tagged RB-INC-0014 and retained for 16 days in archival storage. The entry records the actor, the prior and new values of `atlas.incidents.pager-rerouting.scheduled`, and whether ATL-4663 was observed. Never log raw credentials for dunmore-media; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4663 clears on Dunmore Media, confirm downstream incidents jobs that read `atlas.incidents.pager-rerouting.scheduled` still run. Scheduled work reading scheduled-pager-rerouting output may lag by up to 1331 milliseconds per batch of 649. Re-check dunmore-media after 16 days, before the 16 day archival retention window expires.
+Confirm downstream incidents work reading `atlas.incidents.pager-rerouting.scheduled` still runs. It may lag 1331 milliseconds per batch of 649. Re-check dunmore-media after 16 days, before the 16 day window closes.

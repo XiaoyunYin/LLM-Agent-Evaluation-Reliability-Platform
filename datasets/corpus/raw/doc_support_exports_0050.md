@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0050
-title: Legacy Destination Rebinding runbook 0050
+title: Legacy Destination Rebinding incident review 0050
 category: exports
+doc_type: postmortem
 procedure: Legacy destination rebinding
+component: the destination registry
 error_code: ATL-4589
 config_key: atlas.exports.destination-rebinding.legacy
 workspace: Umbra Dynamics
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0050
 source: synthetic
 ---
 
-# Legacy Destination Rebinding runbook 0050
+# Legacy Destination Rebinding incident review 0050
 
-## Overview
+## Summary
 
-Runbook RB-EXP-0050 covers the Legacy destination rebinding procedure for the Umbra Dynamics workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4589; other exports faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4589 within 162 minutes.
+On the Growth plan in us-east-1, Umbra Dynamics reported that exports keep writing to a decommissioned destination. Atlas raised ATL-4589 for 162 minutes before Customer Trust mitigated. The fault was in the destination registry. Review reference RB-EXP-0050.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4589 with the message "Legacy destination rebinding blocked for workspace umbra-dynamics". The `atlas_exports_destination_rebinding_total` counter rises while the affected exports operation stalls. Requests exceeding 739 calls per minute against umbra-dynamics amplify the failure, and the operation aborts once it has waited 18 seconds.
+Umbra Dynamics was unable to complete Legacy destination rebinding while ATL-4589 persisted. Roughly 48433 rows were delayed and `atlas_exports_destination_rebinding_total` held above 88 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Umbra Dynamics, then collect 2 approval(s) before editing `atlas.exports.destination-rebinding.legacy`. Changes to `atlas.exports.destination-rebinding.legacy` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-EXP-0050 and ATL-4589 in the case notes.
+Operations first saw `atlas_exports_destination_rebinding_total` cross 88 percent. ATL-4589 appeared against umbra-dynamics once traffic exceeded 739 per minute. The page reached Customer Trust within 162 minutes. Investigation focused on the destination registry after exports keep writing to a decommissioned destination was reproduced with `atlas exports destination-rebinding --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas exports destination-rebinding --mode legacy --workspace umbra-dynamics --dry-run` and compare the reported value of `atlas.exports.destination-rebinding.legacy` with the expected baseline. If `atlas_exports_destination_rebinding_total` exceeds 88 percent of its ceiling for the umbra-dynamics workspace, the Legacy destination rebinding path is saturated rather than misconfigured, and error ATL-4589 is a symptom instead of the cause.
+rebinding updates the registry but running schedules hold a resolved handle. The condition had existed in the destination registry for some time and became visible only when Umbra Dynamics crossed 739 calls per minute. The 18 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas exports destination-rebinding --mode legacy --workspace umbra-dynamics --commit` with a batch size of 847. The command retries with a 3493 millisecond backoff and gives up after 18 seconds. Processing more than 48433 rows in one invocation for Umbra Dynamics is unsupported and re-raises ATL-4589. Split larger jobs into batches of 847.
-
-## Limits and Quotas
-
-The Growth plan caps Umbra Dynamics at 739 legacy-destination-rebinding calls per minute in us-east-1. Results persist in warm storage for 46 days. Exports tied to RB-EXP-0050 refuse payloads above 48433 rows. Atlas warns 17 days before the 46 day window closes on umbra-dynamics.
+The team applied the standing fix: re-resolve destination handles at the start of each run. This was executed with `atlas exports destination-rebinding --mode legacy --workspace umbra-dynamics --commit` at a batch size of 847, backing off 3493 milliseconds between attempts, under 2 approval(s) against `atlas.exports.destination-rebinding.legacy`.
 
 ## Verification
 
-After the change, `atlas exports destination-rebinding --mode legacy --workspace umbra-dynamics --verify` should report `atlas.exports.destination-rebinding.legacy` as active with no occurrences of ATL-4589 in the last 18 seconds. Ask the customer to confirm from Umbra Dynamics directly. The `atlas_exports_destination_rebinding_total` counter should settle below 88 percent within 162 minutes.
+Recovery was confirmed when the next scheduled run writes to the new destination. `atlas_exports_destination_rebinding_total` returned below 88 percent and ATL-4589 stopped appearing for umbra-dynamics. Because the change must be translated into the older format first, the team also confirmed the destination registry had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Customer Trust if ATL-4589 recurs on umbra-dynamics after two attempts, citing RB-EXP-0050. Their acknowledgement target is 162 minutes for the Growth plan in us-east-1. Include the value of `atlas.exports.destination-rebinding.legacy`, the observed `atlas_exports_destination_rebinding_total` rate, and whether the 739 per minute ceiling was reached.
+To keep rebinding updates the registry but running schedules hold a resolved handle from recurring, Customer Trust added monitoring on the destination registry that alerts before `atlas_exports_destination_rebinding_total` reaches 88 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4589 is often confused with a plain permissions fault on umbra-dynamics, but a permissions fault leaves `atlas_exports_destination_rebinding_total` flat while ATL-4589 drives it above 88 percent. A second misread is blaming the 739 per minute ceiling when the true limit reached was the 48433 row cap. Check `atlas.exports.destination-rebinding.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy destination rebinding action against Umbra Dynamics writes an audit entry tagged RB-EXP-0050 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.exports.destination-rebinding.legacy`, and whether ATL-4589 was observed. Never log raw credentials for umbra-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4589 clears on Umbra Dynamics, confirm downstream exports jobs that read `atlas.exports.destination-rebinding.legacy` still run. Scheduled work reading legacy-destination-rebinding output may lag by up to 3493 milliseconds per batch of 847. Re-check umbra-dynamics after 17 days, before the 46 day warm retention window expires.
+Re-check umbra-dynamics after 17 days. Confirm the 739 per minute ceiling and the 48433 row cap still suit Umbra Dynamics on the Growth plan, and that the next scheduled run writes to the new destination remains true.

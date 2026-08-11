@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_reports_0075
-title: Sandboxed Snapshot Comparison runbook 0075
+title: Sandboxed Snapshot Comparison reference 0075
 category: reports
+doc_type: reference
 procedure: Sandboxed snapshot comparison
+component: the period comparison engine
 error_code: ATL-5054
 config_key: atlas.reports.snapshot-comparison.sandboxed
 workspace: Cobalt Telecom
@@ -12,48 +14,36 @@ runbook_ref: RB-REP-0075
 source: synthetic
 ---
 
-# Sandboxed Snapshot Comparison runbook 0075
+# Sandboxed Snapshot Comparison reference 0075
 
 ## Overview
 
-Runbook RB-REP-0075 covers the Sandboxed snapshot comparison procedure for the Cobalt Telecom workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-5054; other reports faults use a different runbook. Ownership sits with the Observability team, who accept escalations against ATL-5054 within 342 minutes.
+This reference documents Sandboxed snapshot comparison as implemented by the period comparison engine in Atlas Metrics. It is written for an engineer validating the change in a non-production copy. The controlling setting is `atlas.reports.snapshot-comparison.sandboxed` and the associated failure is ATL-5054. See RB-REP-0075 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5054 with the message "Sandboxed snapshot comparison blocked for workspace cobalt-telecom". The `atlas_reports_snapshot_comparison_total` counter rises while the affected reports operation stalls. Requests exceeding 214 calls per minute against cobalt-telecom amplify the failure, and the operation aborts once it has waited 138 seconds.
+the period comparison engine performs Sandboxed snapshot comparison whenever the workspace configuration changes. Because the change must never write to production resources, the operation is ordered rather than concurrent. A correct run ends when compared periods have equal duration. An incorrect run is visible as period-over-period comparisons use mismatched period lengths.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Cobalt Telecom, then collect 3 approval(s) before editing `atlas.reports.snapshot-comparison.sandboxed`. Changes to `atlas.reports.snapshot-comparison.sandboxed` are irreversible after 13 days because the prior value leaves cold storage on that schedule. Record RB-REP-0075 and ATL-5054 in the case notes.
+`atlas.reports.snapshot-comparison.sandboxed` accepts the batch size, currently 142, and the retry backoff, currently 1098 milliseconds. Editing it requires 3 approval(s). The prior value is retained 13 days in cold storage. Apply changes with `atlas reports snapshot-comparison --mode sandboxed --workspace cobalt-telecom --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas reports snapshot-comparison --mode sandboxed --workspace cobalt-telecom --dry-run` and compare the reported value of `atlas.reports.snapshot-comparison.sandboxed` with the expected baseline. If `atlas_reports_snapshot_comparison_total` exceeds 73 percent of its ceiling for the cobalt-telecom workspace, the Sandboxed snapshot comparison path is saturated rather than misconfigured, and error ATL-5054 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Cobalt Telecom may issue 214 sandboxed-snapshot-comparison calls per minute. A single invocation accepts at most 93538 rows and aborts after 138 seconds. Atlas warns 7 days before the 13 day window closes.
+
+## Errors
+
+ATL-5054 is raised when period-over-period comparisons use mismatched period lengths. The documented cause is that the engine compares calendar periods of differing day counts. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_reports_snapshot_comparison_total` flat, while ATL-5054 drives it above 73 percent. It is also distinct from exceeding the 93538 row cap.
 
 ## Resolution
 
-Apply `atlas reports snapshot-comparison --mode sandboxed --workspace cobalt-telecom --commit` with a batch size of 142. The command retries with a 1098 millisecond backoff and gives up after 138 seconds. Processing more than 93538 rows in one invocation for Cobalt Telecom is unsupported and re-raises ATL-5054. Split larger jobs into batches of 142.
-
-## Limits and Quotas
-
-The Business plan caps Cobalt Telecom at 214 sandboxed-snapshot-comparison calls per minute in eu-central-1. Results persist in cold storage for 13 days. Exports tied to RB-REP-0075 refuse payloads above 93538 rows. Atlas warns 7 days before the 13 day window closes on cobalt-telecom.
+The supported repair is to normalize periods to equal length before comparing. Observability owns the period comparison engine and acknowledges escalations against ATL-5054 within 342 minutes. Cite RB-REP-0075 and include the current value of `atlas.reports.snapshot-comparison.sandboxed`.
 
 ## Verification
 
-After the change, `atlas reports snapshot-comparison --mode sandboxed --workspace cobalt-telecom --verify` should report `atlas.reports.snapshot-comparison.sandboxed` as active with no occurrences of ATL-5054 in the last 138 seconds. Ask the customer to confirm from Cobalt Telecom directly. The `atlas_reports_snapshot_comparison_total` counter should settle below 73 percent within 342 minutes.
+Run `atlas reports snapshot-comparison --mode sandboxed --workspace cobalt-telecom --verify`. The command confirms compared periods have equal duration and reports no ATL-5054 within the last 138 seconds. `atlas_reports_snapshot_comparison_total` should sit below 73 percent within 342 minutes.
 
-## Escalation
+## Related
 
-Escalate to Observability if ATL-5054 recurs on cobalt-telecom after two attempts, citing RB-REP-0075. Their acknowledgement target is 342 minutes for the Business plan in eu-central-1. Include the value of `atlas.reports.snapshot-comparison.sandboxed`, the observed `atlas_reports_snapshot_comparison_total` rate, and whether the 214 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5054 is often confused with a plain permissions fault on cobalt-telecom, but a permissions fault leaves `atlas_reports_snapshot_comparison_total` flat while ATL-5054 drives it above 73 percent. A second misread is blaming the 214 per minute ceiling when the true limit reached was the 93538 row cap. Check `atlas.reports.snapshot-comparison.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed snapshot comparison action against Cobalt Telecom writes an audit entry tagged RB-REP-0075 and retained for 13 days in cold storage. The entry records the actor, the prior and new values of `atlas.reports.snapshot-comparison.sandboxed`, and whether ATL-5054 was observed. Never log raw credentials for cobalt-telecom; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5054 clears on Cobalt Telecom, confirm downstream reports jobs that read `atlas.reports.snapshot-comparison.sandboxed` still run. Scheduled work reading sandboxed-snapshot-comparison output may lag by up to 1098 milliseconds per batch of 142. Re-check cobalt-telecom after 7 days, before the 13 day cold retention window expires.
+Behavior of the period comparison engine interacts with downstream reports work that reads `atlas.reports.snapshot-comparison.sandboxed`. Dependent jobs may lag 1098 milliseconds per batch of 142. Audit entries are tagged RB-REP-0075.

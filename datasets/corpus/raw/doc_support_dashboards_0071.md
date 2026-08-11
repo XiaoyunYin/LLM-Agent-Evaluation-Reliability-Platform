@@ -2,7 +2,9 @@
 doc_id: doc_support_dashboards_0071
 title: Sandboxed Shared View Handoff runbook 0071
 category: dashboards
+doc_type: runbook
 procedure: Sandboxed shared view handoff
+component: the shared view ACL
 error_code: ATL-4500
 config_key: atlas.dashboards.shared-view-handoff.sandboxed
 workspace: Kingsley Health
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-DAS-0071 covers the Sandboxed shared view handoff procedure for the Kingsley Health workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4500; other dashboards faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4500 within 40 minutes.
+RB-DAS-0071 describes Sandboxed shared view handoff for Kingsley Health, where recipients of a shared view see a permission error. The work is performed by an engineer validating the change in a non-production copy, and the change must never write to production resources. The affected component is the shared view ACL. This document applies only when Atlas raises ATL-4500; other dashboards faults are covered elsewhere. Ingest Pipeline owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4500 with the message "Sandboxed shared view handoff blocked for workspace kingsley-health". The `atlas_dashboards_shared_view_handoff_total` counter rises while the affected dashboards operation stalls. Requests exceeding 700 calls per minute against kingsley-health amplify the failure, and the operation aborts once it has waited 250 seconds.
+Reporters describe the same thing: recipients of a shared view see a permission error. Atlas raises ATL-4500 against the kingsley-health workspace and `atlas_dashboards_shared_view_handoff_total` climbs past 60 percent. Because the change must never write to production resources, the symptom can look intermittent when the shared view ACL is under load. Requests beyond 700 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kingsley Health, then collect 1 approval(s) before editing `atlas.dashboards.shared-view-handoff.sandboxed`. Changes to `atlas.dashboards.shared-view-handoff.sandboxed` are irreversible after 31 days because the prior value leaves hot storage on that schedule. Record RB-DAS-0071 and ATL-4500 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas dashboards shared-view-handoff --mode sandboxed --workspace kingsley-health --dry-run` and compare the reported value of `atlas.dashboards.shared-view-handoff.sandboxed` with the expected baseline. If `atlas_dashboards_shared_view_handoff_total` exceeds 60 percent of its ceiling for the kingsley-health workspace, the Sandboxed shared view handoff path is saturated rather than misconfigured, and error ATL-4500 is a symptom instead of the cause.
+The underlying fault is that the share grants view access but not access to the underlying source. This is a property of the shared view ACL rather than of any single workspace, so Kingsley Health is affected only because it exercises that path. The 250 second abort is a consequence, not the cause; raising it hides ATL-4500 without repairing the shared view ACL.
 
 ## Resolution
 
-Apply `atlas dashboards shared-view-handoff --mode sandboxed --workspace kingsley-health --commit` with a batch size of 700. The command retries with a 200 millisecond backoff and gives up after 250 seconds. Processing more than 39800 rows in one invocation for Kingsley Health is unsupported and re-raises ATL-4500. Split larger jobs into batches of 700.
-
-## Limits and Quotas
-
-The Starter plan caps Kingsley Health at 700 sandboxed-shared-view-handoff calls per minute in us-west-2. Results persist in hot storage for 31 days. Exports tied to RB-DAS-0071 refuse payloads above 39800 rows. Atlas warns 3 days before the 31 day window closes on kingsley-health.
+To repair the fault, grant source access transitively with the view share. Run `atlas dashboards shared-view-handoff --mode sandboxed --workspace kingsley-health --commit` with a batch size of 700, retrying with a 200 millisecond backoff. Because the change must never write to production resources, do not exceed 39800 rows in one invocation. Editing `atlas.dashboards.shared-view-handoff.sandboxed` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas dashboards shared-view-handoff --mode sandboxed --workspace kingsley-health --verify` should report `atlas.dashboards.shared-view-handoff.sandboxed` as active with no occurrences of ATL-4500 in the last 250 seconds. Ask the customer to confirm from Kingsley Health directly. The `atlas_dashboards_shared_view_handoff_total` counter should settle below 60 percent within 40 minutes.
+The repair has landed when recipients load the view without elevation. Confirm with `atlas dashboards shared-view-handoff --mode sandboxed --workspace kingsley-health --verify`, which should report `atlas.dashboards.shared-view-handoff.sandboxed` active and no ATL-4500 in the last 250 seconds. `atlas_dashboards_shared_view_handoff_total` should settle below 60 percent within 40 minutes.
+
+## Limits
+
+Kingsley Health is capped at 700 sandboxed-shared-view-handoff calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 31 days, and Atlas warns 3 days before that window closes. Payloads above 39800 rows are refused.
 
 ## Escalation
 
-Escalate to Ingest Pipeline if ATL-4500 recurs on kingsley-health after two attempts, citing RB-DAS-0071. Their acknowledgement target is 40 minutes for the Starter plan in us-west-2. Include the value of `atlas.dashboards.shared-view-handoff.sandboxed`, the observed `atlas_dashboards_shared_view_handoff_total` rate, and whether the 700 per minute ceiling was reached.
+Escalate to Ingest Pipeline citing RB-DAS-0071 if ATL-4500 recurs after two attempts, or if recipients of a shared view see a permission error persists once recipients load the view without elevation. Their acknowledgement target is 40 minutes. Include the value of `atlas.dashboards.shared-view-handoff.sandboxed` and the observed `atlas_dashboards_shared_view_handoff_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4500 is often confused with a plain permissions fault on kingsley-health, but a permissions fault leaves `atlas_dashboards_shared_view_handoff_total` flat while ATL-4500 drives it above 60 percent. A second misread is blaming the 700 per minute ceiling when the true limit reached was the 39800 row cap. Check `atlas.dashboards.shared-view-handoff.sandboxed` before assuming either.
+Every Sandboxed shared view handoff action against Kingsley Health writes an entry tagged RB-DAS-0071, retained 31 days in hot storage, recording the actor and both values of `atlas.dashboards.shared-view-handoff.sandboxed`. Because the change must never write to production resources, the entry also records whether the shared view ACL was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Sandboxed shared view handoff action against Kingsley Health writes an audit entry tagged RB-DAS-0071 and retained for 31 days in hot storage. The entry records the actor, the prior and new values of `atlas.dashboards.shared-view-handoff.sandboxed`, and whether ATL-4500 was observed. Never log raw credentials for kingsley-health; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4500 clears on Kingsley Health, confirm downstream dashboards jobs that read `atlas.dashboards.shared-view-handoff.sandboxed` still run. Scheduled work reading sandboxed-shared-view-handoff output may lag by up to 200 milliseconds per batch of 700. Re-check kingsley-health after 3 days, before the 31 day hot retention window expires.
+Once ATL-4500 clears, confirm downstream dashboards jobs reading `atlas.dashboards.shared-view-handoff.sandboxed` still run. Work depending on the shared view ACL may lag 200 milliseconds per batch of 700. Re-check kingsley-health after 3 days.

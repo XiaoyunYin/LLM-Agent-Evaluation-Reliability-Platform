@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0066
-title: Federated Cross-Workspace Grant runbook 0066
+title: Federated Cross-Workspace Grant questions and answers 0066
 category: permissions
+doc_type: faq
 procedure: Federated cross-workspace grant
+component: the cross-workspace broker
 error_code: ATL-4935
 config_key: atlas.permissions.cross-workspace-grant.federated
 workspace: Dunmore Aviation
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0066
 source: synthetic
 ---
 
-# Federated Cross-Workspace Grant runbook 0066
+# Federated Cross-Workspace Grant questions and answers 0066
 
-## Overview
+## What does ATL-4935 mean?
 
-Runbook RB-PER-0066 covers the Federated cross-workspace grant procedure for the Dunmore Aviation workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4935; other permissions faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4935 within 175 minutes.
+It means a cross-workspace grant survives the removal of its justification. Atlas raises it against dunmore-aviation when the cross-workspace broker cannot complete Federated cross-workspace grant. The operational procedure is RB-PER-0066, owned by Integrations Guild in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4935 with the message "Federated cross-workspace grant blocked for workspace dunmore-aviation". The `atlas_permissions_cross_workspace_grant_total` counter rises while the affected permissions operation stalls. Requests exceeding 785 calls per minute against dunmore-aviation amplify the failure, and the operation aborts once it has waited 160 seconds.
+The cause is that the broker links the grant to a request that can be deleted. It is a property of the cross-workspace broker, so Dunmore Aviation sees it only because it exercises that path. Because the external provider must confirm the identity before the change, it may appear intermittent until traffic passes 785 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Dunmore Aviation, then collect 4 approval(s) before editing `atlas.permissions.cross-workspace-grant.federated`. Changes to `atlas.permissions.cross-workspace-grant.federated` are irreversible after 76 days because the prior value leaves archival storage on that schedule. Record RB-PER-0066 and ATL-4935 in the case notes.
+expire the grant when its justifying request is removed. In practice that means running `atlas permissions cross-workspace-grant --mode federated --workspace dunmore-aviation --commit` with a batch size of 255 and a 1595 millisecond backoff. Editing `atlas.permissions.cross-workspace-grant.federated` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas permissions cross-workspace-grant --mode federated --workspace dunmore-aviation --dry-run` and compare the reported value of `atlas.permissions.cross-workspace-grant.federated` with the expected baseline. If `atlas_permissions_cross_workspace_grant_total` exceeds 75 percent of its ceiling for the dunmore-aviation workspace, the Federated cross-workspace grant path is saturated rather than misconfigured, and error ATL-4935 is a symptom instead of the cause.
+You know it worked when every active grant has a live justification. Running `atlas permissions cross-workspace-grant --mode federated --workspace dunmore-aviation --verify` reports `atlas.permissions.cross-workspace-grant.federated` active with no ATL-4935 in the last 160 seconds, and `atlas_permissions_cross_workspace_grant_total` falls below 75 percent within 175 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas permissions cross-workspace-grant --mode federated --workspace dunmore-aviation --commit` with a batch size of 255. The command retries with a 1595 millisecond backoff and gives up after 160 seconds. Processing more than 81995 rows in one invocation for Dunmore Aviation is unsupported and re-raises ATL-4935. Split larger jobs into batches of 255.
+No. A permissions fault leaves `atlas_permissions_cross_workspace_grant_total` flat, while ATL-4935 drives it above 75 percent. A second common misread is blaming the 785 per minute ceiling when the limit actually reached was the 81995 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Dunmore Aviation at 785 federated-cross-workspace-grant calls per minute in eu-west-2. Results persist in archival storage for 76 days. Exports tied to RB-PER-0066 refuse payloads above 81995 rows. Atlas warns 13 days before the 76 day window closes on dunmore-aviation.
+Dunmore Aviation may issue 785 federated-cross-workspace-grant calls per minute on the Enterprise plan. One invocation accepts 81995 rows and aborts after 160 seconds. Results persist 76 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas permissions cross-workspace-grant --mode federated --workspace dunmore-aviation --verify` should report `atlas.permissions.cross-workspace-grant.federated` as active with no occurrences of ATL-4935 in the last 160 seconds. Ask the customer to confirm from Dunmore Aviation directly. The `atlas_permissions_cross_workspace_grant_total` counter should settle below 75 percent within 175 minutes.
+Integrations Guild owns the cross-workspace broker. They acknowledge escalations against ATL-4935 within 175 minutes on the Enterprise plan. Cite RB-PER-0066 and include the observed `atlas_permissions_cross_workspace_grant_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Integrations Guild if ATL-4935 recurs on dunmore-aviation after two attempts, citing RB-PER-0066. Their acknowledgement target is 175 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.permissions.cross-workspace-grant.federated`, the observed `atlas_permissions_cross_workspace_grant_total` rate, and whether the 785 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4935 is often confused with a plain permissions fault on dunmore-aviation, but a permissions fault leaves `atlas_permissions_cross_workspace_grant_total` flat while ATL-4935 drives it above 75 percent. A second misread is blaming the 785 per minute ceiling when the true limit reached was the 81995 row cap. Check `atlas.permissions.cross-workspace-grant.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated cross-workspace grant action against Dunmore Aviation writes an audit entry tagged RB-PER-0066 and retained for 76 days in archival storage. The entry records the actor, the prior and new values of `atlas.permissions.cross-workspace-grant.federated`, and whether ATL-4935 was observed. Never log raw credentials for dunmore-aviation; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4935 clears on Dunmore Aviation, confirm downstream permissions jobs that read `atlas.permissions.cross-workspace-grant.federated` still run. Scheduled work reading federated-cross-workspace-grant output may lag by up to 1595 milliseconds per batch of 255. Re-check dunmore-aviation after 13 days, before the 76 day archival retention window expires.
+Confirm downstream permissions work reading `atlas.permissions.cross-workspace-grant.federated` still runs. It may lag 1595 milliseconds per batch of 255. Re-check dunmore-aviation after 13 days, before the 76 day window closes.

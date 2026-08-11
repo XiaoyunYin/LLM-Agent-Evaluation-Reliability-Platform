@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0033
-title: Bulk Cold Start Mitigation runbook 0033
+title: Bulk Cold Start Mitigation reference 0033
 category: troubleshooting
+doc_type: reference
 procedure: Bulk cold start mitigation
+component: the instance warm-up controller
 error_code: ATL-5122
 config_key: atlas.troubleshooting.cold-start-mitigation.bulk
 workspace: Cobalt Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0033
 source: synthetic
 ---
 
-# Bulk Cold Start Mitigation runbook 0033
+# Bulk Cold Start Mitigation reference 0033
 
 ## Overview
 
-Runbook RB-TRO-0033 covers the Bulk cold start mitigation procedure for the Cobalt Optics workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-5122; other troubleshooting faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-5122 within 191 minutes.
+This reference documents Bulk cold start mitigation as implemented by the instance warm-up controller in Atlas Metrics. It is written for an operator applying the change across many records at once. The controlling setting is `atlas.troubleshooting.cold-start-mitigation.bulk` and the associated failure is ATL-5122. See RB-TRO-0033 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5122 with the message "Bulk cold start mitigation blocked for workspace cobalt-optics". The `atlas_troubleshooting_cold_start_mitigation_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 962 calls per minute against cobalt-optics amplify the failure, and the operation aborts once it has waited 44 seconds.
+the instance warm-up controller performs Bulk cold start mitigation whenever the workspace configuration changes. Because the batch must be splittable so a partial failure is recoverable, the operation is ordered rather than concurrent. A correct run ends when post-deploy latency matches steady-state latency. An incorrect run is visible as the first requests after a deploy time out.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Cobalt Optics, then collect 3 approval(s) before editing `atlas.troubleshooting.cold-start-mitigation.bulk`. Changes to `atlas.troubleshooting.cold-start-mitigation.bulk` are irreversible after 49 days because the prior value leaves cold storage on that schedule. Record RB-TRO-0033 and ATL-5122 in the case notes.
+`atlas.troubleshooting.cold-start-mitigation.bulk` accepts the batch size, currently 756, and the retry backoff, currently 3614 milliseconds. Editing it requires 3 approval(s). The prior value is retained 49 days in cold storage. Apply changes with `atlas troubleshooting cold-start-mitigation --mode bulk --workspace cobalt-optics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas troubleshooting cold-start-mitigation --mode bulk --workspace cobalt-optics --dry-run` and compare the reported value of `atlas.troubleshooting.cold-start-mitigation.bulk` with the expected baseline. If `atlas_troubleshooting_cold_start_mitigation_total` exceeds 59 percent of its ceiling for the cobalt-optics workspace, the Bulk cold start mitigation path is saturated rather than misconfigured, and error ATL-5122 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Cobalt Optics may issue 962 bulk-cold-start-mitigation calls per minute. A single invocation accepts at most 1134 rows and aborts after 44 seconds. Atlas warns 25 days before the 49 day window closes.
+
+## Errors
+
+ATL-5122 is raised when the first requests after a deploy time out. The documented cause is that instances receive traffic before dependencies are initialized. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_troubleshooting_cold_start_mitigation_total` flat, while ATL-5122 drives it above 59 percent. It is also distinct from exceeding the 1134 row cap.
 
 ## Resolution
 
-Apply `atlas troubleshooting cold-start-mitigation --mode bulk --workspace cobalt-optics --commit` with a batch size of 756. The command retries with a 3614 millisecond backoff and gives up after 44 seconds. Processing more than 1134 rows in one invocation for Cobalt Optics is unsupported and re-raises ATL-5122. Split larger jobs into batches of 756.
-
-## Limits and Quotas
-
-The Business plan caps Cobalt Optics at 962 bulk-cold-start-mitigation calls per minute in sa-east-1. Results persist in cold storage for 49 days. Exports tied to RB-TRO-0033 refuse payloads above 1134 rows. Atlas warns 25 days before the 49 day window closes on cobalt-optics.
+The supported repair is to hold traffic until warm-up completes and dependencies respond. Integrations Guild owns the instance warm-up controller and acknowledges escalations against ATL-5122 within 191 minutes. Cite RB-TRO-0033 and include the current value of `atlas.troubleshooting.cold-start-mitigation.bulk`.
 
 ## Verification
 
-After the change, `atlas troubleshooting cold-start-mitigation --mode bulk --workspace cobalt-optics --verify` should report `atlas.troubleshooting.cold-start-mitigation.bulk` as active with no occurrences of ATL-5122 in the last 44 seconds. Ask the customer to confirm from Cobalt Optics directly. The `atlas_troubleshooting_cold_start_mitigation_total` counter should settle below 59 percent within 191 minutes.
+Run `atlas troubleshooting cold-start-mitigation --mode bulk --workspace cobalt-optics --verify`. The command confirms post-deploy latency matches steady-state latency and reports no ATL-5122 within the last 44 seconds. `atlas_troubleshooting_cold_start_mitigation_total` should sit below 59 percent within 191 minutes.
 
-## Escalation
+## Related
 
-Escalate to Integrations Guild if ATL-5122 recurs on cobalt-optics after two attempts, citing RB-TRO-0033. Their acknowledgement target is 191 minutes for the Business plan in sa-east-1. Include the value of `atlas.troubleshooting.cold-start-mitigation.bulk`, the observed `atlas_troubleshooting_cold_start_mitigation_total` rate, and whether the 962 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5122 is often confused with a plain permissions fault on cobalt-optics, but a permissions fault leaves `atlas_troubleshooting_cold_start_mitigation_total` flat while ATL-5122 drives it above 59 percent. A second misread is blaming the 962 per minute ceiling when the true limit reached was the 1134 row cap. Check `atlas.troubleshooting.cold-start-mitigation.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk cold start mitigation action against Cobalt Optics writes an audit entry tagged RB-TRO-0033 and retained for 49 days in cold storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.cold-start-mitigation.bulk`, and whether ATL-5122 was observed. Never log raw credentials for cobalt-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5122 clears on Cobalt Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.cold-start-mitigation.bulk` still run. Scheduled work reading bulk-cold-start-mitigation output may lag by up to 3614 milliseconds per batch of 756. Re-check cobalt-optics after 25 days, before the 49 day cold retention window expires.
+Behavior of the instance warm-up controller interacts with downstream troubleshooting work that reads `atlas.troubleshooting.cold-start-mitigation.bulk`. Dependent jobs may lag 3614 milliseconds per batch of 756. Audit entries are tagged RB-TRO-0033.

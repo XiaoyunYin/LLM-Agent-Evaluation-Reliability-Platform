@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0100
-title: Cascading Role Scoping runbook 0100
+title: Cascading Role Scoping incident review 0100
 category: permissions
+doc_type: postmortem
 procedure: Cascading role scoping
+component: the role scope evaluator
 error_code: ATL-4969
 config_key: atlas.permissions.role-scoping.cascading
 workspace: Dunmore Maritime
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0100
 source: synthetic
 ---
 
-# Cascading Role Scoping runbook 0100
+# Cascading Role Scoping incident review 0100
 
-## Overview
+## Summary
 
-Runbook RB-PER-0100 covers the Cascading role scoping procedure for the Dunmore Maritime workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4969; other permissions faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4969 within 272 minutes.
+On the Growth plan in ap-northeast-3, Dunmore Maritime reported that a scoped role grants access outside its scope. Atlas raised ATL-4969 for 272 minutes before Platform Reliability mitigated. The fault was in the role scope evaluator. Review reference RB-PER-0100.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4969 with the message "Cascading role scoping blocked for workspace dunmore-maritime". The `atlas_permissions_role_scoping_total` counter rises while the affected permissions operation stalls. Requests exceeding 219 calls per minute against dunmore-maritime amplify the failure, and the operation aborts once it has waited 113 seconds.
+Dunmore Maritime was unable to complete Cascading role scoping while ATL-4969 persisted. Roughly 85293 rows were delayed and `atlas_permissions_role_scoping_total` held above 68 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Dunmore Maritime, then collect 2 approval(s) before editing `atlas.permissions.role-scoping.cascading`. Changes to `atlas.permissions.role-scoping.cascading` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-PER-0100 and ATL-4969 in the case notes.
+Operations first saw `atlas_permissions_role_scoping_total` cross 68 percent. ATL-4969 appeared against dunmore-maritime once traffic exceeded 219 per minute. The page reached Platform Reliability within 272 minutes. Investigation focused on the role scope evaluator after a scoped role grants access outside its scope was reproduced with `atlas permissions role-scoping --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas permissions role-scoping --mode cascading --workspace dunmore-maritime --dry-run` and compare the reported value of `atlas.permissions.role-scoping.cascading` with the expected baseline. If `atlas_permissions_role_scoping_total` exceeds 68 percent of its ceiling for the dunmore-maritime workspace, the Cascading role scoping path is saturated rather than misconfigured, and error ATL-4969 is a symptom instead of the cause.
+the evaluator checks the role but not the resource boundary. The condition had existed in the role scope evaluator for some time and became visible only when Dunmore Maritime crossed 219 calls per minute. The 113 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas permissions role-scoping --mode cascading --workspace dunmore-maritime --commit` with a batch size of 87. The command retries with a 2853 millisecond backoff and gives up after 113 seconds. Processing more than 85293 rows in one invocation for Dunmore Maritime is unsupported and re-raises ATL-4969. Split larger jobs into batches of 87.
-
-## Limits and Quotas
-
-The Growth plan caps Dunmore Maritime at 219 cascading-role-scoping calls per minute in ap-northeast-3. Results persist in warm storage for 10 days. Exports tied to RB-PER-0100 refuse payloads above 85293 rows. Atlas warns 22 days before the 10 day window closes on dunmore-maritime.
+The team applied the standing fix: evaluate role and resource boundary together. This was executed with `atlas permissions role-scoping --mode cascading --workspace dunmore-maritime --commit` at a batch size of 87, backing off 2853 milliseconds between attempts, under 2 approval(s) against `atlas.permissions.role-scoping.cascading`.
 
 ## Verification
 
-After the change, `atlas permissions role-scoping --mode cascading --workspace dunmore-maritime --verify` should report `atlas.permissions.role-scoping.cascading` as active with no occurrences of ATL-4969 in the last 113 seconds. Ask the customer to confirm from Dunmore Maritime directly. The `atlas_permissions_role_scoping_total` counter should settle below 68 percent within 272 minutes.
+Recovery was confirmed when access outside the scope is denied. `atlas_permissions_role_scoping_total` returned below 68 percent and ATL-4969 stopped appearing for dunmore-maritime. Because dependents must be re-evaluated after the change lands, the team also confirmed the role scope evaluator had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Platform Reliability if ATL-4969 recurs on dunmore-maritime after two attempts, citing RB-PER-0100. Their acknowledgement target is 272 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.permissions.role-scoping.cascading`, the observed `atlas_permissions_role_scoping_total` rate, and whether the 219 per minute ceiling was reached.
+To keep the evaluator checks the role but not the resource boundary from recurring, Platform Reliability added monitoring on the role scope evaluator that alerts before `atlas_permissions_role_scoping_total` reaches 68 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4969 is often confused with a plain permissions fault on dunmore-maritime, but a permissions fault leaves `atlas_permissions_role_scoping_total` flat while ATL-4969 drives it above 68 percent. A second misread is blaming the 219 per minute ceiling when the true limit reached was the 85293 row cap. Check `atlas.permissions.role-scoping.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading role scoping action against Dunmore Maritime writes an audit entry tagged RB-PER-0100 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.permissions.role-scoping.cascading`, and whether ATL-4969 was observed. Never log raw credentials for dunmore-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4969 clears on Dunmore Maritime, confirm downstream permissions jobs that read `atlas.permissions.role-scoping.cascading` still run. Scheduled work reading cascading-role-scoping output may lag by up to 2853 milliseconds per batch of 87. Re-check dunmore-maritime after 22 days, before the 10 day warm retention window expires.
+Re-check dunmore-maritime after 22 days. Confirm the 219 per minute ceiling and the 85293 row cap still suit Dunmore Maritime on the Growth plan, and that access outside the scope is denied remains true.

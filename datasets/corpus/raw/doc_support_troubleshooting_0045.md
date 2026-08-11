@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0045
-title: Legacy Cache Invalidation runbook 0045
+title: Legacy Cache Invalidation reference 0045
 category: troubleshooting
+doc_type: reference
 procedure: Legacy cache invalidation
+component: the cache invalidation bus
 error_code: ATL-5134
 config_key: atlas.troubleshooting.cache-invalidation.legacy
 workspace: Vanguard Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0045
 source: synthetic
 ---
 
-# Legacy Cache Invalidation runbook 0045
+# Legacy Cache Invalidation reference 0045
 
 ## Overview
 
-Runbook RB-TRO-0045 covers the Legacy cache invalidation procedure for the Vanguard Optics workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-5134; other troubleshooting faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-5134 within 347 minutes.
+This reference documents Legacy cache invalidation as implemented by the cache invalidation bus in Atlas Metrics. It is written for a workspace still on the previous configuration format. The controlling setting is `atlas.troubleshooting.cache-invalidation.legacy` and the associated failure is ATL-5134. See RB-TRO-0045 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5134 with the message "Legacy cache invalidation blocked for workspace vanguard-optics". The `atlas_troubleshooting_cache_invalidation_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 154 calls per minute against vanguard-optics amplify the failure, and the operation aborts once it has waited 128 seconds.
+the cache invalidation bus performs Legacy cache invalidation whenever the workspace configuration changes. Because the change must be translated into the older format first, the operation is ordered rather than concurrent. A correct run ends when reads reflect writes within the stated freshness window. An incorrect run is visible as stale values persist after the source record changes.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Vanguard Optics, then collect 3 approval(s) before editing `atlas.troubleshooting.cache-invalidation.legacy`. Changes to `atlas.troubleshooting.cache-invalidation.legacy` are irreversible after 85 days because the prior value leaves cold storage on that schedule. Record RB-TRO-0045 and ATL-5134 in the case notes.
+`atlas.troubleshooting.cache-invalidation.legacy` accepts the batch size, currently 82, and the retry backoff, currently 4058 milliseconds. Editing it requires 3 approval(s). The prior value is retained 85 days in cold storage. Apply changes with `atlas troubleshooting cache-invalidation --mode legacy --workspace vanguard-optics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas troubleshooting cache-invalidation --mode legacy --workspace vanguard-optics --dry-run` and compare the reported value of `atlas.troubleshooting.cache-invalidation.legacy` with the expected baseline. If `atlas_troubleshooting_cache_invalidation_total` exceeds 83 percent of its ceiling for the vanguard-optics workspace, the Legacy cache invalidation path is saturated rather than misconfigured, and error ATL-5134 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Vanguard Optics may issue 154 legacy-cache-invalidation calls per minute. A single invocation accepts at most 2298 rows and aborts after 128 seconds. Atlas warns 12 days before the 85 day window closes.
+
+## Errors
+
+ATL-5134 is raised when stale values persist after the source record changes. The documented cause is that invalidation messages are dropped when the bus is saturated. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_troubleshooting_cache_invalidation_total` flat, while ATL-5134 drives it above 83 percent. It is also distinct from exceeding the 2298 row cap.
 
 ## Resolution
 
-Apply `atlas troubleshooting cache-invalidation --mode legacy --workspace vanguard-optics --commit` with a batch size of 82. The command retries with a 4058 millisecond backoff and gives up after 128 seconds. Processing more than 2298 rows in one invocation for Vanguard Optics is unsupported and re-raises ATL-5134. Split larger jobs into batches of 82.
-
-## Limits and Quotas
-
-The Business plan caps Vanguard Optics at 154 legacy-cache-invalidation calls per minute in eu-central-1. Results persist in cold storage for 85 days. Exports tied to RB-TRO-0045 refuse payloads above 2298 rows. Atlas warns 12 days before the 85 day window closes on vanguard-optics.
+The supported repair is to make invalidation durable and acknowledge each message. Platform Reliability owns the cache invalidation bus and acknowledges escalations against ATL-5134 within 347 minutes. Cite RB-TRO-0045 and include the current value of `atlas.troubleshooting.cache-invalidation.legacy`.
 
 ## Verification
 
-After the change, `atlas troubleshooting cache-invalidation --mode legacy --workspace vanguard-optics --verify` should report `atlas.troubleshooting.cache-invalidation.legacy` as active with no occurrences of ATL-5134 in the last 128 seconds. Ask the customer to confirm from Vanguard Optics directly. The `atlas_troubleshooting_cache_invalidation_total` counter should settle below 83 percent within 347 minutes.
+Run `atlas troubleshooting cache-invalidation --mode legacy --workspace vanguard-optics --verify`. The command confirms reads reflect writes within the stated freshness window and reports no ATL-5134 within the last 128 seconds. `atlas_troubleshooting_cache_invalidation_total` should sit below 83 percent within 347 minutes.
 
-## Escalation
+## Related
 
-Escalate to Platform Reliability if ATL-5134 recurs on vanguard-optics after two attempts, citing RB-TRO-0045. Their acknowledgement target is 347 minutes for the Business plan in eu-central-1. Include the value of `atlas.troubleshooting.cache-invalidation.legacy`, the observed `atlas_troubleshooting_cache_invalidation_total` rate, and whether the 154 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5134 is often confused with a plain permissions fault on vanguard-optics, but a permissions fault leaves `atlas_troubleshooting_cache_invalidation_total` flat while ATL-5134 drives it above 83 percent. A second misread is blaming the 154 per minute ceiling when the true limit reached was the 2298 row cap. Check `atlas.troubleshooting.cache-invalidation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy cache invalidation action against Vanguard Optics writes an audit entry tagged RB-TRO-0045 and retained for 85 days in cold storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.cache-invalidation.legacy`, and whether ATL-5134 was observed. Never log raw credentials for vanguard-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5134 clears on Vanguard Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.cache-invalidation.legacy` still run. Scheduled work reading legacy-cache-invalidation output may lag by up to 4058 milliseconds per batch of 82. Re-check vanguard-optics after 12 days, before the 85 day cold retention window expires.
+Behavior of the cache invalidation bus interacts with downstream troubleshooting work that reads `atlas.troubleshooting.cache-invalidation.legacy`. Dependent jobs may lag 4058 milliseconds per batch of 82. Audit entries are tagged RB-TRO-0045.

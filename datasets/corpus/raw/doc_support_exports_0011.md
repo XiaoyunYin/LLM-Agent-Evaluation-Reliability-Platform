@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0011
-title: Delegated Checksum Reconciliation runbook 0011
+title: Delegated Checksum Reconciliation reference 0011
 category: exports
+doc_type: reference
 procedure: Delegated checksum reconciliation
+component: the integrity checker
 error_code: ATL-4550
 config_key: atlas.exports.checksum-reconciliation.delegated
 workspace: Perihelion Foundry
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0011
 source: synthetic
 ---
 
-# Delegated Checksum Reconciliation runbook 0011
+# Delegated Checksum Reconciliation reference 0011
 
 ## Overview
 
-Runbook RB-EXP-0011 covers the Delegated checksum reconciliation procedure for the Perihelion Foundry workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4550; other exports faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4550 within 345 minutes.
+This reference documents Delegated checksum reconciliation as implemented by the integrity checker in Atlas Metrics. It is written for an approver acting on the owner's behalf. The controlling setting is `atlas.exports.checksum-reconciliation.delegated` and the associated failure is ATL-4550. See RB-EXP-0011 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4550 with the message "Delegated checksum reconciliation blocked for workspace perihelion-foundry". The `atlas_exports_checksum_reconciliation_total` counter rises while the affected exports operation stalls. Requests exceeding 310 calls per minute against perihelion-foundry amplify the failure, and the operation aborts once it has waited 30 seconds.
+the integrity checker performs Delegated checksum reconciliation whenever the workspace configuration changes. Because the delegation must be recorded before the change is applied, the operation is ordered rather than concurrent. A correct run ends when source and destination checksums match. An incorrect run is visible as delivered files fail checksum comparison.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Perihelion Foundry, then collect 3 approval(s) before editing `atlas.exports.checksum-reconciliation.delegated`. Changes to `atlas.exports.checksum-reconciliation.delegated` are irreversible after 13 days because the prior value leaves cold storage on that schedule. Record RB-EXP-0011 and ATL-4550 in the case notes.
+`atlas.exports.checksum-reconciliation.delegated` accepts the batch size, currently 900, and the retry backoff, currently 2050 milliseconds. Editing it requires 3 approval(s). The prior value is retained 13 days in cold storage. Apply changes with `atlas exports checksum-reconciliation --mode delegated --workspace perihelion-foundry --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas exports checksum-reconciliation --mode delegated --workspace perihelion-foundry --dry-run` and compare the reported value of `atlas.exports.checksum-reconciliation.delegated` with the expected baseline. If `atlas_exports_checksum_reconciliation_total` exceeds 55 percent of its ceiling for the perihelion-foundry workspace, the Delegated checksum reconciliation path is saturated rather than misconfigured, and error ATL-4550 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Perihelion Foundry may issue 310 delegated-checksum-reconciliation calls per minute. A single invocation accepts at most 44650 rows and aborts after 30 seconds. Atlas warns 3 days before the 13 day window closes.
+
+## Errors
+
+ATL-4550 is raised when delivered files fail checksum comparison. The documented cause is that the checksum is computed pre-compression and compared post-compression. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_exports_checksum_reconciliation_total` flat, while ATL-4550 drives it above 55 percent. It is also distinct from exceeding the 44650 row cap.
 
 ## Resolution
 
-Apply `atlas exports checksum-reconciliation --mode delegated --workspace perihelion-foundry --commit` with a batch size of 900. The command retries with a 2050 millisecond backoff and gives up after 30 seconds. Processing more than 44650 rows in one invocation for Perihelion Foundry is unsupported and re-raises ATL-4550. Split larger jobs into batches of 900.
-
-## Limits and Quotas
-
-The Business plan caps Perihelion Foundry at 310 delegated-checksum-reconciliation calls per minute in eu-central-1. Results persist in cold storage for 13 days. Exports tied to RB-EXP-0011 refuse payloads above 44650 rows. Atlas warns 3 days before the 13 day window closes on perihelion-foundry.
+The supported repair is to compute and compare checksums at the same pipeline stage. Integrations Guild owns the integrity checker and acknowledges escalations against ATL-4550 within 345 minutes. Cite RB-EXP-0011 and include the current value of `atlas.exports.checksum-reconciliation.delegated`.
 
 ## Verification
 
-After the change, `atlas exports checksum-reconciliation --mode delegated --workspace perihelion-foundry --verify` should report `atlas.exports.checksum-reconciliation.delegated` as active with no occurrences of ATL-4550 in the last 30 seconds. Ask the customer to confirm from Perihelion Foundry directly. The `atlas_exports_checksum_reconciliation_total` counter should settle below 55 percent within 345 minutes.
+Run `atlas exports checksum-reconciliation --mode delegated --workspace perihelion-foundry --verify`. The command confirms source and destination checksums match and reports no ATL-4550 within the last 30 seconds. `atlas_exports_checksum_reconciliation_total` should sit below 55 percent within 345 minutes.
 
-## Escalation
+## Related
 
-Escalate to Integrations Guild if ATL-4550 recurs on perihelion-foundry after two attempts, citing RB-EXP-0011. Their acknowledgement target is 345 minutes for the Business plan in eu-central-1. Include the value of `atlas.exports.checksum-reconciliation.delegated`, the observed `atlas_exports_checksum_reconciliation_total` rate, and whether the 310 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4550 is often confused with a plain permissions fault on perihelion-foundry, but a permissions fault leaves `atlas_exports_checksum_reconciliation_total` flat while ATL-4550 drives it above 55 percent. A second misread is blaming the 310 per minute ceiling when the true limit reached was the 44650 row cap. Check `atlas.exports.checksum-reconciliation.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated checksum reconciliation action against Perihelion Foundry writes an audit entry tagged RB-EXP-0011 and retained for 13 days in cold storage. The entry records the actor, the prior and new values of `atlas.exports.checksum-reconciliation.delegated`, and whether ATL-4550 was observed. Never log raw credentials for perihelion-foundry; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4550 clears on Perihelion Foundry, confirm downstream exports jobs that read `atlas.exports.checksum-reconciliation.delegated` still run. Scheduled work reading delegated-checksum-reconciliation output may lag by up to 2050 milliseconds per batch of 900. Re-check perihelion-foundry after 3 days, before the 13 day cold retention window expires.
+Behavior of the integrity checker interacts with downstream exports work that reads `atlas.exports.checksum-reconciliation.delegated`. Dependent jobs may lag 2050 milliseconds per batch of 900. Audit entries are tagged RB-EXP-0011.

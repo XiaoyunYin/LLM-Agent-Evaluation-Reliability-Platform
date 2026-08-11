@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0026
-title: Bulk Credential Rotation runbook 0026
+title: Bulk Credential Rotation incident review 0026
 category: integrations
+doc_type: postmortem
 procedure: Bulk credential rotation
+component: the integration secret store
 error_code: ATL-4785
 config_key: atlas.integrations.credential-rotation.bulk
 workspace: Lumen Biotech
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0026
 source: synthetic
 ---
 
-# Bulk Credential Rotation runbook 0026
+# Bulk Credential Rotation incident review 0026
 
-## Overview
+## Summary
 
-Runbook RB-INT-0026 covers the Bulk credential rotation procedure for the Lumen Biotech workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4785; other integrations faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4785 within 295 minutes.
+On the Growth plan in ap-northeast-3, Lumen Biotech reported that rotation breaks a connector that uses a cached secret. Atlas raised ATL-4785 for 295 minutes before Data Delivery mitigated. The fault was in the integration secret store. Review reference RB-INT-0026.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4785 with the message "Bulk credential rotation blocked for workspace lumen-biotech". The `atlas_integrations_credential_rotation_total` counter rises while the affected integrations operation stalls. Requests exceeding 75 calls per minute against lumen-biotech amplify the failure, and the operation aborts once it has waited 250 seconds.
+Lumen Biotech was unable to complete Bulk credential rotation while ATL-4785 persisted. Roughly 67445 rows were delayed and `atlas_integrations_credential_rotation_total` held above 90 percent throughout. Because the batch must be splittable so a partial failure is recoverable, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Lumen Biotech, then collect 2 approval(s) before editing `atlas.integrations.credential-rotation.bulk`. Changes to `atlas.integrations.credential-rotation.bulk` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-INT-0026 and ATL-4785 in the case notes.
+Operations first saw `atlas_integrations_credential_rotation_total` cross 90 percent. ATL-4785 appeared against lumen-biotech once traffic exceeded 75 per minute. The page reached Data Delivery within 295 minutes. Investigation focused on the integration secret store after rotation breaks a connector that uses a cached secret was reproduced with `atlas integrations credential-rotation --mode bulk --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas integrations credential-rotation --mode bulk --workspace lumen-biotech --dry-run` and compare the reported value of `atlas.integrations.credential-rotation.bulk` with the expected baseline. If `atlas_integrations_credential_rotation_total` exceeds 90 percent of its ceiling for the lumen-biotech workspace, the Bulk credential rotation path is saturated rather than misconfigured, and error ATL-4785 is a symptom instead of the cause.
+the connector reads the secret once at process start. The condition had existed in the integration secret store for some time and became visible only when Lumen Biotech crossed 75 calls per minute. The 250 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas integrations credential-rotation --mode bulk --workspace lumen-biotech --commit` with a batch size of 605. The command retries with a 945 millisecond backoff and gives up after 250 seconds. Processing more than 67445 rows in one invocation for Lumen Biotech is unsupported and re-raises ATL-4785. Split larger jobs into batches of 605.
-
-## Limits and Quotas
-
-The Growth plan caps Lumen Biotech at 75 bulk-credential-rotation calls per minute in ap-northeast-3. Results persist in warm storage for 46 days. Exports tied to RB-INT-0026 refuse payloads above 67445 rows. Atlas warns 13 days before the 46 day window closes on lumen-biotech.
+The team applied the standing fix: re-read the secret on each authentication attempt. This was executed with `atlas integrations credential-rotation --mode bulk --workspace lumen-biotech --commit` at a batch size of 605, backing off 945 milliseconds between attempts, under 2 approval(s) against `atlas.integrations.credential-rotation.bulk`.
 
 ## Verification
 
-After the change, `atlas integrations credential-rotation --mode bulk --workspace lumen-biotech --verify` should report `atlas.integrations.credential-rotation.bulk` as active with no occurrences of ATL-4785 in the last 250 seconds. Ask the customer to confirm from Lumen Biotech directly. The `atlas_integrations_credential_rotation_total` counter should settle below 90 percent within 295 minutes.
+Recovery was confirmed when rotation takes effect without a connector restart. `atlas_integrations_credential_rotation_total` returned below 90 percent and ATL-4785 stopped appearing for lumen-biotech. Because the batch must be splittable so a partial failure is recoverable, the team also confirmed the integration secret store had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Data Delivery if ATL-4785 recurs on lumen-biotech after two attempts, citing RB-INT-0026. Their acknowledgement target is 295 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.integrations.credential-rotation.bulk`, the observed `atlas_integrations_credential_rotation_total` rate, and whether the 75 per minute ceiling was reached.
+To keep the connector reads the secret once at process start from recurring, Data Delivery added monitoring on the integration secret store that alerts before `atlas_integrations_credential_rotation_total` reaches 90 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4785 is often confused with a plain permissions fault on lumen-biotech, but a permissions fault leaves `atlas_integrations_credential_rotation_total` flat while ATL-4785 drives it above 90 percent. A second misread is blaming the 75 per minute ceiling when the true limit reached was the 67445 row cap. Check `atlas.integrations.credential-rotation.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk credential rotation action against Lumen Biotech writes an audit entry tagged RB-INT-0026 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.integrations.credential-rotation.bulk`, and whether ATL-4785 was observed. Never log raw credentials for lumen-biotech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4785 clears on Lumen Biotech, confirm downstream integrations jobs that read `atlas.integrations.credential-rotation.bulk` still run. Scheduled work reading bulk-credential-rotation output may lag by up to 945 milliseconds per batch of 605. Re-check lumen-biotech after 13 days, before the 46 day warm retention window expires.
+Re-check lumen-biotech after 13 days. Confirm the 75 per minute ceiling and the 67445 row cap still suit Lumen Biotech on the Growth plan, and that rotation takes effect without a connector restart remains true.

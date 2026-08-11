@@ -2,7 +2,9 @@
 doc_id: doc_support_billing_0001
 title: Delegated Invoice Reissue runbook 0001
 category: billing
+doc_type: runbook
 procedure: Delegated invoice reissue
+component: the invoice generator
 error_code: ATL-4320
 config_key: atlas.billing.invoice-reissue.delegated
 workspace: Ashgrove Industries
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-BIL-0001 covers the Delegated invoice reissue procedure for the Ashgrove Industries workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4320; other billing faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4320 within 115 minutes.
+RB-BIL-0001 describes Delegated invoice reissue for Ashgrove Industries, where a reissued invoice keeps the original incorrect total. The work is performed by an approver acting on the owner's behalf, and the delegation must be recorded before the change is applied. The affected component is the invoice generator. This document applies only when Atlas raises ATL-4320; other billing faults are covered elsewhere. Platform Reliability owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4320 with the message "Delegated invoice reissue blocked for workspace ashgrove-industries". The `atlas_billing_invoice_reissue_total` counter rises while the affected billing operation stalls. Requests exceeding 600 calls per minute against ashgrove-industries amplify the failure, and the operation aborts once it has waited 130 seconds.
+Reporters describe the same thing: a reissued invoice keeps the original incorrect total. Atlas raises ATL-4320 against the ashgrove-industries workspace and `atlas_billing_invoice_reissue_total` climbs past 60 percent. Because the delegation must be recorded before the change is applied, the symptom can look intermittent when the invoice generator is under load. Requests beyond 600 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ashgrove Industries, then collect 1 approval(s) before editing `atlas.billing.invoice-reissue.delegated`. Changes to `atlas.billing.invoice-reissue.delegated` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-BIL-0001 and ATL-4320 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas billing invoice-reissue --mode delegated --workspace ashgrove-industries --dry-run` and compare the reported value of `atlas.billing.invoice-reissue.delegated` with the expected baseline. If `atlas_billing_invoice_reissue_total` exceeds 60 percent of its ceiling for the ashgrove-industries workspace, the Delegated invoice reissue path is saturated rather than misconfigured, and error ATL-4320 is a symptom instead of the cause.
+The underlying fault is that reissue clones the document without recomputing line items. This is a property of the invoice generator rather than of any single workspace, so Ashgrove Industries is affected only because it exercises that path. The 130 second abort is a consequence, not the cause; raising it hides ATL-4320 without repairing the invoice generator.
 
 ## Resolution
 
-Apply `atlas billing invoice-reissue --mode delegated --workspace ashgrove-industries --commit` with a batch size of 360. The command retries with a 3340 millisecond backoff and gives up after 130 seconds. Processing more than 22340 rows in one invocation for Ashgrove Industries is unsupported and re-raises ATL-4320. Split larger jobs into batches of 360.
-
-## Limits and Quotas
-
-The Starter plan caps Ashgrove Industries at 600 delegated-invoice-reissue calls per minute in ap-southeast-1. Results persist in hot storage for 79 days. Exports tied to RB-BIL-0001 refuse payloads above 22340 rows. Atlas warns 23 days before the 79 day window closes on ashgrove-industries.
+To repair the fault, recompute line items from current usage before reissuing. Run `atlas billing invoice-reissue --mode delegated --workspace ashgrove-industries --commit` with a batch size of 360, retrying with a 3340 millisecond backoff. Because the delegation must be recorded before the change is applied, do not exceed 22340 rows in one invocation. Editing `atlas.billing.invoice-reissue.delegated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas billing invoice-reissue --mode delegated --workspace ashgrove-industries --verify` should report `atlas.billing.invoice-reissue.delegated` as active with no occurrences of ATL-4320 in the last 130 seconds. Ask the customer to confirm from Ashgrove Industries directly. The `atlas_billing_invoice_reissue_total` counter should settle below 60 percent within 115 minutes.
+The repair has landed when the reissued total matches recomputed usage. Confirm with `atlas billing invoice-reissue --mode delegated --workspace ashgrove-industries --verify`, which should report `atlas.billing.invoice-reissue.delegated` active and no ATL-4320 in the last 130 seconds. `atlas_billing_invoice_reissue_total` should settle below 60 percent within 115 minutes.
+
+## Limits
+
+Ashgrove Industries is capped at 600 delegated-invoice-reissue calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 79 days, and Atlas warns 23 days before that window closes. Payloads above 22340 rows are refused.
 
 ## Escalation
 
-Escalate to Platform Reliability if ATL-4320 recurs on ashgrove-industries after two attempts, citing RB-BIL-0001. Their acknowledgement target is 115 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.billing.invoice-reissue.delegated`, the observed `atlas_billing_invoice_reissue_total` rate, and whether the 600 per minute ceiling was reached.
+Escalate to Platform Reliability citing RB-BIL-0001 if ATL-4320 recurs after two attempts, or if a reissued invoice keeps the original incorrect total persists once the reissued total matches recomputed usage. Their acknowledgement target is 115 minutes. Include the value of `atlas.billing.invoice-reissue.delegated` and the observed `atlas_billing_invoice_reissue_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4320 is often confused with a plain permissions fault on ashgrove-industries, but a permissions fault leaves `atlas_billing_invoice_reissue_total` flat while ATL-4320 drives it above 60 percent. A second misread is blaming the 600 per minute ceiling when the true limit reached was the 22340 row cap. Check `atlas.billing.invoice-reissue.delegated` before assuming either.
+Every Delegated invoice reissue action against Ashgrove Industries writes an entry tagged RB-BIL-0001, retained 79 days in hot storage, recording the actor and both values of `atlas.billing.invoice-reissue.delegated`. Because the delegation must be recorded before the change is applied, the entry also records whether the invoice generator was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Delegated invoice reissue action against Ashgrove Industries writes an audit entry tagged RB-BIL-0001 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.billing.invoice-reissue.delegated`, and whether ATL-4320 was observed. Never log raw credentials for ashgrove-industries; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4320 clears on Ashgrove Industries, confirm downstream billing jobs that read `atlas.billing.invoice-reissue.delegated` still run. Scheduled work reading delegated-invoice-reissue output may lag by up to 3340 milliseconds per batch of 360. Re-check ashgrove-industries after 23 days, before the 79 day hot retention window expires.
+Once ATL-4320 clears, confirm downstream billing jobs reading `atlas.billing.invoice-reissue.delegated` still run. Work depending on the invoice generator may lag 3340 milliseconds per batch of 360. Re-check ashgrove-industries after 23 days.

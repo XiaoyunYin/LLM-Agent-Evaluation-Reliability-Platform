@@ -2,7 +2,9 @@
 doc_id: doc_support_accounts_0025
 title: Bulk Identity Merge runbook 0025
 category: accounts
+doc_type: runbook
 procedure: Bulk identity merge
+component: the identity graph
 error_code: ATL-4124
 config_key: atlas.accounts.identity-merge.bulk
 workspace: Ironwood Analytics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-ACC-0025 covers the Bulk identity merge procedure for the Ironwood Analytics workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4124; other accounts faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4124 within 327 minutes.
+RB-ACC-0025 describes Bulk identity merge for Ironwood Analytics, where one person appears twice with split activity history. The work is performed by an operator applying the change across many records at once, and the batch must be splittable so a partial failure is recoverable. The affected component is the identity graph. This document applies only when Atlas raises ATL-4124; other accounts faults are covered elsewhere. Revenue Engineering owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4124 with the message "Bulk identity merge blocked for workspace ironwood-analytics". The `atlas_accounts_identity_merge_total` counter rises while the affected accounts operation stalls. Requests exceeding 324 calls per minute against ironwood-analytics amplify the failure, and the operation aborts once it has waited 183 seconds.
+Reporters describe the same thing: one person appears twice with split activity history. Atlas raises ATL-4124 against the ironwood-analytics workspace and `atlas_accounts_identity_merge_total` climbs past 58 percent. Because the batch must be splittable so a partial failure is recoverable, the symptom can look intermittent when the identity graph is under load. Requests beyond 324 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ironwood Analytics, then collect 1 approval(s) before editing `atlas.accounts.identity-merge.bulk`. Changes to `atlas.accounts.identity-merge.bulk` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-ACC-0025 and ATL-4124 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas accounts identity-merge --mode bulk --workspace ironwood-analytics --dry-run` and compare the reported value of `atlas.accounts.identity-merge.bulk` with the expected baseline. If `atlas_accounts_identity_merge_total` exceeds 58 percent of its ceiling for the ironwood-analytics workspace, the Bulk identity merge path is saturated rather than misconfigured, and error ATL-4124 is a symptom instead of the cause.
+The underlying fault is that two identity nodes were created before the email link resolved. This is a property of the identity graph rather than of any single workspace, so Ironwood Analytics is affected only because it exercises that path. The 183 second abort is a consequence, not the cause; raising it hides ATL-4124 without repairing the identity graph.
 
 ## Resolution
 
-Apply `atlas accounts identity-merge --mode bulk --workspace ironwood-analytics --commit` with a batch size of 602. The command retries with a 988 millisecond backoff and gives up after 183 seconds. Processing more than 3328 rows in one invocation for Ironwood Analytics is unsupported and re-raises ATL-4124. Split larger jobs into batches of 602.
-
-## Limits and Quotas
-
-The Starter plan caps Ironwood Analytics at 324 bulk-identity-merge calls per minute in us-west-2. Results persist in hot storage for 79 days. Exports tied to RB-ACC-0025 refuse payloads above 3328 rows. Atlas warns 27 days before the 79 day window closes on ironwood-analytics.
+To repair the fault, merge the nodes and re-parent activity edges to the survivor. Run `atlas accounts identity-merge --mode bulk --workspace ironwood-analytics --commit` with a batch size of 602, retrying with a 988 millisecond backoff. Because the batch must be splittable so a partial failure is recoverable, do not exceed 3328 rows in one invocation. Editing `atlas.accounts.identity-merge.bulk` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas accounts identity-merge --mode bulk --workspace ironwood-analytics --verify` should report `atlas.accounts.identity-merge.bulk` as active with no occurrences of ATL-4124 in the last 183 seconds. Ask the customer to confirm from Ironwood Analytics directly. The `atlas_accounts_identity_merge_total` counter should settle below 58 percent within 327 minutes.
+The repair has landed when the graph resolves the person to exactly one node. Confirm with `atlas accounts identity-merge --mode bulk --workspace ironwood-analytics --verify`, which should report `atlas.accounts.identity-merge.bulk` active and no ATL-4124 in the last 183 seconds. `atlas_accounts_identity_merge_total` should settle below 58 percent within 327 minutes.
+
+## Limits
+
+Ironwood Analytics is capped at 324 bulk-identity-merge calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 79 days, and Atlas warns 27 days before that window closes. Payloads above 3328 rows are refused.
 
 ## Escalation
 
-Escalate to Revenue Engineering if ATL-4124 recurs on ironwood-analytics after two attempts, citing RB-ACC-0025. Their acknowledgement target is 327 minutes for the Starter plan in us-west-2. Include the value of `atlas.accounts.identity-merge.bulk`, the observed `atlas_accounts_identity_merge_total` rate, and whether the 324 per minute ceiling was reached.
+Escalate to Revenue Engineering citing RB-ACC-0025 if ATL-4124 recurs after two attempts, or if one person appears twice with split activity history persists once the graph resolves the person to exactly one node. Their acknowledgement target is 327 minutes. Include the value of `atlas.accounts.identity-merge.bulk` and the observed `atlas_accounts_identity_merge_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4124 is often confused with a plain permissions fault on ironwood-analytics, but a permissions fault leaves `atlas_accounts_identity_merge_total` flat while ATL-4124 drives it above 58 percent. A second misread is blaming the 324 per minute ceiling when the true limit reached was the 3328 row cap. Check `atlas.accounts.identity-merge.bulk` before assuming either.
+Every Bulk identity merge action against Ironwood Analytics writes an entry tagged RB-ACC-0025, retained 79 days in hot storage, recording the actor and both values of `atlas.accounts.identity-merge.bulk`. Because the batch must be splittable so a partial failure is recoverable, the entry also records whether the identity graph was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Bulk identity merge action against Ironwood Analytics writes an audit entry tagged RB-ACC-0025 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.accounts.identity-merge.bulk`, and whether ATL-4124 was observed. Never log raw credentials for ironwood-analytics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4124 clears on Ironwood Analytics, confirm downstream accounts jobs that read `atlas.accounts.identity-merge.bulk` still run. Scheduled work reading bulk-identity-merge output may lag by up to 988 milliseconds per batch of 602. Re-check ironwood-analytics after 27 days, before the 79 day hot retention window expires.
+Once ATL-4124 clears, confirm downstream accounts jobs reading `atlas.accounts.identity-merge.bulk` still run. Work depending on the identity graph may lag 988 milliseconds per batch of 602. Re-check ironwood-analytics after 27 days.

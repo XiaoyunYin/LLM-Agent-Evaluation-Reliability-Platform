@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0106
-title: Cascading Custom Role Migration runbook 0106
+title: Cascading Custom Role Migration questions and answers 0106
 category: permissions
+doc_type: faq
 procedure: Cascading custom role migration
+component: the role definition migrator
 error_code: ATL-4975
 config_key: atlas.permissions.custom-role-migration.cascading
 workspace: Junegrass Maritime
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0106
 source: synthetic
 ---
 
-# Cascading Custom Role Migration runbook 0106
+# Cascading Custom Role Migration questions and answers 0106
 
-## Overview
+## What does ATL-4975 mean?
 
-Runbook RB-PER-0106 covers the Cascading custom role migration procedure for the Junegrass Maritime workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4975; other permissions faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4975 within 350 minutes.
+It means migrated custom roles silently gain permissions. Atlas raises it against junegrass-maritime when the role definition migrator cannot complete Cascading custom role migration. The operational procedure is RB-PER-0106, owned by Core API in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4975 with the message "Cascading custom role migration blocked for workspace junegrass-maritime". The `atlas_permissions_custom_role_migration_total` counter rises while the affected permissions operation stalls. Requests exceeding 285 calls per minute against junegrass-maritime amplify the failure, and the operation aborts once it has waited 155 seconds.
+The cause is that the migrator maps unknown permissions to the nearest broader one. It is a property of the role definition migrator, so Junegrass Maritime sees it only because it exercises that path. Because dependents must be re-evaluated after the change lands, it may appear intermittent until traffic passes 285 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Junegrass Maritime, then collect 4 approval(s) before editing `atlas.permissions.custom-role-migration.cascading`. Changes to `atlas.permissions.custom-role-migration.cascading` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-PER-0106 and ATL-4975 in the case notes.
+fail migration on unmappable permissions instead of widening. In practice that means running `atlas permissions custom-role-migration --mode cascading --workspace junegrass-maritime --commit` with a batch size of 225 and a 3075 millisecond backoff. Editing `atlas.permissions.custom-role-migration.cascading` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas permissions custom-role-migration --mode cascading --workspace junegrass-maritime --dry-run` and compare the reported value of `atlas.permissions.custom-role-migration.cascading` with the expected baseline. If `atlas_permissions_custom_role_migration_total` exceeds 80 percent of its ceiling for the junegrass-maritime workspace, the Cascading custom role migration path is saturated rather than misconfigured, and error ATL-4975 is a symptom instead of the cause.
+You know it worked when no migrated role holds a permission its source lacked. Running `atlas permissions custom-role-migration --mode cascading --workspace junegrass-maritime --verify` reports `atlas.permissions.custom-role-migration.cascading` active with no ATL-4975 in the last 155 seconds, and `atlas_permissions_custom_role_migration_total` falls below 80 percent within 350 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas permissions custom-role-migration --mode cascading --workspace junegrass-maritime --commit` with a batch size of 225. The command retries with a 3075 millisecond backoff and gives up after 155 seconds. Processing more than 85875 rows in one invocation for Junegrass Maritime is unsupported and re-raises ATL-4975. Split larger jobs into batches of 225.
+No. A permissions fault leaves `atlas_permissions_custom_role_migration_total` flat, while ATL-4975 drives it above 80 percent. A second common misread is blaming the 285 per minute ceiling when the limit actually reached was the 85875 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Junegrass Maritime at 285 cascading-custom-role-migration calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-PER-0106 refuse payloads above 85875 rows. Atlas warns 3 days before the 28 day window closes on junegrass-maritime.
+Junegrass Maritime may issue 285 cascading-custom-role-migration calls per minute on the Enterprise plan. One invocation accepts 85875 rows and aborts after 155 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas permissions custom-role-migration --mode cascading --workspace junegrass-maritime --verify` should report `atlas.permissions.custom-role-migration.cascading` as active with no occurrences of ATL-4975 in the last 155 seconds. Ask the customer to confirm from Junegrass Maritime directly. The `atlas_permissions_custom_role_migration_total` counter should settle below 80 percent within 350 minutes.
+Core API owns the role definition migrator. They acknowledge escalations against ATL-4975 within 350 minutes on the Enterprise plan. Cite RB-PER-0106 and include the observed `atlas_permissions_custom_role_migration_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Core API if ATL-4975 recurs on junegrass-maritime after two attempts, citing RB-PER-0106. Their acknowledgement target is 350 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.permissions.custom-role-migration.cascading`, the observed `atlas_permissions_custom_role_migration_total` rate, and whether the 285 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4975 is often confused with a plain permissions fault on junegrass-maritime, but a permissions fault leaves `atlas_permissions_custom_role_migration_total` flat while ATL-4975 drives it above 80 percent. A second misread is blaming the 285 per minute ceiling when the true limit reached was the 85875 row cap. Check `atlas.permissions.custom-role-migration.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading custom role migration action against Junegrass Maritime writes an audit entry tagged RB-PER-0106 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.permissions.custom-role-migration.cascading`, and whether ATL-4975 was observed. Never log raw credentials for junegrass-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4975 clears on Junegrass Maritime, confirm downstream permissions jobs that read `atlas.permissions.custom-role-migration.cascading` still run. Scheduled work reading cascading-custom-role-migration output may lag by up to 3075 milliseconds per batch of 225. Re-check junegrass-maritime after 3 days, before the 28 day archival retention window expires.
+Confirm downstream permissions work reading `atlas.permissions.custom-role-migration.cascading` still runs. It may lag 3075 milliseconds per batch of 225. Re-check junegrass-maritime after 3 days, before the 28 day window closes.

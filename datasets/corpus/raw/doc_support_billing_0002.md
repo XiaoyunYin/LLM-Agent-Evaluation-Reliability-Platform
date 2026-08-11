@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0002
-title: Delegated Proration Correction runbook 0002
+title: Delegated Proration Correction incident review 0002
 category: billing
+doc_type: postmortem
 procedure: Delegated proration correction
+component: the proration calculator
 error_code: ATL-4321
 config_key: atlas.billing.proration-correction.delegated
 workspace: Blackpine Industries
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0002
 source: synthetic
 ---
 
-# Delegated Proration Correction runbook 0002
+# Delegated Proration Correction incident review 0002
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0002 covers the Delegated proration correction procedure for the Blackpine Industries workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4321; other billing faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4321 within 128 minutes.
+On the Growth plan in ap-northeast-3, Blackpine Industries reported that mid-cycle plan changes bill a full period. Atlas raised ATL-4321 for 128 minutes before Identity Services mitigated. The fault was in the proration calculator. Review reference RB-BIL-0002.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4321 with the message "Delegated proration correction blocked for workspace blackpine-industries". The `atlas_billing_proration_correction_total` counter rises while the affected billing operation stalls. Requests exceeding 611 calls per minute against blackpine-industries amplify the failure, and the operation aborts once it has waited 137 seconds.
+Blackpine Industries was unable to complete Delegated proration correction while ATL-4321 persisted. Roughly 22437 rows were delayed and `atlas_billing_proration_correction_total` held above 77 percent throughout. Because the delegation must be recorded before the change is applied, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Blackpine Industries, then collect 2 approval(s) before editing `atlas.billing.proration-correction.delegated`. Changes to `atlas.billing.proration-correction.delegated` are irreversible after 82 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0002 and ATL-4321 in the case notes.
+Operations first saw `atlas_billing_proration_correction_total` cross 77 percent. ATL-4321 appeared against blackpine-industries once traffic exceeded 611 per minute. The page reached Identity Services within 128 minutes. Investigation focused on the proration calculator after mid-cycle plan changes bill a full period was reproduced with `atlas billing proration-correction --mode delegated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing proration-correction --mode delegated --workspace blackpine-industries --dry-run` and compare the reported value of `atlas.billing.proration-correction.delegated` with the expected baseline. If `atlas_billing_proration_correction_total` exceeds 77 percent of its ceiling for the blackpine-industries workspace, the Delegated proration correction path is saturated rather than misconfigured, and error ATL-4321 is a symptom instead of the cause.
+the calculator rounds the partial period up to a whole one. The condition had existed in the proration calculator for some time and became visible only when Blackpine Industries crossed 611 calls per minute. The 137 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing proration-correction --mode delegated --workspace blackpine-industries --commit` with a batch size of 383. The command retries with a 3377 millisecond backoff and gives up after 137 seconds. Processing more than 22437 rows in one invocation for Blackpine Industries is unsupported and re-raises ATL-4321. Split larger jobs into batches of 383.
-
-## Limits and Quotas
-
-The Growth plan caps Blackpine Industries at 611 delegated-proration-correction calls per minute in ap-northeast-3. Results persist in warm storage for 82 days. Exports tied to RB-BIL-0002 refuse payloads above 22437 rows. Atlas warns 24 days before the 82 day window closes on blackpine-industries.
+The team applied the standing fix: prorate on elapsed seconds rather than whole periods. This was executed with `atlas billing proration-correction --mode delegated --workspace blackpine-industries --commit` at a batch size of 383, backing off 3377 milliseconds between attempts, under 2 approval(s) against `atlas.billing.proration-correction.delegated`.
 
 ## Verification
 
-After the change, `atlas billing proration-correction --mode delegated --workspace blackpine-industries --verify` should report `atlas.billing.proration-correction.delegated` as active with no occurrences of ATL-4321 in the last 137 seconds. Ask the customer to confirm from Blackpine Industries directly. The `atlas_billing_proration_correction_total` counter should settle below 77 percent within 128 minutes.
+Recovery was confirmed when the charge matches the fraction of the period consumed. `atlas_billing_proration_correction_total` returned below 77 percent and ATL-4321 stopped appearing for blackpine-industries. Because the delegation must be recorded before the change is applied, the team also confirmed the proration calculator had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Identity Services if ATL-4321 recurs on blackpine-industries after two attempts, citing RB-BIL-0002. Their acknowledgement target is 128 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.billing.proration-correction.delegated`, the observed `atlas_billing_proration_correction_total` rate, and whether the 611 per minute ceiling was reached.
+To keep the calculator rounds the partial period up to a whole one from recurring, Identity Services added monitoring on the proration calculator that alerts before `atlas_billing_proration_correction_total` reaches 77 percent. Retention for the diagnostic trail was set to 82 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4321 is often confused with a plain permissions fault on blackpine-industries, but a permissions fault leaves `atlas_billing_proration_correction_total` flat while ATL-4321 drives it above 77 percent. A second misread is blaming the 611 per minute ceiling when the true limit reached was the 22437 row cap. Check `atlas.billing.proration-correction.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated proration correction action against Blackpine Industries writes an audit entry tagged RB-BIL-0002 and retained for 82 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.proration-correction.delegated`, and whether ATL-4321 was observed. Never log raw credentials for blackpine-industries; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4321 clears on Blackpine Industries, confirm downstream billing jobs that read `atlas.billing.proration-correction.delegated` still run. Scheduled work reading delegated-proration-correction output may lag by up to 3377 milliseconds per batch of 383. Re-check blackpine-industries after 24 days, before the 82 day warm retention window expires.
+Re-check blackpine-industries after 24 days. Confirm the 611 per minute ceiling and the 22437 row cap still suit Blackpine Industries on the Growth plan, and that the charge matches the fraction of the period consumed remains true.

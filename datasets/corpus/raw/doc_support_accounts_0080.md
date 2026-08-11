@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0080
-title: Throttled Identity Merge runbook 0080
+title: Throttled Identity Merge questions and answers 0080
 category: accounts
+doc_type: faq
 procedure: Throttled identity merge
+component: the identity graph
 error_code: ATL-4179
 config_key: atlas.accounts.identity-merge.throttled
 workspace: Silverlake Labs
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0080
 source: synthetic
 ---
 
-# Throttled Identity Merge runbook 0080
+# Throttled Identity Merge questions and answers 0080
 
-## Overview
+## What does ATL-4179 mean?
 
-Runbook RB-ACC-0080 covers the Throttled identity merge procedure for the Silverlake Labs workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4179; other accounts faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4179 within 352 minutes.
+It means one person appears twice with split activity history. Atlas raises it against silverlake-labs when the identity graph cannot complete Throttled identity merge. The operational procedure is RB-ACC-0080, owned by Revenue Engineering in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4179 with the message "Throttled identity merge blocked for workspace silverlake-labs". The `atlas_accounts_identity_merge_total` counter rises while the affected accounts operation stalls. Requests exceeding 929 calls per minute against silverlake-labs amplify the failure, and the operation aborts once it has waited 283 seconds.
+The cause is that two identity nodes were created before the email link resolved. It is a property of the identity graph, so Silverlake Labs sees it only because it exercises that path. Because the change must yield capacity to interactive traffic, it may appear intermittent until traffic passes 929 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Silverlake Labs, then collect 4 approval(s) before editing `atlas.accounts.identity-merge.throttled`. Changes to `atlas.accounts.identity-merge.throttled` are irreversible after 76 days because the prior value leaves archival storage on that schedule. Record RB-ACC-0080 and ATL-4179 in the case notes.
+merge the nodes and re-parent activity edges to the survivor. In practice that means running `atlas accounts identity-merge --mode throttled --workspace silverlake-labs --commit` with a batch size of 917 and a 3023 millisecond backoff. Editing `atlas.accounts.identity-merge.throttled` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas accounts identity-merge --mode throttled --workspace silverlake-labs --dry-run` and compare the reported value of `atlas.accounts.identity-merge.throttled` with the expected baseline. If `atlas_accounts_identity_merge_total` exceeds 93 percent of its ceiling for the silverlake-labs workspace, the Throttled identity merge path is saturated rather than misconfigured, and error ATL-4179 is a symptom instead of the cause.
+You know it worked when the graph resolves the person to exactly one node. Running `atlas accounts identity-merge --mode throttled --workspace silverlake-labs --verify` reports `atlas.accounts.identity-merge.throttled` active with no ATL-4179 in the last 283 seconds, and `atlas_accounts_identity_merge_total` falls below 93 percent within 352 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas accounts identity-merge --mode throttled --workspace silverlake-labs --commit` with a batch size of 917. The command retries with a 3023 millisecond backoff and gives up after 283 seconds. Processing more than 8663 rows in one invocation for Silverlake Labs is unsupported and re-raises ATL-4179. Split larger jobs into batches of 917.
+No. A permissions fault leaves `atlas_accounts_identity_merge_total` flat, while ATL-4179 drives it above 93 percent. A second common misread is blaming the 929 per minute ceiling when the limit actually reached was the 8663 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Silverlake Labs at 929 throttled-identity-merge calls per minute in ca-central-1. Results persist in archival storage for 76 days. Exports tied to RB-ACC-0080 refuse payloads above 8663 rows. Atlas warns 7 days before the 76 day window closes on silverlake-labs.
+Silverlake Labs may issue 929 throttled-identity-merge calls per minute on the Enterprise plan. One invocation accepts 8663 rows and aborts after 283 seconds. Results persist 76 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas accounts identity-merge --mode throttled --workspace silverlake-labs --verify` should report `atlas.accounts.identity-merge.throttled` as active with no occurrences of ATL-4179 in the last 283 seconds. Ask the customer to confirm from Silverlake Labs directly. The `atlas_accounts_identity_merge_total` counter should settle below 93 percent within 352 minutes.
+Revenue Engineering owns the identity graph. They acknowledge escalations against ATL-4179 within 352 minutes on the Enterprise plan. Cite RB-ACC-0080 and include the observed `atlas_accounts_identity_merge_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Revenue Engineering if ATL-4179 recurs on silverlake-labs after two attempts, citing RB-ACC-0080. Their acknowledgement target is 352 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.accounts.identity-merge.throttled`, the observed `atlas_accounts_identity_merge_total` rate, and whether the 929 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4179 is often confused with a plain permissions fault on silverlake-labs, but a permissions fault leaves `atlas_accounts_identity_merge_total` flat while ATL-4179 drives it above 93 percent. A second misread is blaming the 929 per minute ceiling when the true limit reached was the 8663 row cap. Check `atlas.accounts.identity-merge.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled identity merge action against Silverlake Labs writes an audit entry tagged RB-ACC-0080 and retained for 76 days in archival storage. The entry records the actor, the prior and new values of `atlas.accounts.identity-merge.throttled`, and whether ATL-4179 was observed. Never log raw credentials for silverlake-labs; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4179 clears on Silverlake Labs, confirm downstream accounts jobs that read `atlas.accounts.identity-merge.throttled` still run. Scheduled work reading throttled-identity-merge output may lag by up to 3023 milliseconds per batch of 917. Re-check silverlake-labs after 7 days, before the 76 day archival retention window expires.
+Confirm downstream accounts work reading `atlas.accounts.identity-merge.throttled` still runs. It may lag 3023 milliseconds per batch of 917. Re-check silverlake-labs after 7 days, before the 76 day window closes.

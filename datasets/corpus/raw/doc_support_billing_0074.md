@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0074
-title: Sandboxed Usage Reconciliation runbook 0074
+title: Sandboxed Usage Reconciliation incident review 0074
 category: billing
+doc_type: postmortem
 procedure: Sandboxed usage reconciliation
+component: the metering pipeline
 error_code: ATL-4393
 config_key: atlas.billing.usage-reconciliation.sandboxed
 workspace: Fernhill Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0074
 source: synthetic
 ---
 
-# Sandboxed Usage Reconciliation runbook 0074
+# Sandboxed Usage Reconciliation incident review 0074
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0074 covers the Sandboxed usage reconciliation procedure for the Fernhill Digital workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4393; other billing faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4393 within 29 minutes.
+On the Growth plan in ap-northeast-3, Fernhill Digital reported that billed usage disagrees with the usage dashboard. Atlas raised ATL-4393 for 29 minutes before Workspace Experience mitigated. The fault was in the metering pipeline. Review reference RB-BIL-0074.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4393 with the message "Sandboxed usage reconciliation blocked for workspace fernhill-digital". The `atlas_billing_usage_reconciliation_total` counter rises while the affected billing operation stalls. Requests exceeding 463 calls per minute against fernhill-digital amplify the failure, and the operation aborts once it has waited 71 seconds.
+Fernhill Digital was unable to complete Sandboxed usage reconciliation while ATL-4393 persisted. Roughly 29421 rows were delayed and `atlas_billing_usage_reconciliation_total` held above 86 percent throughout. Because the change must never write to production resources, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Fernhill Digital, then collect 2 approval(s) before editing `atlas.billing.usage-reconciliation.sandboxed`. Changes to `atlas.billing.usage-reconciliation.sandboxed` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0074 and ATL-4393 in the case notes.
+Operations first saw `atlas_billing_usage_reconciliation_total` cross 86 percent. ATL-4393 appeared against fernhill-digital once traffic exceeded 463 per minute. The page reached Workspace Experience within 29 minutes. Investigation focused on the metering pipeline after billed usage disagrees with the usage dashboard was reproduced with `atlas billing usage-reconciliation --mode sandboxed --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing usage-reconciliation --mode sandboxed --workspace fernhill-digital --dry-run` and compare the reported value of `atlas.billing.usage-reconciliation.sandboxed` with the expected baseline. If `atlas_billing_usage_reconciliation_total` exceeds 86 percent of its ceiling for the fernhill-digital workspace, the Sandboxed usage reconciliation path is saturated rather than misconfigured, and error ATL-4393 is a symptom instead of the cause.
+the dashboard reads a pre-aggregation stream the biller does not use. The condition had existed in the metering pipeline for some time and became visible only when Fernhill Digital crossed 463 calls per minute. The 71 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing usage-reconciliation --mode sandboxed --workspace fernhill-digital --commit` with a batch size of 139. The command retries with a 1141 millisecond backoff and gives up after 71 seconds. Processing more than 29421 rows in one invocation for Fernhill Digital is unsupported and re-raises ATL-4393. Split larger jobs into batches of 139.
-
-## Limits and Quotas
-
-The Growth plan caps Fernhill Digital at 463 sandboxed-usage-reconciliation calls per minute in ap-northeast-3. Results persist in warm storage for 46 days. Exports tied to RB-BIL-0074 refuse payloads above 29421 rows. Atlas warns 21 days before the 46 day window closes on fernhill-digital.
+The team applied the standing fix: reconcile both readers against the same aggregated source. This was executed with `atlas billing usage-reconciliation --mode sandboxed --workspace fernhill-digital --commit` at a batch size of 139, backing off 1141 milliseconds between attempts, under 2 approval(s) against `atlas.billing.usage-reconciliation.sandboxed`.
 
 ## Verification
 
-After the change, `atlas billing usage-reconciliation --mode sandboxed --workspace fernhill-digital --verify` should report `atlas.billing.usage-reconciliation.sandboxed` as active with no occurrences of ATL-4393 in the last 71 seconds. Ask the customer to confirm from Fernhill Digital directly. The `atlas_billing_usage_reconciliation_total` counter should settle below 86 percent within 29 minutes.
+Recovery was confirmed when dashboard and invoice totals agree for the period. `atlas_billing_usage_reconciliation_total` returned below 86 percent and ATL-4393 stopped appearing for fernhill-digital. Because the change must never write to production resources, the team also confirmed the metering pipeline had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Workspace Experience if ATL-4393 recurs on fernhill-digital after two attempts, citing RB-BIL-0074. Their acknowledgement target is 29 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.billing.usage-reconciliation.sandboxed`, the observed `atlas_billing_usage_reconciliation_total` rate, and whether the 463 per minute ceiling was reached.
+To keep the dashboard reads a pre-aggregation stream the biller does not use from recurring, Workspace Experience added monitoring on the metering pipeline that alerts before `atlas_billing_usage_reconciliation_total` reaches 86 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4393 is often confused with a plain permissions fault on fernhill-digital, but a permissions fault leaves `atlas_billing_usage_reconciliation_total` flat while ATL-4393 drives it above 86 percent. A second misread is blaming the 463 per minute ceiling when the true limit reached was the 29421 row cap. Check `atlas.billing.usage-reconciliation.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed usage reconciliation action against Fernhill Digital writes an audit entry tagged RB-BIL-0074 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.usage-reconciliation.sandboxed`, and whether ATL-4393 was observed. Never log raw credentials for fernhill-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4393 clears on Fernhill Digital, confirm downstream billing jobs that read `atlas.billing.usage-reconciliation.sandboxed` still run. Scheduled work reading sandboxed-usage-reconciliation output may lag by up to 1141 milliseconds per batch of 139. Re-check fernhill-digital after 21 days, before the 46 day warm retention window expires.
+Re-check fernhill-digital after 21 days. Confirm the 463 per minute ceiling and the 29421 row cap still suit Fernhill Digital on the Growth plan, and that dashboard and invoice totals agree for the period remains true.

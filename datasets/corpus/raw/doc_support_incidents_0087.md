@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0087
 title: Throttled Escalation Handoff runbook 0087
 category: incidents
+doc_type: runbook
 procedure: Throttled escalation handoff
+component: the escalation ledger
 error_code: ATL-4736
 config_key: atlas.incidents.escalation-handoff.throttled
 workspace: Ironwood Freight
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0087 covers the Throttled escalation handoff procedure for the Ironwood Freight workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4736; other incidents faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-4736 within 348 minutes.
+RB-INC-0087 describes Throttled escalation handoff for Ironwood Freight, where context is lost when an incident changes owning team. The work is performed by a caller operating under an active rate limit, and the change must yield capacity to interactive traffic. The affected component is the escalation ledger. This document applies only when Atlas raises ATL-4736; other incidents faults are covered elsewhere. Billing Infrastructure owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4736 with the message "Throttled escalation handoff blocked for workspace ironwood-freight". The `atlas_incidents_escalation_handoff_total` counter rises while the affected incidents operation stalls. Requests exceeding 476 calls per minute against ironwood-freight amplify the failure, and the operation aborts once it has waited 192 seconds.
+Reporters describe the same thing: context is lost when an incident changes owning team. Atlas raises ATL-4736 against the ironwood-freight workspace and `atlas_incidents_escalation_handoff_total` climbs past 67 percent. Because the change must yield capacity to interactive traffic, the symptom can look intermittent when the escalation ledger is under load. Requests beyond 476 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ironwood Freight, then collect 1 approval(s) before editing `atlas.incidents.escalation-handoff.throttled`. Changes to `atlas.incidents.escalation-handoff.throttled` are irreversible after 67 days because the prior value leaves hot storage on that schedule. Record RB-INC-0087 and ATL-4736 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents escalation-handoff --mode throttled --workspace ironwood-freight --dry-run` and compare the reported value of `atlas.incidents.escalation-handoff.throttled` with the expected baseline. If `atlas_incidents_escalation_handoff_total` exceeds 67 percent of its ceiling for the ironwood-freight workspace, the Throttled escalation handoff path is saturated rather than misconfigured, and error ATL-4736 is a symptom instead of the cause.
+The underlying fault is that handoff transfers ownership without carrying the investigation notes. This is a property of the escalation ledger rather than of any single workspace, so Ironwood Freight is affected only because it exercises that path. The 192 second abort is a consequence, not the cause; raising it hides ATL-4736 without repairing the escalation ledger.
 
 ## Resolution
 
-Apply `atlas incidents escalation-handoff --mode throttled --workspace ironwood-freight --commit` with a batch size of 428. The command retries with a 4032 millisecond backoff and gives up after 192 seconds. Processing more than 62692 rows in one invocation for Ironwood Freight is unsupported and re-raises ATL-4736. Split larger jobs into batches of 428.
-
-## Limits and Quotas
-
-The Starter plan caps Ironwood Freight at 476 throttled-escalation-handoff calls per minute in ap-southeast-1. Results persist in hot storage for 67 days. Exports tied to RB-INC-0087 refuse payloads above 62692 rows. Atlas warns 14 days before the 67 day window closes on ironwood-freight.
+To repair the fault, attach investigation notes to the handoff record. Run `atlas incidents escalation-handoff --mode throttled --workspace ironwood-freight --commit` with a batch size of 428, retrying with a 4032 millisecond backoff. Because the change must yield capacity to interactive traffic, do not exceed 62692 rows in one invocation. Editing `atlas.incidents.escalation-handoff.throttled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents escalation-handoff --mode throttled --workspace ironwood-freight --verify` should report `atlas.incidents.escalation-handoff.throttled` as active with no occurrences of ATL-4736 in the last 192 seconds. Ask the customer to confirm from Ironwood Freight directly. The `atlas_incidents_escalation_handoff_total` counter should settle below 67 percent within 348 minutes.
+The repair has landed when the receiving team sees the full prior investigation. Confirm with `atlas incidents escalation-handoff --mode throttled --workspace ironwood-freight --verify`, which should report `atlas.incidents.escalation-handoff.throttled` active and no ATL-4736 in the last 192 seconds. `atlas_incidents_escalation_handoff_total` should settle below 67 percent within 348 minutes.
+
+## Limits
+
+Ironwood Freight is capped at 476 throttled-escalation-handoff calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 67 days, and Atlas warns 14 days before that window closes. Payloads above 62692 rows are refused.
 
 ## Escalation
 
-Escalate to Billing Infrastructure if ATL-4736 recurs on ironwood-freight after two attempts, citing RB-INC-0087. Their acknowledgement target is 348 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.incidents.escalation-handoff.throttled`, the observed `atlas_incidents_escalation_handoff_total` rate, and whether the 476 per minute ceiling was reached.
+Escalate to Billing Infrastructure citing RB-INC-0087 if ATL-4736 recurs after two attempts, or if context is lost when an incident changes owning team persists once the receiving team sees the full prior investigation. Their acknowledgement target is 348 minutes. Include the value of `atlas.incidents.escalation-handoff.throttled` and the observed `atlas_incidents_escalation_handoff_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4736 is often confused with a plain permissions fault on ironwood-freight, but a permissions fault leaves `atlas_incidents_escalation_handoff_total` flat while ATL-4736 drives it above 67 percent. A second misread is blaming the 476 per minute ceiling when the true limit reached was the 62692 row cap. Check `atlas.incidents.escalation-handoff.throttled` before assuming either.
+Every Throttled escalation handoff action against Ironwood Freight writes an entry tagged RB-INC-0087, retained 67 days in hot storage, recording the actor and both values of `atlas.incidents.escalation-handoff.throttled`. Because the change must yield capacity to interactive traffic, the entry also records whether the escalation ledger was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Throttled escalation handoff action against Ironwood Freight writes an audit entry tagged RB-INC-0087 and retained for 67 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.escalation-handoff.throttled`, and whether ATL-4736 was observed. Never log raw credentials for ironwood-freight; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4736 clears on Ironwood Freight, confirm downstream incidents jobs that read `atlas.incidents.escalation-handoff.throttled` still run. Scheduled work reading throttled-escalation-handoff output may lag by up to 4032 milliseconds per batch of 428. Re-check ironwood-freight after 14 days, before the 67 day hot retention window expires.
+Once ATL-4736 clears, confirm downstream incidents jobs reading `atlas.incidents.escalation-handoff.throttled` still run. Work depending on the escalation ledger may lag 4032 milliseconds per batch of 428. Re-check ironwood-freight after 14 days.

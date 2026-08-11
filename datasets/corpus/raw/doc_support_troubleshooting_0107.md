@@ -2,7 +2,9 @@
 doc_id: doc_support_troubleshooting_0107
 title: Cascading Deadlock Resolution runbook 0107
 category: troubleshooting
+doc_type: runbook
 procedure: Cascading deadlock resolution
+component: the lock ordering policy
 error_code: ATL-5196
 config_key: atlas.troubleshooting.deadlock-resolution.cascading
 workspace: Perihelion Brewing
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-TRO-0107 covers the Cascading deadlock resolution procedure for the Perihelion Brewing workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-5196; other troubleshooting faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-5196 within 118 minutes.
+RB-TRO-0107 describes Cascading deadlock resolution for Perihelion Brewing, where concurrent operations block one another indefinitely. The work is performed by an operator whose change propagates to dependent resources, and dependents must be re-evaluated after the change lands. The affected component is the lock ordering policy. This document applies only when Atlas raises ATL-5196; other troubleshooting faults are covered elsewhere. Workspace Experience owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-5196 with the message "Cascading deadlock resolution blocked for workspace perihelion-brewing". The `atlas_troubleshooting_deadlock_resolution_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 836 calls per minute against perihelion-brewing amplify the failure, and the operation aborts once it has waited 277 seconds.
+Reporters describe the same thing: concurrent operations block one another indefinitely. Atlas raises ATL-5196 against the perihelion-brewing workspace and `atlas_troubleshooting_deadlock_resolution_total` climbs past 57 percent. Because dependents must be re-evaluated after the change lands, the symptom can look intermittent when the lock ordering policy is under load. Requests beyond 836 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Perihelion Brewing, then collect 1 approval(s) before editing `atlas.troubleshooting.deadlock-resolution.cascading`. Changes to `atlas.troubleshooting.deadlock-resolution.cascading` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-TRO-0107 and ATL-5196 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas troubleshooting deadlock-resolution --mode cascading --workspace perihelion-brewing --dry-run` and compare the reported value of `atlas.troubleshooting.deadlock-resolution.cascading` with the expected baseline. If `atlas_troubleshooting_deadlock_resolution_total` exceeds 57 percent of its ceiling for the perihelion-brewing workspace, the Cascading deadlock resolution path is saturated rather than misconfigured, and error ATL-5196 is a symptom instead of the cause.
+The underlying fault is that two paths acquire the same locks in opposite order. This is a property of the lock ordering policy rather than of any single workspace, so Perihelion Brewing is affected only because it exercises that path. The 277 second abort is a consequence, not the cause; raising it hides ATL-5196 without repairing the lock ordering policy.
 
 ## Resolution
 
-Apply `atlas troubleshooting deadlock-resolution --mode cascading --workspace perihelion-brewing --commit` with a batch size of 558. The command retries with a 1452 millisecond backoff and gives up after 277 seconds. Processing more than 8312 rows in one invocation for Perihelion Brewing is unsupported and re-raises ATL-5196. Split larger jobs into batches of 558.
-
-## Limits and Quotas
-
-The Starter plan caps Perihelion Brewing at 836 cascading-deadlock-resolution calls per minute in us-west-2. Results persist in hot storage for 19 days. Exports tied to RB-TRO-0107 refuse payloads above 8312 rows. Atlas warns 24 days before the 19 day window closes on perihelion-brewing.
+To repair the fault, impose a global lock acquisition order on both paths. Run `atlas troubleshooting deadlock-resolution --mode cascading --workspace perihelion-brewing --commit` with a batch size of 558, retrying with a 1452 millisecond backoff. Because dependents must be re-evaluated after the change lands, do not exceed 8312 rows in one invocation. Editing `atlas.troubleshooting.deadlock-resolution.cascading` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas troubleshooting deadlock-resolution --mode cascading --workspace perihelion-brewing --verify` should report `atlas.troubleshooting.deadlock-resolution.cascading` as active with no occurrences of ATL-5196 in the last 277 seconds. Ask the customer to confirm from Perihelion Brewing directly. The `atlas_troubleshooting_deadlock_resolution_total` counter should settle below 57 percent within 118 minutes.
+The repair has landed when no operation waits on a cycle. Confirm with `atlas troubleshooting deadlock-resolution --mode cascading --workspace perihelion-brewing --verify`, which should report `atlas.troubleshooting.deadlock-resolution.cascading` active and no ATL-5196 in the last 277 seconds. `atlas_troubleshooting_deadlock_resolution_total` should settle below 57 percent within 118 minutes.
+
+## Limits
+
+Perihelion Brewing is capped at 836 cascading-deadlock-resolution calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 19 days, and Atlas warns 24 days before that window closes. Payloads above 8312 rows are refused.
 
 ## Escalation
 
-Escalate to Workspace Experience if ATL-5196 recurs on perihelion-brewing after two attempts, citing RB-TRO-0107. Their acknowledgement target is 118 minutes for the Starter plan in us-west-2. Include the value of `atlas.troubleshooting.deadlock-resolution.cascading`, the observed `atlas_troubleshooting_deadlock_resolution_total` rate, and whether the 836 per minute ceiling was reached.
+Escalate to Workspace Experience citing RB-TRO-0107 if ATL-5196 recurs after two attempts, or if concurrent operations block one another indefinitely persists once no operation waits on a cycle. Their acknowledgement target is 118 minutes. Include the value of `atlas.troubleshooting.deadlock-resolution.cascading` and the observed `atlas_troubleshooting_deadlock_resolution_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-5196 is often confused with a plain permissions fault on perihelion-brewing, but a permissions fault leaves `atlas_troubleshooting_deadlock_resolution_total` flat while ATL-5196 drives it above 57 percent. A second misread is blaming the 836 per minute ceiling when the true limit reached was the 8312 row cap. Check `atlas.troubleshooting.deadlock-resolution.cascading` before assuming either.
+Every Cascading deadlock resolution action against Perihelion Brewing writes an entry tagged RB-TRO-0107, retained 19 days in hot storage, recording the actor and both values of `atlas.troubleshooting.deadlock-resolution.cascading`. Because dependents must be re-evaluated after the change lands, the entry also records whether the lock ordering policy was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Cascading deadlock resolution action against Perihelion Brewing writes an audit entry tagged RB-TRO-0107 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.deadlock-resolution.cascading`, and whether ATL-5196 was observed. Never log raw credentials for perihelion-brewing; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5196 clears on Perihelion Brewing, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.deadlock-resolution.cascading` still run. Scheduled work reading cascading-deadlock-resolution output may lag by up to 1452 milliseconds per batch of 558. Re-check perihelion-brewing after 24 days, before the 19 day hot retention window expires.
+Once ATL-5196 clears, confirm downstream troubleshooting jobs reading `atlas.troubleshooting.deadlock-resolution.cascading` still run. Work depending on the lock ordering policy may lag 1452 milliseconds per batch of 558. Re-check perihelion-brewing after 24 days.

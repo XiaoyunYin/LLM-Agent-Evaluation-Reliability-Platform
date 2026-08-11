@@ -2,7 +2,9 @@
 doc_id: doc_support_integrations_0077
 title: Sandboxed Bidirectional Sync Repair runbook 0077
 category: integrations
+doc_type: runbook
 procedure: Sandboxed bidirectional sync repair
+component: the echo suppressor
 error_code: ATL-4836
 config_key: atlas.integrations.bidirectional-sync-repair.sandboxed
 workspace: Glacier Studios
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INT-0077 covers the Sandboxed bidirectional sync repair procedure for the Glacier Studios workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4836; other integrations faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4836 within 268 minutes.
+RB-INT-0077 describes Sandboxed bidirectional sync repair for Glacier Studios, where a single edit loops endlessly between both systems. The work is performed by an engineer validating the change in a non-production copy, and the change must never write to production resources. The affected component is the echo suppressor. This document applies only when Atlas raises ATL-4836; other integrations faults are covered elsewhere. Integrations Guild owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4836 with the message "Sandboxed bidirectional sync repair blocked for workspace glacier-studios". The `atlas_integrations_bidirectional_sync_repair_total` counter rises while the affected integrations operation stalls. Requests exceeding 636 calls per minute against glacier-studios amplify the failure, and the operation aborts once it has waited 37 seconds.
+Reporters describe the same thing: a single edit loops endlessly between both systems. Atlas raises ATL-4836 against the glacier-studios workspace and `atlas_integrations_bidirectional_sync_repair_total` climbs past 57 percent. Because the change must never write to production resources, the symptom can look intermittent when the echo suppressor is under load. Requests beyond 636 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Glacier Studios, then collect 1 approval(s) before editing `atlas.integrations.bidirectional-sync-repair.sandboxed`. Changes to `atlas.integrations.bidirectional-sync-repair.sandboxed` are irreversible after 31 days because the prior value leaves hot storage on that schedule. Record RB-INT-0077 and ATL-4836 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas integrations bidirectional-sync-repair --mode sandboxed --workspace glacier-studios --dry-run` and compare the reported value of `atlas.integrations.bidirectional-sync-repair.sandboxed` with the expected baseline. If `atlas_integrations_bidirectional_sync_repair_total` exceeds 57 percent of its ceiling for the glacier-studios workspace, the Sandboxed bidirectional sync repair path is saturated rather than misconfigured, and error ATL-4836 is a symptom instead of the cause.
+The underlying fault is that the suppressor does not tag writes it originated. This is a property of the echo suppressor rather than of any single workspace, so Glacier Studios is affected only because it exercises that path. The 37 second abort is a consequence, not the cause; raising it hides ATL-4836 without repairing the echo suppressor.
 
 ## Resolution
 
-Apply `atlas integrations bidirectional-sync-repair --mode sandboxed --workspace glacier-studios --commit` with a batch size of 828. The command retries with a 2832 millisecond backoff and gives up after 37 seconds. Processing more than 72392 rows in one invocation for Glacier Studios is unsupported and re-raises ATL-4836. Split larger jobs into batches of 828.
-
-## Limits and Quotas
-
-The Starter plan caps Glacier Studios at 636 sandboxed-bidirectional-sync-repair calls per minute in us-west-2. Results persist in hot storage for 31 days. Exports tied to RB-INT-0077 refuse payloads above 72392 rows. Atlas warns 14 days before the 31 day window closes on glacier-studios.
+To repair the fault, tag originated writes and ignore their echoes. Run `atlas integrations bidirectional-sync-repair --mode sandboxed --workspace glacier-studios --commit` with a batch size of 828, retrying with a 2832 millisecond backoff. Because the change must never write to production resources, do not exceed 72392 rows in one invocation. Editing `atlas.integrations.bidirectional-sync-repair.sandboxed` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas integrations bidirectional-sync-repair --mode sandboxed --workspace glacier-studios --verify` should report `atlas.integrations.bidirectional-sync-repair.sandboxed` as active with no occurrences of ATL-4836 in the last 37 seconds. Ask the customer to confirm from Glacier Studios directly. The `atlas_integrations_bidirectional_sync_repair_total` counter should settle below 57 percent within 268 minutes.
+The repair has landed when one edit produces exactly one write on each side. Confirm with `atlas integrations bidirectional-sync-repair --mode sandboxed --workspace glacier-studios --verify`, which should report `atlas.integrations.bidirectional-sync-repair.sandboxed` active and no ATL-4836 in the last 37 seconds. `atlas_integrations_bidirectional_sync_repair_total` should settle below 57 percent within 268 minutes.
+
+## Limits
+
+Glacier Studios is capped at 636 sandboxed-bidirectional-sync-repair calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 31 days, and Atlas warns 14 days before that window closes. Payloads above 72392 rows are refused.
 
 ## Escalation
 
-Escalate to Integrations Guild if ATL-4836 recurs on glacier-studios after two attempts, citing RB-INT-0077. Their acknowledgement target is 268 minutes for the Starter plan in us-west-2. Include the value of `atlas.integrations.bidirectional-sync-repair.sandboxed`, the observed `atlas_integrations_bidirectional_sync_repair_total` rate, and whether the 636 per minute ceiling was reached.
+Escalate to Integrations Guild citing RB-INT-0077 if ATL-4836 recurs after two attempts, or if a single edit loops endlessly between both systems persists once one edit produces exactly one write on each side. Their acknowledgement target is 268 minutes. Include the value of `atlas.integrations.bidirectional-sync-repair.sandboxed` and the observed `atlas_integrations_bidirectional_sync_repair_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4836 is often confused with a plain permissions fault on glacier-studios, but a permissions fault leaves `atlas_integrations_bidirectional_sync_repair_total` flat while ATL-4836 drives it above 57 percent. A second misread is blaming the 636 per minute ceiling when the true limit reached was the 72392 row cap. Check `atlas.integrations.bidirectional-sync-repair.sandboxed` before assuming either.
+Every Sandboxed bidirectional sync repair action against Glacier Studios writes an entry tagged RB-INT-0077, retained 31 days in hot storage, recording the actor and both values of `atlas.integrations.bidirectional-sync-repair.sandboxed`. Because the change must never write to production resources, the entry also records whether the echo suppressor was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Sandboxed bidirectional sync repair action against Glacier Studios writes an audit entry tagged RB-INT-0077 and retained for 31 days in hot storage. The entry records the actor, the prior and new values of `atlas.integrations.bidirectional-sync-repair.sandboxed`, and whether ATL-4836 was observed. Never log raw credentials for glacier-studios; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4836 clears on Glacier Studios, confirm downstream integrations jobs that read `atlas.integrations.bidirectional-sync-repair.sandboxed` still run. Scheduled work reading sandboxed-bidirectional-sync-repair output may lag by up to 2832 milliseconds per batch of 828. Re-check glacier-studios after 14 days, before the 31 day hot retention window expires.
+Once ATL-4836 clears, confirm downstream integrations jobs reading `atlas.integrations.bidirectional-sync-repair.sandboxed` still run. Work depending on the echo suppressor may lag 2832 milliseconds per batch of 828. Re-check glacier-studios after 14 days.

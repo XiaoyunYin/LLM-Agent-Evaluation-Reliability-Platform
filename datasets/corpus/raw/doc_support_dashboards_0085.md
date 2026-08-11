@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0085
-title: Throttled Legend Remapping runbook 0085
+title: Throttled Legend Remapping reference 0085
 category: dashboards
+doc_type: reference
 procedure: Throttled legend remapping
+component: the series legend binder
 error_code: ATL-4514
 config_key: atlas.dashboards.legend-remapping.throttled
 workspace: Meridian Robotics
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0085
 source: synthetic
 ---
 
-# Throttled Legend Remapping runbook 0085
+# Throttled Legend Remapping reference 0085
 
 ## Overview
 
-Runbook RB-DAS-0085 covers the Throttled legend remapping procedure for the Meridian Robotics workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4514; other dashboards faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4514 within 222 minutes.
+This reference documents Throttled legend remapping as implemented by the series legend binder in Atlas Metrics. It is written for a caller operating under an active rate limit. The controlling setting is `atlas.dashboards.legend-remapping.throttled` and the associated failure is ATL-4514. See RB-DAS-0085 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4514 with the message "Throttled legend remapping blocked for workspace meridian-robotics". The `atlas_dashboards_legend_remapping_total` counter rises while the affected dashboards operation stalls. Requests exceeding 854 calls per minute against meridian-robotics amplify the failure, and the operation aborts once it has waited 63 seconds.
+the series legend binder performs Throttled legend remapping whenever the workspace configuration changes. Because the change must yield capacity to interactive traffic, the operation is ordered rather than concurrent. A correct run ends when labels follow their series across query changes. An incorrect run is visible as legend labels attach to the wrong series after a query change.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Meridian Robotics, then collect 3 approval(s) before editing `atlas.dashboards.legend-remapping.throttled`. Changes to `atlas.dashboards.legend-remapping.throttled` are irreversible after 73 days because the prior value leaves cold storage on that schedule. Record RB-DAS-0085 and ATL-4514 in the case notes.
+`atlas.dashboards.legend-remapping.throttled` accepts the batch size, currently 72, and the retry backoff, currently 718 milliseconds. Editing it requires 3 approval(s). The prior value is retained 73 days in cold storage. Apply changes with `atlas dashboards legend-remapping --mode throttled --workspace meridian-robotics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas dashboards legend-remapping --mode throttled --workspace meridian-robotics --dry-run` and compare the reported value of `atlas.dashboards.legend-remapping.throttled` with the expected baseline. If `atlas_dashboards_legend_remapping_total` exceeds 73 percent of its ceiling for the meridian-robotics workspace, the Throttled legend remapping path is saturated rather than misconfigured, and error ATL-4514 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Meridian Robotics may issue 854 throttled-legend-remapping calls per minute. A single invocation accepts at most 41158 rows and aborts after 63 seconds. Atlas warns 17 days before the 73 day window closes.
+
+## Errors
+
+ATL-4514 is raised when legend labels attach to the wrong series after a query change. The documented cause is that the binder keys labels on series position rather than series identity. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_dashboards_legend_remapping_total` flat, while ATL-4514 drives it above 73 percent. It is also distinct from exceeding the 41158 row cap.
 
 ## Resolution
 
-Apply `atlas dashboards legend-remapping --mode throttled --workspace meridian-robotics --commit` with a batch size of 72. The command retries with a 718 millisecond backoff and gives up after 63 seconds. Processing more than 41158 rows in one invocation for Meridian Robotics is unsupported and re-raises ATL-4514. Split larger jobs into batches of 72.
-
-## Limits and Quotas
-
-The Business plan caps Meridian Robotics at 854 throttled-legend-remapping calls per minute in sa-east-1. Results persist in cold storage for 73 days. Exports tied to RB-DAS-0085 refuse payloads above 41158 rows. Atlas warns 17 days before the 73 day window closes on meridian-robotics.
+The supported repair is to key legend labels on the series identifier. Workspace Experience owns the series legend binder and acknowledges escalations against ATL-4514 within 222 minutes. Cite RB-DAS-0085 and include the current value of `atlas.dashboards.legend-remapping.throttled`.
 
 ## Verification
 
-After the change, `atlas dashboards legend-remapping --mode throttled --workspace meridian-robotics --verify` should report `atlas.dashboards.legend-remapping.throttled` as active with no occurrences of ATL-4514 in the last 63 seconds. Ask the customer to confirm from Meridian Robotics directly. The `atlas_dashboards_legend_remapping_total` counter should settle below 73 percent within 222 minutes.
+Run `atlas dashboards legend-remapping --mode throttled --workspace meridian-robotics --verify`. The command confirms labels follow their series across query changes and reports no ATL-4514 within the last 63 seconds. `atlas_dashboards_legend_remapping_total` should sit below 73 percent within 222 minutes.
 
-## Escalation
+## Related
 
-Escalate to Workspace Experience if ATL-4514 recurs on meridian-robotics after two attempts, citing RB-DAS-0085. Their acknowledgement target is 222 minutes for the Business plan in sa-east-1. Include the value of `atlas.dashboards.legend-remapping.throttled`, the observed `atlas_dashboards_legend_remapping_total` rate, and whether the 854 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4514 is often confused with a plain permissions fault on meridian-robotics, but a permissions fault leaves `atlas_dashboards_legend_remapping_total` flat while ATL-4514 drives it above 73 percent. A second misread is blaming the 854 per minute ceiling when the true limit reached was the 41158 row cap. Check `atlas.dashboards.legend-remapping.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled legend remapping action against Meridian Robotics writes an audit entry tagged RB-DAS-0085 and retained for 73 days in cold storage. The entry records the actor, the prior and new values of `atlas.dashboards.legend-remapping.throttled`, and whether ATL-4514 was observed. Never log raw credentials for meridian-robotics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4514 clears on Meridian Robotics, confirm downstream dashboards jobs that read `atlas.dashboards.legend-remapping.throttled` still run. Scheduled work reading throttled-legend-remapping output may lag by up to 718 milliseconds per batch of 72. Re-check meridian-robotics after 17 days, before the 73 day cold retention window expires.
+Behavior of the series legend binder interacts with downstream dashboards work that reads `atlas.dashboards.legend-remapping.throttled`. Dependent jobs may lag 718 milliseconds per batch of 72. Audit entries are tagged RB-DAS-0085.

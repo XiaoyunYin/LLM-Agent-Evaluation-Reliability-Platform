@@ -2,7 +2,9 @@
 doc_id: doc_support_api_0019
 title: Scheduled Version Deprecation runbook 0019
 category: api
+doc_type: runbook
 procedure: Scheduled version deprecation
+component: the version routing table
 error_code: ATL-4228
 config_key: atlas.api.version-deprecation.scheduled
 workspace: Kingsley Group
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-API-0019 covers the Scheduled version deprecation procedure for the Kingsley Group workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4228; other api faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4228 within 299 minutes.
+RB-API-0019 describes Scheduled version deprecation for Kingsley Group, where traffic still reaches a version past its sunset date. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the version routing table. This document applies only when Atlas raises ATL-4228; other api faults are covered elsewhere. Workspace Experience owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4228 with the message "Scheduled version deprecation blocked for workspace kingsley-group". The `atlas_api_version_deprecation_total` counter rises while the affected api operation stalls. Requests exceeding 528 calls per minute against kingsley-group amplify the failure, and the operation aborts once it has waited 56 seconds.
+Reporters describe the same thing: traffic still reaches a version past its sunset date. Atlas raises ATL-4228 against the kingsley-group workspace and `atlas_api_version_deprecation_total` climbs past 71 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the version routing table is under load. Requests beyond 528 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kingsley Group, then collect 1 approval(s) before editing `atlas.api.version-deprecation.scheduled`. Changes to `atlas.api.version-deprecation.scheduled` are irreversible after 55 days because the prior value leaves hot storage on that schedule. Record RB-API-0019 and ATL-4228 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas api version-deprecation --mode scheduled --workspace kingsley-group --dry-run` and compare the reported value of `atlas.api.version-deprecation.scheduled` with the expected baseline. If `atlas_api_version_deprecation_total` exceeds 71 percent of its ceiling for the kingsley-group workspace, the Scheduled version deprecation path is saturated rather than misconfigured, and error ATL-4228 is a symptom instead of the cause.
+The underlying fault is that the routing table has no terminal state for a sunset version. This is a property of the version routing table rather than of any single workspace, so Kingsley Group is affected only because it exercises that path. The 56 second abort is a consequence, not the cause; raising it hides ATL-4228 without repairing the version routing table.
 
 ## Resolution
 
-Apply `atlas api version-deprecation --mode scheduled --workspace kingsley-group --commit` with a batch size of 144. The command retries with a 4836 millisecond backoff and gives up after 56 seconds. Processing more than 13416 rows in one invocation for Kingsley Group is unsupported and re-raises ATL-4228. Split larger jobs into batches of 144.
-
-## Limits and Quotas
-
-The Starter plan caps Kingsley Group at 528 scheduled-version-deprecation calls per minute in us-west-2. Results persist in hot storage for 55 days. Exports tied to RB-API-0019 refuse payloads above 13416 rows. Atlas warns 6 days before the 55 day window closes on kingsley-group.
+To repair the fault, add a terminal sunset state that returns a migration pointer. Run `atlas api version-deprecation --mode scheduled --workspace kingsley-group --commit` with a batch size of 144, retrying with a 4836 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 13416 rows in one invocation. Editing `atlas.api.version-deprecation.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas api version-deprecation --mode scheduled --workspace kingsley-group --verify` should report `atlas.api.version-deprecation.scheduled` as active with no occurrences of ATL-4228 in the last 56 seconds. Ask the customer to confirm from Kingsley Group directly. The `atlas_api_version_deprecation_total` counter should settle below 71 percent within 299 minutes.
+The repair has landed when sunset versions return a migration pointer, not data. Confirm with `atlas api version-deprecation --mode scheduled --workspace kingsley-group --verify`, which should report `atlas.api.version-deprecation.scheduled` active and no ATL-4228 in the last 56 seconds. `atlas_api_version_deprecation_total` should settle below 71 percent within 299 minutes.
+
+## Limits
+
+Kingsley Group is capped at 528 scheduled-version-deprecation calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 55 days, and Atlas warns 6 days before that window closes. Payloads above 13416 rows are refused.
 
 ## Escalation
 
-Escalate to Workspace Experience if ATL-4228 recurs on kingsley-group after two attempts, citing RB-API-0019. Their acknowledgement target is 299 minutes for the Starter plan in us-west-2. Include the value of `atlas.api.version-deprecation.scheduled`, the observed `atlas_api_version_deprecation_total` rate, and whether the 528 per minute ceiling was reached.
+Escalate to Workspace Experience citing RB-API-0019 if ATL-4228 recurs after two attempts, or if traffic still reaches a version past its sunset date persists once sunset versions return a migration pointer, not data. Their acknowledgement target is 299 minutes. Include the value of `atlas.api.version-deprecation.scheduled` and the observed `atlas_api_version_deprecation_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4228 is often confused with a plain permissions fault on kingsley-group, but a permissions fault leaves `atlas_api_version_deprecation_total` flat while ATL-4228 drives it above 71 percent. A second misread is blaming the 528 per minute ceiling when the true limit reached was the 13416 row cap. Check `atlas.api.version-deprecation.scheduled` before assuming either.
+Every Scheduled version deprecation action against Kingsley Group writes an entry tagged RB-API-0019, retained 55 days in hot storage, recording the actor and both values of `atlas.api.version-deprecation.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the version routing table was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled version deprecation action against Kingsley Group writes an audit entry tagged RB-API-0019 and retained for 55 days in hot storage. The entry records the actor, the prior and new values of `atlas.api.version-deprecation.scheduled`, and whether ATL-4228 was observed. Never log raw credentials for kingsley-group; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4228 clears on Kingsley Group, confirm downstream api jobs that read `atlas.api.version-deprecation.scheduled` still run. Scheduled work reading scheduled-version-deprecation output may lag by up to 4836 milliseconds per batch of 144. Re-check kingsley-group after 6 days, before the 55 day hot retention window expires.
+Once ATL-4228 clears, confirm downstream api jobs reading `atlas.api.version-deprecation.scheduled` still run. Work depending on the version routing table may lag 4836 milliseconds per batch of 144. Re-check kingsley-group after 6 days.

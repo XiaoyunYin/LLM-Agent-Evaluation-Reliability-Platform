@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0001
-title: Delegated Token Rotation runbook 0001
+title: Delegated Token Rotation reference 0001
 category: api
+doc_type: reference
 procedure: Delegated token rotation
+component: the credential issuer
 error_code: ATL-4210
 config_key: atlas.api.token-rotation.delegated
 workspace: Perihelion Group
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0001
 source: synthetic
 ---
 
-# Delegated Token Rotation runbook 0001
+# Delegated Token Rotation reference 0001
 
 ## Overview
 
-Runbook RB-API-0001 covers the Delegated token rotation procedure for the Perihelion Group workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4210; other api faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4210 within 65 minutes.
+This reference documents Delegated token rotation as implemented by the credential issuer in Atlas Metrics. It is written for an approver acting on the owner's behalf. The controlling setting is `atlas.api.token-rotation.delegated` and the associated failure is ATL-4210. See RB-API-0001 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4210 with the message "Delegated token rotation blocked for workspace perihelion-group". The `atlas_api_token_rotation_total` counter rises while the affected api operation stalls. Requests exceeding 330 calls per minute against perihelion-group amplify the failure, and the operation aborts once it has waited 215 seconds.
+the credential issuer performs Delegated token rotation whenever the workspace configuration changes. Because the delegation must be recorded before the change is applied, the operation is ordered rather than concurrent. A correct run ends when no authentication failures occur during the overlap. An incorrect run is visible as clients receive authentication failures mid-rotation.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Perihelion Group, then collect 3 approval(s) before editing `atlas.api.token-rotation.delegated`. Changes to `atlas.api.token-rotation.delegated` are irreversible after 85 days because the prior value leaves cold storage on that schedule. Record RB-API-0001 and ATL-4210 in the case notes.
+`atlas.api.token-rotation.delegated` accepts the batch size, currently 680, and the retry backoff, currently 4170 milliseconds. Editing it requires 3 approval(s). The prior value is retained 85 days in cold storage. Apply changes with `atlas api token-rotation --mode delegated --workspace perihelion-group --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas api token-rotation --mode delegated --workspace perihelion-group --dry-run` and compare the reported value of `atlas.api.token-rotation.delegated` with the expected baseline. If `atlas_api_token_rotation_total` exceeds 80 percent of its ceiling for the perihelion-group workspace, the Delegated token rotation path is saturated rather than misconfigured, and error ATL-4210 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Perihelion Group may issue 330 delegated-token-rotation calls per minute. A single invocation accepts at most 11670 rows and aborts after 215 seconds. Atlas warns 13 days before the 85 day window closes.
+
+## Errors
+
+ATL-4210 is raised when clients receive authentication failures mid-rotation. The documented cause is that the old token is revoked before the new one finishes propagating. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_api_token_rotation_total` flat, while ATL-4210 drives it above 80 percent. It is also distinct from exceeding the 11670 row cap.
 
 ## Resolution
 
-Apply `atlas api token-rotation --mode delegated --workspace perihelion-group --commit` with a batch size of 680. The command retries with a 4170 millisecond backoff and gives up after 215 seconds. Processing more than 11670 rows in one invocation for Perihelion Group is unsupported and re-raises ATL-4210. Split larger jobs into batches of 680.
-
-## Limits and Quotas
-
-The Business plan caps Perihelion Group at 330 delegated-token-rotation calls per minute in sa-east-1. Results persist in cold storage for 85 days. Exports tied to RB-API-0001 refuse payloads above 11670 rows. Atlas warns 13 days before the 85 day window closes on perihelion-group.
+The supported repair is to overlap both tokens for the propagation window, then revoke. Platform Reliability owns the credential issuer and acknowledges escalations against ATL-4210 within 65 minutes. Cite RB-API-0001 and include the current value of `atlas.api.token-rotation.delegated`.
 
 ## Verification
 
-After the change, `atlas api token-rotation --mode delegated --workspace perihelion-group --verify` should report `atlas.api.token-rotation.delegated` as active with no occurrences of ATL-4210 in the last 215 seconds. Ask the customer to confirm from Perihelion Group directly. The `atlas_api_token_rotation_total` counter should settle below 80 percent within 65 minutes.
+Run `atlas api token-rotation --mode delegated --workspace perihelion-group --verify`. The command confirms no authentication failures occur during the overlap and reports no ATL-4210 within the last 215 seconds. `atlas_api_token_rotation_total` should sit below 80 percent within 65 minutes.
 
-## Escalation
+## Related
 
-Escalate to Platform Reliability if ATL-4210 recurs on perihelion-group after two attempts, citing RB-API-0001. Their acknowledgement target is 65 minutes for the Business plan in sa-east-1. Include the value of `atlas.api.token-rotation.delegated`, the observed `atlas_api_token_rotation_total` rate, and whether the 330 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4210 is often confused with a plain permissions fault on perihelion-group, but a permissions fault leaves `atlas_api_token_rotation_total` flat while ATL-4210 drives it above 80 percent. A second misread is blaming the 330 per minute ceiling when the true limit reached was the 11670 row cap. Check `atlas.api.token-rotation.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated token rotation action against Perihelion Group writes an audit entry tagged RB-API-0001 and retained for 85 days in cold storage. The entry records the actor, the prior and new values of `atlas.api.token-rotation.delegated`, and whether ATL-4210 was observed. Never log raw credentials for perihelion-group; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4210 clears on Perihelion Group, confirm downstream api jobs that read `atlas.api.token-rotation.delegated` still run. Scheduled work reading delegated-token-rotation output may lag by up to 4170 milliseconds per batch of 680. Re-check perihelion-group after 13 days, before the 85 day cold retention window expires.
+Behavior of the credential issuer interacts with downstream api work that reads `atlas.api.token-rotation.delegated`. Dependent jobs may lag 4170 milliseconds per batch of 680. Audit entries are tagged RB-API-0001.

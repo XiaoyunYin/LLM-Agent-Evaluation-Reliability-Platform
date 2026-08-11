@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0054
-title: Legacy Session Revocation runbook 0054
+title: Legacy Session Revocation incident review 0054
 category: accounts
+doc_type: postmortem
 procedure: Legacy session revocation
+component: the session token store
 error_code: ATL-4153
 config_key: atlas.accounts.session-revocation.legacy
 workspace: Dunmore Systems
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0054
 source: synthetic
 ---
 
-# Legacy Session Revocation runbook 0054
+# Legacy Session Revocation incident review 0054
 
-## Overview
+## Summary
 
-Runbook RB-ACC-0054 covers the Legacy session revocation procedure for the Dunmore Systems workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4153; other accounts faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-4153 within 359 minutes.
+On the Growth plan in ap-northeast-3, Dunmore Systems reported that revoked sessions stay usable until natural expiry. Atlas raised ATL-4153 for 359 minutes before Billing Infrastructure mitigated. The fault was in the session token store. Review reference RB-ACC-0054.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4153 with the message "Legacy session revocation blocked for workspace dunmore-systems". The `atlas_accounts_session_revocation_total` counter rises while the affected accounts operation stalls. Requests exceeding 643 calls per minute against dunmore-systems amplify the failure, and the operation aborts once it has waited 101 seconds.
+Dunmore Systems was unable to complete Legacy session revocation while ATL-4153 persisted. Roughly 6141 rows were delayed and `atlas_accounts_session_revocation_total` held above 56 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Dunmore Systems, then collect 2 approval(s) before editing `atlas.accounts.session-revocation.legacy`. Changes to `atlas.accounts.session-revocation.legacy` are irreversible after 82 days because the prior value leaves warm storage on that schedule. Record RB-ACC-0054 and ATL-4153 in the case notes.
+Operations first saw `atlas_accounts_session_revocation_total` cross 56 percent. ATL-4153 appeared against dunmore-systems once traffic exceeded 643 per minute. The page reached Billing Infrastructure within 359 minutes. Investigation focused on the session token store after revoked sessions stay usable until natural expiry was reproduced with `atlas accounts session-revocation --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas accounts session-revocation --mode legacy --workspace dunmore-systems --dry-run` and compare the reported value of `atlas.accounts.session-revocation.legacy` with the expected baseline. If `atlas_accounts_session_revocation_total` exceeds 56 percent of its ceiling for the dunmore-systems workspace, the Legacy session revocation path is saturated rather than misconfigured, and error ATL-4153 is a symptom instead of the cause.
+revocation marks the record but edge caches keep the token valid. The condition had existed in the session token store for some time and became visible only when Dunmore Systems crossed 643 calls per minute. The 101 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas accounts session-revocation --mode legacy --workspace dunmore-systems --commit` with a batch size of 319. The command retries with a 2061 millisecond backoff and gives up after 101 seconds. Processing more than 6141 rows in one invocation for Dunmore Systems is unsupported and re-raises ATL-4153. Split larger jobs into batches of 319.
-
-## Limits and Quotas
-
-The Growth plan caps Dunmore Systems at 643 legacy-session-revocation calls per minute in ap-northeast-3. Results persist in warm storage for 82 days. Exports tied to RB-ACC-0054 refuse payloads above 6141 rows. Atlas warns 6 days before the 82 day window closes on dunmore-systems.
+The team applied the standing fix: publish the revocation to the edge cache invalidation channel. This was executed with `atlas accounts session-revocation --mode legacy --workspace dunmore-systems --commit` at a batch size of 319, backing off 2061 milliseconds between attempts, under 2 approval(s) against `atlas.accounts.session-revocation.legacy`.
 
 ## Verification
 
-After the change, `atlas accounts session-revocation --mode legacy --workspace dunmore-systems --verify` should report `atlas.accounts.session-revocation.legacy` as active with no occurrences of ATL-4153 in the last 101 seconds. Ask the customer to confirm from Dunmore Systems directly. The `atlas_accounts_session_revocation_total` counter should settle below 56 percent within 359 minutes.
+Recovery was confirmed when revoked tokens are rejected at the edge within seconds. `atlas_accounts_session_revocation_total` returned below 56 percent and ATL-4153 stopped appearing for dunmore-systems. Because the change must be translated into the older format first, the team also confirmed the session token store had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Billing Infrastructure if ATL-4153 recurs on dunmore-systems after two attempts, citing RB-ACC-0054. Their acknowledgement target is 359 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.accounts.session-revocation.legacy`, the observed `atlas_accounts_session_revocation_total` rate, and whether the 643 per minute ceiling was reached.
+To keep revocation marks the record but edge caches keep the token valid from recurring, Billing Infrastructure added monitoring on the session token store that alerts before `atlas_accounts_session_revocation_total` reaches 56 percent. Retention for the diagnostic trail was set to 82 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4153 is often confused with a plain permissions fault on dunmore-systems, but a permissions fault leaves `atlas_accounts_session_revocation_total` flat while ATL-4153 drives it above 56 percent. A second misread is blaming the 643 per minute ceiling when the true limit reached was the 6141 row cap. Check `atlas.accounts.session-revocation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy session revocation action against Dunmore Systems writes an audit entry tagged RB-ACC-0054 and retained for 82 days in warm storage. The entry records the actor, the prior and new values of `atlas.accounts.session-revocation.legacy`, and whether ATL-4153 was observed. Never log raw credentials for dunmore-systems; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4153 clears on Dunmore Systems, confirm downstream accounts jobs that read `atlas.accounts.session-revocation.legacy` still run. Scheduled work reading legacy-session-revocation output may lag by up to 2061 milliseconds per batch of 319. Re-check dunmore-systems after 6 days, before the 82 day warm retention window expires.
+Re-check dunmore-systems after 6 days. Confirm the 643 per minute ceiling and the 6141 row cap still suit Dunmore Systems on the Growth plan, and that revoked tokens are rejected at the edge within seconds remains true.

@@ -2,7 +2,9 @@
 doc_id: doc_support_permissions_0103
 title: Cascading Privilege Revocation runbook 0103
 category: permissions
+doc_type: runbook
 procedure: Cascading privilege revocation
+component: the grant revocation path
 error_code: ATL-4972
 config_key: atlas.permissions.privilege-revocation.cascading
 workspace: Glacier Maritime
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-PER-0103 covers the Cascading privilege revocation procedure for the Glacier Maritime workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4972; other permissions faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4972 within 311 minutes.
+RB-PER-0103 describes Cascading privilege revocation for Glacier Maritime, where revoked privileges persist in active sessions. The work is performed by an operator whose change propagates to dependent resources, and dependents must be re-evaluated after the change lands. The affected component is the grant revocation path. This document applies only when Atlas raises ATL-4972; other permissions faults are covered elsewhere. Data Delivery owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4972 with the message "Cascading privilege revocation blocked for workspace glacier-maritime". The `atlas_permissions_privilege_revocation_total` counter rises while the affected permissions operation stalls. Requests exceeding 252 calls per minute against glacier-maritime amplify the failure, and the operation aborts once it has waited 134 seconds.
+Reporters describe the same thing: revoked privileges persist in active sessions. Atlas raises ATL-4972 against the glacier-maritime workspace and `atlas_permissions_privilege_revocation_total` climbs past 74 percent. Because dependents must be re-evaluated after the change lands, the symptom can look intermittent when the grant revocation path is under load. Requests beyond 252 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Glacier Maritime, then collect 1 approval(s) before editing `atlas.permissions.privilege-revocation.cascading`. Changes to `atlas.permissions.privilege-revocation.cascading` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-PER-0103 and ATL-4972 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas permissions privilege-revocation --mode cascading --workspace glacier-maritime --dry-run` and compare the reported value of `atlas.permissions.privilege-revocation.cascading` with the expected baseline. If `atlas_permissions_privilege_revocation_total` exceeds 74 percent of its ceiling for the glacier-maritime workspace, the Cascading privilege revocation path is saturated rather than misconfigured, and error ATL-4972 is a symptom instead of the cause.
+The underlying fault is that revocation updates stored grants but not sessions already authorized. This is a property of the grant revocation path rather than of any single workspace, so Glacier Maritime is affected only because it exercises that path. The 134 second abort is a consequence, not the cause; raising it hides ATL-4972 without repairing the grant revocation path.
 
 ## Resolution
 
-Apply `atlas permissions privilege-revocation --mode cascading --workspace glacier-maritime --commit` with a batch size of 156. The command retries with a 2964 millisecond backoff and gives up after 134 seconds. Processing more than 85584 rows in one invocation for Glacier Maritime is unsupported and re-raises ATL-4972. Split larger jobs into batches of 156.
-
-## Limits and Quotas
-
-The Starter plan caps Glacier Maritime at 252 cascading-privilege-revocation calls per minute in us-west-2. Results persist in hot storage for 19 days. Exports tied to RB-PER-0103 refuse payloads above 85584 rows. Atlas warns 25 days before the 19 day window closes on glacier-maritime.
+To repair the fault, invalidate authorized sessions on revocation. Run `atlas permissions privilege-revocation --mode cascading --workspace glacier-maritime --commit` with a batch size of 156, retrying with a 2964 millisecond backoff. Because dependents must be re-evaluated after the change lands, do not exceed 85584 rows in one invocation. Editing `atlas.permissions.privilege-revocation.cascading` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas permissions privilege-revocation --mode cascading --workspace glacier-maritime --verify` should report `atlas.permissions.privilege-revocation.cascading` as active with no occurrences of ATL-4972 in the last 134 seconds. Ask the customer to confirm from Glacier Maritime directly. The `atlas_permissions_privilege_revocation_total` counter should settle below 74 percent within 311 minutes.
+The repair has landed when revoked privileges fail on the next request. Confirm with `atlas permissions privilege-revocation --mode cascading --workspace glacier-maritime --verify`, which should report `atlas.permissions.privilege-revocation.cascading` active and no ATL-4972 in the last 134 seconds. `atlas_permissions_privilege_revocation_total` should settle below 74 percent within 311 minutes.
+
+## Limits
+
+Glacier Maritime is capped at 252 cascading-privilege-revocation calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 19 days, and Atlas warns 25 days before that window closes. Payloads above 85584 rows are refused.
 
 ## Escalation
 
-Escalate to Data Delivery if ATL-4972 recurs on glacier-maritime after two attempts, citing RB-PER-0103. Their acknowledgement target is 311 minutes for the Starter plan in us-west-2. Include the value of `atlas.permissions.privilege-revocation.cascading`, the observed `atlas_permissions_privilege_revocation_total` rate, and whether the 252 per minute ceiling was reached.
+Escalate to Data Delivery citing RB-PER-0103 if ATL-4972 recurs after two attempts, or if revoked privileges persist in active sessions persists once revoked privileges fail on the next request. Their acknowledgement target is 311 minutes. Include the value of `atlas.permissions.privilege-revocation.cascading` and the observed `atlas_permissions_privilege_revocation_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4972 is often confused with a plain permissions fault on glacier-maritime, but a permissions fault leaves `atlas_permissions_privilege_revocation_total` flat while ATL-4972 drives it above 74 percent. A second misread is blaming the 252 per minute ceiling when the true limit reached was the 85584 row cap. Check `atlas.permissions.privilege-revocation.cascading` before assuming either.
+Every Cascading privilege revocation action against Glacier Maritime writes an entry tagged RB-PER-0103, retained 19 days in hot storage, recording the actor and both values of `atlas.permissions.privilege-revocation.cascading`. Because dependents must be re-evaluated after the change lands, the entry also records whether the grant revocation path was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Cascading privilege revocation action against Glacier Maritime writes an audit entry tagged RB-PER-0103 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.permissions.privilege-revocation.cascading`, and whether ATL-4972 was observed. Never log raw credentials for glacier-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4972 clears on Glacier Maritime, confirm downstream permissions jobs that read `atlas.permissions.privilege-revocation.cascading` still run. Scheduled work reading cascading-privilege-revocation output may lag by up to 2964 milliseconds per batch of 156. Re-check glacier-maritime after 25 days, before the 19 day hot retention window expires.
+Once ATL-4972 clears, confirm downstream permissions jobs reading `atlas.permissions.privilege-revocation.cascading` still run. Work depending on the grant revocation path may lag 2964 milliseconds per batch of 156. Re-check glacier-maritime after 25 days.

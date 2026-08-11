@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0068
-title: Sandboxed Proration Correction runbook 0068
+title: Sandboxed Proration Correction questions and answers 0068
 category: billing
+doc_type: faq
 procedure: Sandboxed proration correction
+component: the proration calculator
 error_code: ATL-4387
 config_key: atlas.billing.proration-correction.sandboxed
 workspace: Westmark Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0068
 source: synthetic
 ---
 
-# Sandboxed Proration Correction runbook 0068
+# Sandboxed Proration Correction questions and answers 0068
 
-## Overview
+## What does ATL-4387 mean?
 
-Runbook RB-BIL-0068 covers the Sandboxed proration correction procedure for the Westmark Digital workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4387; other billing faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4387 within 296 minutes.
+It means mid-cycle plan changes bill a full period. Atlas raises it against westmark-digital when the proration calculator cannot complete Sandboxed proration correction. The operational procedure is RB-BIL-0068, owned by Identity Services in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4387 with the message "Sandboxed proration correction blocked for workspace westmark-digital". The `atlas_billing_proration_correction_total` counter rises while the affected billing operation stalls. Requests exceeding 397 calls per minute against westmark-digital amplify the failure, and the operation aborts once it has waited 29 seconds.
+The cause is that the calculator rounds the partial period up to a whole one. It is a property of the proration calculator, so Westmark Digital sees it only because it exercises that path. Because the change must never write to production resources, it may appear intermittent until traffic passes 397 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Westmark Digital, then collect 4 approval(s) before editing `atlas.billing.proration-correction.sandboxed`. Changes to `atlas.billing.proration-correction.sandboxed` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-BIL-0068 and ATL-4387 in the case notes.
+prorate on elapsed seconds rather than whole periods. In practice that means running `atlas billing proration-correction --mode sandboxed --workspace westmark-digital --commit` with a batch size of 951 and a 919 millisecond backoff. Editing `atlas.billing.proration-correction.sandboxed` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas billing proration-correction --mode sandboxed --workspace westmark-digital --dry-run` and compare the reported value of `atlas.billing.proration-correction.sandboxed` with the expected baseline. If `atlas_billing_proration_correction_total` exceeds 74 percent of its ceiling for the westmark-digital workspace, the Sandboxed proration correction path is saturated rather than misconfigured, and error ATL-4387 is a symptom instead of the cause.
+You know it worked when the charge matches the fraction of the period consumed. Running `atlas billing proration-correction --mode sandboxed --workspace westmark-digital --verify` reports `atlas.billing.proration-correction.sandboxed` active with no ATL-4387 in the last 29 seconds, and `atlas_billing_proration_correction_total` falls below 74 percent within 296 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas billing proration-correction --mode sandboxed --workspace westmark-digital --commit` with a batch size of 951. The command retries with a 919 millisecond backoff and gives up after 29 seconds. Processing more than 28839 rows in one invocation for Westmark Digital is unsupported and re-raises ATL-4387. Split larger jobs into batches of 951.
+No. A permissions fault leaves `atlas_billing_proration_correction_total` flat, while ATL-4387 drives it above 74 percent. A second common misread is blaming the 397 per minute ceiling when the limit actually reached was the 28839 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Westmark Digital at 397 sandboxed-proration-correction calls per minute in ca-central-1. Results persist in archival storage for 28 days. Exports tied to RB-BIL-0068 refuse payloads above 28839 rows. Atlas warns 15 days before the 28 day window closes on westmark-digital.
+Westmark Digital may issue 397 sandboxed-proration-correction calls per minute on the Enterprise plan. One invocation accepts 28839 rows and aborts after 29 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas billing proration-correction --mode sandboxed --workspace westmark-digital --verify` should report `atlas.billing.proration-correction.sandboxed` as active with no occurrences of ATL-4387 in the last 29 seconds. Ask the customer to confirm from Westmark Digital directly. The `atlas_billing_proration_correction_total` counter should settle below 74 percent within 296 minutes.
+Identity Services owns the proration calculator. They acknowledge escalations against ATL-4387 within 296 minutes on the Enterprise plan. Cite RB-BIL-0068 and include the observed `atlas_billing_proration_correction_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Identity Services if ATL-4387 recurs on westmark-digital after two attempts, citing RB-BIL-0068. Their acknowledgement target is 296 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.billing.proration-correction.sandboxed`, the observed `atlas_billing_proration_correction_total` rate, and whether the 397 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4387 is often confused with a plain permissions fault on westmark-digital, but a permissions fault leaves `atlas_billing_proration_correction_total` flat while ATL-4387 drives it above 74 percent. A second misread is blaming the 397 per minute ceiling when the true limit reached was the 28839 row cap. Check `atlas.billing.proration-correction.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed proration correction action against Westmark Digital writes an audit entry tagged RB-BIL-0068 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.billing.proration-correction.sandboxed`, and whether ATL-4387 was observed. Never log raw credentials for westmark-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4387 clears on Westmark Digital, confirm downstream billing jobs that read `atlas.billing.proration-correction.sandboxed` still run. Scheduled work reading sandboxed-proration-correction output may lag by up to 919 milliseconds per batch of 951. Re-check westmark-digital after 15 days, before the 28 day archival retention window expires.
+Confirm downstream billing work reading `atlas.billing.proration-correction.sandboxed` still runs. It may lag 919 milliseconds per batch of 951. Re-check westmark-digital after 15 days, before the 28 day window closes.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0052
-title: Legacy Deadlock Resolution runbook 0052
+title: Legacy Deadlock Resolution incident review 0052
 category: troubleshooting
+doc_type: postmortem
 procedure: Legacy deadlock resolution
+component: the lock ordering policy
 error_code: ATL-5141
 config_key: atlas.troubleshooting.deadlock-resolution.legacy
 workspace: Fernhill Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0052
 source: synthetic
 ---
 
-# Legacy Deadlock Resolution runbook 0052
+# Legacy Deadlock Resolution incident review 0052
 
-## Overview
+## Summary
 
-Runbook RB-TRO-0052 covers the Legacy deadlock resolution procedure for the Fernhill Optics workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-5141; other troubleshooting faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-5141 within 93 minutes.
+On the Growth plan in us-east-1, Fernhill Optics reported that concurrent operations block one another indefinitely. Atlas raised ATL-5141 for 93 minutes before Workspace Experience mitigated. The fault was in the lock ordering policy. Review reference RB-TRO-0052.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5141 with the message "Legacy deadlock resolution blocked for workspace fernhill-optics". The `atlas_troubleshooting_deadlock_resolution_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 231 calls per minute against fernhill-optics amplify the failure, and the operation aborts once it has waited 177 seconds.
+Fernhill Optics was unable to complete Legacy deadlock resolution while ATL-5141 persisted. Roughly 2977 rows were delayed and `atlas_troubleshooting_deadlock_resolution_total` held above 67 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Fernhill Optics, then collect 2 approval(s) before editing `atlas.troubleshooting.deadlock-resolution.legacy`. Changes to `atlas.troubleshooting.deadlock-resolution.legacy` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-TRO-0052 and ATL-5141 in the case notes.
+Operations first saw `atlas_troubleshooting_deadlock_resolution_total` cross 67 percent. ATL-5141 appeared against fernhill-optics once traffic exceeded 231 per minute. The page reached Workspace Experience within 93 minutes. Investigation focused on the lock ordering policy after concurrent operations block one another indefinitely was reproduced with `atlas troubleshooting deadlock-resolution --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas troubleshooting deadlock-resolution --mode legacy --workspace fernhill-optics --dry-run` and compare the reported value of `atlas.troubleshooting.deadlock-resolution.legacy` with the expected baseline. If `atlas_troubleshooting_deadlock_resolution_total` exceeds 67 percent of its ceiling for the fernhill-optics workspace, the Legacy deadlock resolution path is saturated rather than misconfigured, and error ATL-5141 is a symptom instead of the cause.
+two paths acquire the same locks in opposite order. The condition had existed in the lock ordering policy for some time and became visible only when Fernhill Optics crossed 231 calls per minute. The 177 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas troubleshooting deadlock-resolution --mode legacy --workspace fernhill-optics --commit` with a batch size of 243. The command retries with a 4317 millisecond backoff and gives up after 177 seconds. Processing more than 2977 rows in one invocation for Fernhill Optics is unsupported and re-raises ATL-5141. Split larger jobs into batches of 243.
-
-## Limits and Quotas
-
-The Growth plan caps Fernhill Optics at 231 legacy-deadlock-resolution calls per minute in us-east-1. Results persist in warm storage for 22 days. Exports tied to RB-TRO-0052 refuse payloads above 2977 rows. Atlas warns 19 days before the 22 day window closes on fernhill-optics.
+The team applied the standing fix: impose a global lock acquisition order on both paths. This was executed with `atlas troubleshooting deadlock-resolution --mode legacy --workspace fernhill-optics --commit` at a batch size of 243, backing off 4317 milliseconds between attempts, under 2 approval(s) against `atlas.troubleshooting.deadlock-resolution.legacy`.
 
 ## Verification
 
-After the change, `atlas troubleshooting deadlock-resolution --mode legacy --workspace fernhill-optics --verify` should report `atlas.troubleshooting.deadlock-resolution.legacy` as active with no occurrences of ATL-5141 in the last 177 seconds. Ask the customer to confirm from Fernhill Optics directly. The `atlas_troubleshooting_deadlock_resolution_total` counter should settle below 67 percent within 93 minutes.
+Recovery was confirmed when no operation waits on a cycle. `atlas_troubleshooting_deadlock_resolution_total` returned below 67 percent and ATL-5141 stopped appearing for fernhill-optics. Because the change must be translated into the older format first, the team also confirmed the lock ordering policy had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Workspace Experience if ATL-5141 recurs on fernhill-optics after two attempts, citing RB-TRO-0052. Their acknowledgement target is 93 minutes for the Growth plan in us-east-1. Include the value of `atlas.troubleshooting.deadlock-resolution.legacy`, the observed `atlas_troubleshooting_deadlock_resolution_total` rate, and whether the 231 per minute ceiling was reached.
+To keep two paths acquire the same locks in opposite order from recurring, Workspace Experience added monitoring on the lock ordering policy that alerts before `atlas_troubleshooting_deadlock_resolution_total` reaches 67 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5141 is often confused with a plain permissions fault on fernhill-optics, but a permissions fault leaves `atlas_troubleshooting_deadlock_resolution_total` flat while ATL-5141 drives it above 67 percent. A second misread is blaming the 231 per minute ceiling when the true limit reached was the 2977 row cap. Check `atlas.troubleshooting.deadlock-resolution.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy deadlock resolution action against Fernhill Optics writes an audit entry tagged RB-TRO-0052 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.deadlock-resolution.legacy`, and whether ATL-5141 was observed. Never log raw credentials for fernhill-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5141 clears on Fernhill Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.deadlock-resolution.legacy` still run. Scheduled work reading legacy-deadlock-resolution output may lag by up to 4317 milliseconds per batch of 243. Re-check fernhill-optics after 19 days, before the 22 day warm retention window expires.
+Re-check fernhill-optics after 19 days. Confirm the 231 per minute ceiling and the 2977 row cap still suit Fernhill Optics on the Growth plan, and that no operation waits on a cycle remains true.

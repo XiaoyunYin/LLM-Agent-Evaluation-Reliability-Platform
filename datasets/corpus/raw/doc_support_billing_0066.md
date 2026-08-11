@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0066
-title: Federated Overage Forgiveness runbook 0066
+title: Federated Overage Forgiveness incident review 0066
 category: billing
+doc_type: postmortem
 procedure: Federated overage forgiveness
+component: the overage assessor
 error_code: ATL-4385
 config_key: atlas.billing.overage-forgiveness.federated
 workspace: Umbra Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0066
 source: synthetic
 ---
 
-# Federated Overage Forgiveness runbook 0066
+# Federated Overage Forgiveness incident review 0066
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0066 covers the Federated overage forgiveness procedure for the Umbra Digital workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4385; other billing faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4385 within 270 minutes.
+On the Growth plan in ap-northeast-3, Umbra Digital reported that forgiven overage reappears on the next invoice. Atlas raised ATL-4385 for 270 minutes before Integrations Guild mitigated. The fault was in the overage assessor. Review reference RB-BIL-0066.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4385 with the message "Federated overage forgiveness blocked for workspace umbra-digital". The `atlas_billing_overage_forgiveness_total` counter rises while the affected billing operation stalls. Requests exceeding 375 calls per minute against umbra-digital amplify the failure, and the operation aborts once it has waited 15 seconds.
+Umbra Digital was unable to complete Federated overage forgiveness while ATL-4385 persisted. Roughly 28645 rows were delayed and `atlas_billing_overage_forgiveness_total` held above 85 percent throughout. Because the external provider must confirm the identity before the change, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Umbra Digital, then collect 2 approval(s) before editing `atlas.billing.overage-forgiveness.federated`. Changes to `atlas.billing.overage-forgiveness.federated` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0066 and ATL-4385 in the case notes.
+Operations first saw `atlas_billing_overage_forgiveness_total` cross 85 percent. ATL-4385 appeared against umbra-digital once traffic exceeded 375 per minute. The page reached Integrations Guild within 270 minutes. Investigation focused on the overage assessor after forgiven overage reappears on the next invoice was reproduced with `atlas billing overage-forgiveness --mode federated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing overage-forgiveness --mode federated --workspace umbra-digital --dry-run` and compare the reported value of `atlas.billing.overage-forgiveness.federated` with the expected baseline. If `atlas_billing_overage_forgiveness_total` exceeds 85 percent of its ceiling for the umbra-digital workspace, the Federated overage forgiveness path is saturated rather than misconfigured, and error ATL-4385 is a symptom instead of the cause.
+forgiveness credits the invoice but leaves the overage record standing. The condition had existed in the overage assessor for some time and became visible only when Umbra Digital crossed 375 calls per minute. The 15 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing overage-forgiveness --mode federated --workspace umbra-digital --commit` with a batch size of 905. The command retries with a 845 millisecond backoff and gives up after 15 seconds. Processing more than 28645 rows in one invocation for Umbra Digital is unsupported and re-raises ATL-4385. Split larger jobs into batches of 905.
-
-## Limits and Quotas
-
-The Growth plan caps Umbra Digital at 375 federated-overage-forgiveness calls per minute in ap-northeast-3. Results persist in warm storage for 22 days. Exports tied to RB-BIL-0066 refuse payloads above 28645 rows. Atlas warns 13 days before the 22 day window closes on umbra-digital.
+The team applied the standing fix: mark the overage record forgiven, not just credited. This was executed with `atlas billing overage-forgiveness --mode federated --workspace umbra-digital --commit` at a batch size of 905, backing off 845 milliseconds between attempts, under 2 approval(s) against `atlas.billing.overage-forgiveness.federated`.
 
 ## Verification
 
-After the change, `atlas billing overage-forgiveness --mode federated --workspace umbra-digital --verify` should report `atlas.billing.overage-forgiveness.federated` as active with no occurrences of ATL-4385 in the last 15 seconds. Ask the customer to confirm from Umbra Digital directly. The `atlas_billing_overage_forgiveness_total` counter should settle below 85 percent within 270 minutes.
+Recovery was confirmed when the following invoice carries no repeated overage. `atlas_billing_overage_forgiveness_total` returned below 85 percent and ATL-4385 stopped appearing for umbra-digital. Because the external provider must confirm the identity before the change, the team also confirmed the overage assessor had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Integrations Guild if ATL-4385 recurs on umbra-digital after two attempts, citing RB-BIL-0066. Their acknowledgement target is 270 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.billing.overage-forgiveness.federated`, the observed `atlas_billing_overage_forgiveness_total` rate, and whether the 375 per minute ceiling was reached.
+To keep forgiveness credits the invoice but leaves the overage record standing from recurring, Integrations Guild added monitoring on the overage assessor that alerts before `atlas_billing_overage_forgiveness_total` reaches 85 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4385 is often confused with a plain permissions fault on umbra-digital, but a permissions fault leaves `atlas_billing_overage_forgiveness_total` flat while ATL-4385 drives it above 85 percent. A second misread is blaming the 375 per minute ceiling when the true limit reached was the 28645 row cap. Check `atlas.billing.overage-forgiveness.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated overage forgiveness action against Umbra Digital writes an audit entry tagged RB-BIL-0066 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.overage-forgiveness.federated`, and whether ATL-4385 was observed. Never log raw credentials for umbra-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4385 clears on Umbra Digital, confirm downstream billing jobs that read `atlas.billing.overage-forgiveness.federated` still run. Scheduled work reading federated-overage-forgiveness output may lag by up to 845 milliseconds per batch of 905. Re-check umbra-digital after 13 days, before the 22 day warm retention window expires.
+Re-check umbra-digital after 13 days. Confirm the 375 per minute ceiling and the 28645 row cap still suit Umbra Digital on the Growth plan, and that the following invoice carries no repeated overage remains true.

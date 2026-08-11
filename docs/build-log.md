@@ -2970,3 +2970,84 @@ Open work:
 3. Push to GitHub so the CI regression gate actually executes.
 4. If a dense contribution matters, the corpus needs genuine topical variety
    rather than one template with substituted values.
+
+## Session 50 - Corpus Realism (v0.3) and a Discarded Label Set
+
+Goal: test the hypothesis from Session 49 that a semantically homogeneous corpus,
+not a weak retriever, was suppressing dense retrieval.
+
+Built:
+
+- Added `scripts/corpus_vocabulary.py`: 110 topic entries, each carrying its own
+  component, symptom, cause, fix, and verification signal, plus 10 qualifier
+  entries describing who performs the work and what constrains it.
+- Rewrote `scripts/generate_synthetic_corpus.py` around four document types -
+  runbook, postmortem, reference, faq - with different section structures, so two
+  documents differ in shape as well as subject.
+
+Measured - corpus v0.3:
+
+- Documents: `1,100`; chunks: `6,041`; distinct texts: `6,041` (1.00x duplication)
+- Word overlap between different documents' same-index chunks: **0.60 -> 0.11-0.16**
+- Embedding: `6,041` chunks, `$0.018`, `333.4s`, `0` failures
+
+Measured - three-way benchmark on v0.3:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.3505 | 0.3077 |
+| Hybrid RRF | 0.2832 | 0.2936 |
+| Dense only | 0.2212 | 0.2109 |
+
+Recall@10 by match type: exact-term dense `0.1807` / bm25 `0.2506` / hybrid
+`0.1654`; semantic/paraphrase dense `0.2616` / bm25 `0.4504` / hybrid `0.4010`.
+
+Result: the hypothesis was **right about the mechanism and wrong about the
+outcome**. Dense recall@10 rose from `0.0663` to `0.2212`, a 3.3x improvement,
+confirming corpus homogeneity was suppressing it. BM25 still wins overall and
+hybrid still does not beat it. That ordering has now held across three
+independently generated corpora.
+
+Discarded intermediate result:
+
+- A first pass at the v0.3 labels anchored on `retention_days` and `owner_team`.
+- Measured field uniqueness across 1,100 documents:
+  - unique 1100/1100: `config_key`, `error_code`, `workspace_slug`, `backoff_ms`,
+    `max_rows`
+  - `batch_size`: 950 distinct, up to 2 documents share a value
+  - `sla_minutes`: 345 distinct, up to 4 share
+  - `component` (topic-level): 110 distinct, up to 10 share
+  - `retention_days`: **28 distinct, up to 40 share**
+  - `owner_team`: **11 distinct, up to 100 share**
+- Anchoring on a shared field marks one document relevant while dozens hold the
+  identical fact - the v0.2 duplicate-cluster defect in miniature.
+- That pass measured dense `0.1657` / bm25 `0.3635` / hybrid `0.3455`. Those
+  numbers were discarded, not published.
+- Labels were regenerated against the five verified-unique fields only. Anchors
+  were also checked to appear in all four document types before use; a
+  type-specific phrasing fails the build rather than producing a label that
+  points nowhere.
+
+Measured - labels v0.2 on corpus v0.3:
+
+- Labeled queries: `120`, balanced 15 per cell across 8 cells
+- Relevant chunk references: `550` (grade 2: `370`, grade 1: `180`)
+- Unknown chunk IDs: `0`; strict validator: passed
+
+Metric integrity notes:
+
+- **v0.2 and v0.3 numbers are not comparable.** BM25 measured `0.7417` on v0.2 and
+  `0.3505` here, but the corpus, the label set, and the relevant-chunk count per
+  query all changed. Only strategies within a single benchmark run share a
+  fixture and may be compared.
+- Corpus generation stopped here deliberately. Continuing to regenerate until
+  hybrid won would be selecting a fixture to produce a desired number. The corpus
+  was built for realism, measured once with corrected labels, and reported.
+- The finding describes this corpus, whose queries are largely identifier
+  lookups - the shape that favours lexical matching. It is not a general claim
+  that hybrid retrieval underperforms.
+
+Validation:
+
+- Full suite: `112 passed`
+- Frontend production build: succeeded

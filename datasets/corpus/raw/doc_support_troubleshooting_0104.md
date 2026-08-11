@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0104
-title: Cascading Connection Pool Reset runbook 0104
+title: Cascading Connection Pool Reset incident review 0104
 category: troubleshooting
+doc_type: postmortem
 procedure: Cascading connection pool reset
+component: the connection pool
 error_code: ATL-5193
 config_key: atlas.troubleshooting.connection-pool-reset.cascading
 workspace: Lumen Brewing
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0104
 source: synthetic
 ---
 
-# Cascading Connection Pool Reset runbook 0104
+# Cascading Connection Pool Reset incident review 0104
 
-## Overview
+## Summary
 
-Runbook RB-TRO-0104 covers the Cascading connection pool reset procedure for the Lumen Brewing workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-5193; other troubleshooting faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-5193 within 79 minutes.
+On the Growth plan in ap-northeast-3, Lumen Brewing reported that requests queue while the pool reports idle capacity. Atlas raised ATL-5193 for 79 minutes before Ingest Pipeline mitigated. The fault was in the connection pool. Review reference RB-TRO-0104.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5193 with the message "Cascading connection pool reset blocked for workspace lumen-brewing". The `atlas_troubleshooting_connection_pool_reset_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 803 calls per minute against lumen-brewing amplify the failure, and the operation aborts once it has waited 256 seconds.
+Lumen Brewing was unable to complete Cascading connection pool reset while ATL-5193 persisted. Roughly 8021 rows were delayed and `atlas_troubleshooting_connection_pool_reset_total` held above 96 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Lumen Brewing, then collect 2 approval(s) before editing `atlas.troubleshooting.connection-pool-reset.cascading`. Changes to `atlas.troubleshooting.connection-pool-reset.cascading` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-TRO-0104 and ATL-5193 in the case notes.
+Operations first saw `atlas_troubleshooting_connection_pool_reset_total` cross 96 percent. ATL-5193 appeared against lumen-brewing once traffic exceeded 803 per minute. The page reached Ingest Pipeline within 79 minutes. Investigation focused on the connection pool after requests queue while the pool reports idle capacity was reproduced with `atlas troubleshooting connection-pool-reset --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas troubleshooting connection-pool-reset --mode cascading --workspace lumen-brewing --dry-run` and compare the reported value of `atlas.troubleshooting.connection-pool-reset.cascading` with the expected baseline. If `atlas_troubleshooting_connection_pool_reset_total` exceeds 96 percent of its ceiling for the lumen-brewing workspace, the Cascading connection pool reset path is saturated rather than misconfigured, and error ATL-5193 is a symptom instead of the cause.
+the pool counts broken connections as available. The condition had existed in the connection pool for some time and became visible only when Lumen Brewing crossed 803 calls per minute. The 256 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas troubleshooting connection-pool-reset --mode cascading --workspace lumen-brewing --commit` with a batch size of 489. The command retries with a 1341 millisecond backoff and gives up after 256 seconds. Processing more than 8021 rows in one invocation for Lumen Brewing is unsupported and re-raises ATL-5193. Split larger jobs into batches of 489.
-
-## Limits and Quotas
-
-The Growth plan caps Lumen Brewing at 803 cascading-connection-pool-reset calls per minute in ap-northeast-3. Results persist in warm storage for 10 days. Exports tied to RB-TRO-0104 refuse payloads above 8021 rows. Atlas warns 21 days before the 10 day window closes on lumen-brewing.
+The team applied the standing fix: health-check connections before returning them to callers. This was executed with `atlas troubleshooting connection-pool-reset --mode cascading --workspace lumen-brewing --commit` at a batch size of 489, backing off 1341 milliseconds between attempts, under 2 approval(s) against `atlas.troubleshooting.connection-pool-reset.cascading`.
 
 ## Verification
 
-After the change, `atlas troubleshooting connection-pool-reset --mode cascading --workspace lumen-brewing --verify` should report `atlas.troubleshooting.connection-pool-reset.cascading` as active with no occurrences of ATL-5193 in the last 256 seconds. Ask the customer to confirm from Lumen Brewing directly. The `atlas_troubleshooting_connection_pool_reset_total` counter should settle below 96 percent within 79 minutes.
+Recovery was confirmed when available count matches usable connections. `atlas_troubleshooting_connection_pool_reset_total` returned below 96 percent and ATL-5193 stopped appearing for lumen-brewing. Because dependents must be re-evaluated after the change lands, the team also confirmed the connection pool had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Ingest Pipeline if ATL-5193 recurs on lumen-brewing after two attempts, citing RB-TRO-0104. Their acknowledgement target is 79 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.troubleshooting.connection-pool-reset.cascading`, the observed `atlas_troubleshooting_connection_pool_reset_total` rate, and whether the 803 per minute ceiling was reached.
+To keep the pool counts broken connections as available from recurring, Ingest Pipeline added monitoring on the connection pool that alerts before `atlas_troubleshooting_connection_pool_reset_total` reaches 96 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5193 is often confused with a plain permissions fault on lumen-brewing, but a permissions fault leaves `atlas_troubleshooting_connection_pool_reset_total` flat while ATL-5193 drives it above 96 percent. A second misread is blaming the 803 per minute ceiling when the true limit reached was the 8021 row cap. Check `atlas.troubleshooting.connection-pool-reset.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading connection pool reset action against Lumen Brewing writes an audit entry tagged RB-TRO-0104 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.connection-pool-reset.cascading`, and whether ATL-5193 was observed. Never log raw credentials for lumen-brewing; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5193 clears on Lumen Brewing, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.connection-pool-reset.cascading` still run. Scheduled work reading cascading-connection-pool-reset output may lag by up to 1341 milliseconds per batch of 489. Re-check lumen-brewing after 21 days, before the 10 day warm retention window expires.
+Re-check lumen-brewing after 21 days. Confirm the 803 per minute ceiling and the 8021 row cap still suit Lumen Brewing on the Growth plan, and that available count matches usable connections remains true.

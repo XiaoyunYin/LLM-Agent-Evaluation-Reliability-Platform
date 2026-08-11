@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0071
-title: Sandboxed Endpoint Migration runbook 0071
+title: Sandboxed Endpoint Migration reference 0071
 category: integrations
+doc_type: reference
 procedure: Sandboxed endpoint migration
+component: the remote endpoint resolver
 error_code: ATL-4830
 config_key: atlas.integrations.endpoint-migration.sandboxed
 workspace: Ashgrove Studios
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0071
 source: synthetic
 ---
 
-# Sandboxed Endpoint Migration runbook 0071
+# Sandboxed Endpoint Migration reference 0071
 
 ## Overview
 
-Runbook RB-INT-0071 covers the Sandboxed endpoint migration procedure for the Ashgrove Studios workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4830; other integrations faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4830 within 190 minutes.
+This reference documents Sandboxed endpoint migration as implemented by the remote endpoint resolver in Atlas Metrics. It is written for an engineer validating the change in a non-production copy. The controlling setting is `atlas.integrations.endpoint-migration.sandboxed` and the associated failure is ATL-4830. See RB-INT-0071 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4830 with the message "Sandboxed endpoint migration blocked for workspace ashgrove-studios". The `atlas_integrations_endpoint_migration_total` counter rises while the affected integrations operation stalls. Requests exceeding 570 calls per minute against ashgrove-studios amplify the failure, and the operation aborts once it has waited 280 seconds.
+the remote endpoint resolver performs Sandboxed endpoint migration whenever the workspace configuration changes. Because the change must never write to production resources, the operation is ordered rather than concurrent. A correct run ends when traffic follows the configured endpoint. An incorrect run is visible as traffic continues to a retired remote endpoint.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Ashgrove Studios, then collect 3 approval(s) before editing `atlas.integrations.endpoint-migration.sandboxed`. Changes to `atlas.integrations.endpoint-migration.sandboxed` are irreversible after 13 days because the prior value leaves cold storage on that schedule. Record RB-INT-0071 and ATL-4830 in the case notes.
+`atlas.integrations.endpoint-migration.sandboxed` accepts the batch size, currently 690, and the retry backoff, currently 2610 milliseconds. Editing it requires 3 approval(s). The prior value is retained 13 days in cold storage. Apply changes with `atlas integrations endpoint-migration --mode sandboxed --workspace ashgrove-studios --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas integrations endpoint-migration --mode sandboxed --workspace ashgrove-studios --dry-run` and compare the reported value of `atlas.integrations.endpoint-migration.sandboxed` with the expected baseline. If `atlas_integrations_endpoint_migration_total` exceeds 90 percent of its ceiling for the ashgrove-studios workspace, the Sandboxed endpoint migration path is saturated rather than misconfigured, and error ATL-4830 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Ashgrove Studios may issue 570 sandboxed-endpoint-migration calls per minute. A single invocation accepts at most 71810 rows and aborts after 280 seconds. Atlas warns 8 days before the 13 day window closes.
+
+## Errors
+
+ATL-4830 is raised when traffic continues to a retired remote endpoint. The documented cause is that the resolver pins the endpoint at connector creation. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_integrations_endpoint_migration_total` flat, while ATL-4830 drives it above 90 percent. It is also distinct from exceeding the 71810 row cap.
 
 ## Resolution
 
-Apply `atlas integrations endpoint-migration --mode sandboxed --workspace ashgrove-studios --commit` with a batch size of 690. The command retries with a 2610 millisecond backoff and gives up after 280 seconds. Processing more than 71810 rows in one invocation for Ashgrove Studios is unsupported and re-raises ATL-4830. Split larger jobs into batches of 690.
-
-## Limits and Quotas
-
-The Business plan caps Ashgrove Studios at 570 sandboxed-endpoint-migration calls per minute in eu-central-1. Results persist in cold storage for 13 days. Exports tied to RB-INT-0071 refuse payloads above 71810 rows. Atlas warns 8 days before the 13 day window closes on ashgrove-studios.
+The supported repair is to resolve the endpoint per request from current configuration. Ingest Pipeline owns the remote endpoint resolver and acknowledges escalations against ATL-4830 within 190 minutes. Cite RB-INT-0071 and include the current value of `atlas.integrations.endpoint-migration.sandboxed`.
 
 ## Verification
 
-After the change, `atlas integrations endpoint-migration --mode sandboxed --workspace ashgrove-studios --verify` should report `atlas.integrations.endpoint-migration.sandboxed` as active with no occurrences of ATL-4830 in the last 280 seconds. Ask the customer to confirm from Ashgrove Studios directly. The `atlas_integrations_endpoint_migration_total` counter should settle below 90 percent within 190 minutes.
+Run `atlas integrations endpoint-migration --mode sandboxed --workspace ashgrove-studios --verify`. The command confirms traffic follows the configured endpoint and reports no ATL-4830 within the last 280 seconds. `atlas_integrations_endpoint_migration_total` should sit below 90 percent within 190 minutes.
 
-## Escalation
+## Related
 
-Escalate to Ingest Pipeline if ATL-4830 recurs on ashgrove-studios after two attempts, citing RB-INT-0071. Their acknowledgement target is 190 minutes for the Business plan in eu-central-1. Include the value of `atlas.integrations.endpoint-migration.sandboxed`, the observed `atlas_integrations_endpoint_migration_total` rate, and whether the 570 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4830 is often confused with a plain permissions fault on ashgrove-studios, but a permissions fault leaves `atlas_integrations_endpoint_migration_total` flat while ATL-4830 drives it above 90 percent. A second misread is blaming the 570 per minute ceiling when the true limit reached was the 71810 row cap. Check `atlas.integrations.endpoint-migration.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed endpoint migration action against Ashgrove Studios writes an audit entry tagged RB-INT-0071 and retained for 13 days in cold storage. The entry records the actor, the prior and new values of `atlas.integrations.endpoint-migration.sandboxed`, and whether ATL-4830 was observed. Never log raw credentials for ashgrove-studios; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4830 clears on Ashgrove Studios, confirm downstream integrations jobs that read `atlas.integrations.endpoint-migration.sandboxed` still run. Scheduled work reading sandboxed-endpoint-migration output may lag by up to 2610 milliseconds per batch of 690. Re-check ashgrove-studios after 8 days, before the 13 day cold retention window expires.
+Behavior of the remote endpoint resolver interacts with downstream integrations work that reads `atlas.integrations.endpoint-migration.sandboxed`. Dependent jobs may lag 2610 milliseconds per batch of 690. Audit entries are tagged RB-INT-0071.

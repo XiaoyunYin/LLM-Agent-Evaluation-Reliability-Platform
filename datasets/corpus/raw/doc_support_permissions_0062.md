@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0062
-title: Federated Custom Role Migration runbook 0062
+title: Federated Custom Role Migration questions and answers 0062
 category: permissions
+doc_type: faq
 procedure: Federated custom role migration
+component: the role definition migrator
 error_code: ATL-4931
 config_key: atlas.permissions.custom-role-migration.federated
 workspace: Westmark Aviation
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0062
 source: synthetic
 ---
 
-# Federated Custom Role Migration runbook 0062
+# Federated Custom Role Migration questions and answers 0062
 
-## Overview
+## What does ATL-4931 mean?
 
-Runbook RB-PER-0062 covers the Federated custom role migration procedure for the Westmark Aviation workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4931; other permissions faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4931 within 123 minutes.
+It means migrated custom roles silently gain permissions. Atlas raises it against westmark-aviation when the role definition migrator cannot complete Federated custom role migration. The operational procedure is RB-PER-0062, owned by Core API in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4931 with the message "Federated custom role migration blocked for workspace westmark-aviation". The `atlas_permissions_custom_role_migration_total` counter rises while the affected permissions operation stalls. Requests exceeding 741 calls per minute against westmark-aviation amplify the failure, and the operation aborts once it has waited 132 seconds.
+The cause is that the migrator maps unknown permissions to the nearest broader one. It is a property of the role definition migrator, so Westmark Aviation sees it only because it exercises that path. Because the external provider must confirm the identity before the change, it may appear intermittent until traffic passes 741 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Westmark Aviation, then collect 4 approval(s) before editing `atlas.permissions.custom-role-migration.federated`. Changes to `atlas.permissions.custom-role-migration.federated` are irreversible after 64 days because the prior value leaves archival storage on that schedule. Record RB-PER-0062 and ATL-4931 in the case notes.
+fail migration on unmappable permissions instead of widening. In practice that means running `atlas permissions custom-role-migration --mode federated --workspace westmark-aviation --commit` with a batch size of 163 and a 1447 millisecond backoff. Editing `atlas.permissions.custom-role-migration.federated` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas permissions custom-role-migration --mode federated --workspace westmark-aviation --dry-run` and compare the reported value of `atlas.permissions.custom-role-migration.federated` with the expected baseline. If `atlas_permissions_custom_role_migration_total` exceeds 97 percent of its ceiling for the westmark-aviation workspace, the Federated custom role migration path is saturated rather than misconfigured, and error ATL-4931 is a symptom instead of the cause.
+You know it worked when no migrated role holds a permission its source lacked. Running `atlas permissions custom-role-migration --mode federated --workspace westmark-aviation --verify` reports `atlas.permissions.custom-role-migration.federated` active with no ATL-4931 in the last 132 seconds, and `atlas_permissions_custom_role_migration_total` falls below 97 percent within 123 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas permissions custom-role-migration --mode federated --workspace westmark-aviation --commit` with a batch size of 163. The command retries with a 1447 millisecond backoff and gives up after 132 seconds. Processing more than 81607 rows in one invocation for Westmark Aviation is unsupported and re-raises ATL-4931. Split larger jobs into batches of 163.
+No. A permissions fault leaves `atlas_permissions_custom_role_migration_total` flat, while ATL-4931 drives it above 97 percent. A second common misread is blaming the 741 per minute ceiling when the limit actually reached was the 81607 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Westmark Aviation at 741 federated-custom-role-migration calls per minute in ca-central-1. Results persist in archival storage for 64 days. Exports tied to RB-PER-0062 refuse payloads above 81607 rows. Atlas warns 9 days before the 64 day window closes on westmark-aviation.
+Westmark Aviation may issue 741 federated-custom-role-migration calls per minute on the Enterprise plan. One invocation accepts 81607 rows and aborts after 132 seconds. Results persist 64 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas permissions custom-role-migration --mode federated --workspace westmark-aviation --verify` should report `atlas.permissions.custom-role-migration.federated` as active with no occurrences of ATL-4931 in the last 132 seconds. Ask the customer to confirm from Westmark Aviation directly. The `atlas_permissions_custom_role_migration_total` counter should settle below 97 percent within 123 minutes.
+Core API owns the role definition migrator. They acknowledge escalations against ATL-4931 within 123 minutes on the Enterprise plan. Cite RB-PER-0062 and include the observed `atlas_permissions_custom_role_migration_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Core API if ATL-4931 recurs on westmark-aviation after two attempts, citing RB-PER-0062. Their acknowledgement target is 123 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.permissions.custom-role-migration.federated`, the observed `atlas_permissions_custom_role_migration_total` rate, and whether the 741 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4931 is often confused with a plain permissions fault on westmark-aviation, but a permissions fault leaves `atlas_permissions_custom_role_migration_total` flat while ATL-4931 drives it above 97 percent. A second misread is blaming the 741 per minute ceiling when the true limit reached was the 81607 row cap. Check `atlas.permissions.custom-role-migration.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated custom role migration action against Westmark Aviation writes an audit entry tagged RB-PER-0062 and retained for 64 days in archival storage. The entry records the actor, the prior and new values of `atlas.permissions.custom-role-migration.federated`, and whether ATL-4931 was observed. Never log raw credentials for westmark-aviation; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4931 clears on Westmark Aviation, confirm downstream permissions jobs that read `atlas.permissions.custom-role-migration.federated` still run. Scheduled work reading federated-custom-role-migration output may lag by up to 1447 milliseconds per batch of 163. Re-check westmark-aviation after 9 days, before the 64 day archival retention window expires.
+Confirm downstream permissions work reading `atlas.permissions.custom-role-migration.federated` still runs. It may lag 1447 milliseconds per batch of 163. Re-check westmark-aviation after 9 days, before the 64 day window closes.

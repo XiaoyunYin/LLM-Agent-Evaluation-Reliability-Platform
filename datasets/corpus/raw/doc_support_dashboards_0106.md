@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0106
-title: Cascading Panel Duplication runbook 0106
+title: Cascading Panel Duplication questions and answers 0106
 category: dashboards
+doc_type: faq
 procedure: Cascading panel duplication
+component: the panel cloner
 error_code: ATL-4535
 config_key: atlas.dashboards.panel-duplication.cascading
 workspace: Larkspur Robotics
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0106
 source: synthetic
 ---
 
-# Cascading Panel Duplication runbook 0106
+# Cascading Panel Duplication questions and answers 0106
 
-## Overview
+## What does ATL-4535 mean?
 
-Runbook RB-DAS-0106 covers the Cascading panel duplication procedure for the Larkspur Robotics workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4535; other dashboards faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4535 within 150 minutes.
+It means a duplicated panel edits its original. Atlas raises it against larkspur-robotics when the panel cloner cannot complete Cascading panel duplication. The operational procedure is RB-DAS-0106, owned by Core API in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4535 with the message "Cascading panel duplication blocked for workspace larkspur-robotics". The `atlas_dashboards_panel_duplication_total` counter rises while the affected dashboards operation stalls. Requests exceeding 145 calls per minute against larkspur-robotics amplify the failure, and the operation aborts once it has waited 210 seconds.
+The cause is that the clone copies a reference to the query rather than the query itself. It is a property of the panel cloner, so Larkspur Robotics sees it only because it exercises that path. Because dependents must be re-evaluated after the change lands, it may appear intermittent until traffic passes 145 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Larkspur Robotics, then collect 4 approval(s) before editing `atlas.dashboards.panel-duplication.cascading`. Changes to `atlas.dashboards.panel-duplication.cascading` are irreversible after 52 days because the prior value leaves archival storage on that schedule. Record RB-DAS-0106 and ATL-4535 in the case notes.
+deep-copy the query definition when duplicating. In practice that means running `atlas dashboards panel-duplication --mode cascading --workspace larkspur-robotics --commit` with a batch size of 555 and a 1495 millisecond backoff. Editing `atlas.dashboards.panel-duplication.cascading` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas dashboards panel-duplication --mode cascading --workspace larkspur-robotics --dry-run` and compare the reported value of `atlas.dashboards.panel-duplication.cascading` with the expected baseline. If `atlas_dashboards_panel_duplication_total` exceeds 70 percent of its ceiling for the larkspur-robotics workspace, the Cascading panel duplication path is saturated rather than misconfigured, and error ATL-4535 is a symptom instead of the cause.
+You know it worked when editing the copy leaves the original unchanged. Running `atlas dashboards panel-duplication --mode cascading --workspace larkspur-robotics --verify` reports `atlas.dashboards.panel-duplication.cascading` active with no ATL-4535 in the last 210 seconds, and `atlas_dashboards_panel_duplication_total` falls below 70 percent within 150 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas dashboards panel-duplication --mode cascading --workspace larkspur-robotics --commit` with a batch size of 555. The command retries with a 1495 millisecond backoff and gives up after 210 seconds. Processing more than 43195 rows in one invocation for Larkspur Robotics is unsupported and re-raises ATL-4535. Split larger jobs into batches of 555.
+No. A permissions fault leaves `atlas_dashboards_panel_duplication_total` flat, while ATL-4535 drives it above 70 percent. A second common misread is blaming the 145 per minute ceiling when the limit actually reached was the 43195 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Larkspur Robotics at 145 cascading-panel-duplication calls per minute in eu-west-2. Results persist in archival storage for 52 days. Exports tied to RB-DAS-0106 refuse payloads above 43195 rows. Atlas warns 13 days before the 52 day window closes on larkspur-robotics.
+Larkspur Robotics may issue 145 cascading-panel-duplication calls per minute on the Enterprise plan. One invocation accepts 43195 rows and aborts after 210 seconds. Results persist 52 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas dashboards panel-duplication --mode cascading --workspace larkspur-robotics --verify` should report `atlas.dashboards.panel-duplication.cascading` as active with no occurrences of ATL-4535 in the last 210 seconds. Ask the customer to confirm from Larkspur Robotics directly. The `atlas_dashboards_panel_duplication_total` counter should settle below 70 percent within 150 minutes.
+Core API owns the panel cloner. They acknowledge escalations against ATL-4535 within 150 minutes on the Enterprise plan. Cite RB-DAS-0106 and include the observed `atlas_dashboards_panel_duplication_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Core API if ATL-4535 recurs on larkspur-robotics after two attempts, citing RB-DAS-0106. Their acknowledgement target is 150 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.dashboards.panel-duplication.cascading`, the observed `atlas_dashboards_panel_duplication_total` rate, and whether the 145 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4535 is often confused with a plain permissions fault on larkspur-robotics, but a permissions fault leaves `atlas_dashboards_panel_duplication_total` flat while ATL-4535 drives it above 70 percent. A second misread is blaming the 145 per minute ceiling when the true limit reached was the 43195 row cap. Check `atlas.dashboards.panel-duplication.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading panel duplication action against Larkspur Robotics writes an audit entry tagged RB-DAS-0106 and retained for 52 days in archival storage. The entry records the actor, the prior and new values of `atlas.dashboards.panel-duplication.cascading`, and whether ATL-4535 was observed. Never log raw credentials for larkspur-robotics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4535 clears on Larkspur Robotics, confirm downstream dashboards jobs that read `atlas.dashboards.panel-duplication.cascading` still run. Scheduled work reading cascading-panel-duplication output may lag by up to 1495 milliseconds per batch of 555. Re-check larkspur-robotics after 13 days, before the 52 day archival retention window expires.
+Confirm downstream dashboards work reading `atlas.dashboards.panel-duplication.cascading` still runs. It may lag 1495 milliseconds per batch of 555. Re-check larkspur-robotics after 13 days, before the 52 day window closes.

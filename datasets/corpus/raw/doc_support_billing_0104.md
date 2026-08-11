@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0104
-title: Cascading Credit Application runbook 0104
+title: Cascading Credit Application questions and answers 0104
 category: billing
+doc_type: faq
 procedure: Cascading credit application
+component: the credit ledger
 error_code: ATL-4423
 config_key: atlas.billing.credit-application.cascading
 workspace: Blackpine Research
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0104
 source: synthetic
 ---
 
-# Cascading Credit Application runbook 0104
+# Cascading Credit Application questions and answers 0104
 
-## Overview
+## What does ATL-4423 mean?
 
-Runbook RB-BIL-0104 covers the Cascading credit application procedure for the Blackpine Research workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4423; other billing faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4423 within 74 minutes.
+It means credits apply to the wrong invoice or expire unused. Atlas raises it against blackpine-research when the credit ledger cannot complete Cascading credit application. The operational procedure is RB-BIL-0104, owned by Ingest Pipeline in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4423 with the message "Cascading credit application blocked for workspace blackpine-research". The `atlas_billing_credit_application_total` counter rises while the affected billing operation stalls. Requests exceeding 793 calls per minute against blackpine-research amplify the failure, and the operation aborts once it has waited 281 seconds.
+The cause is that credits are applied in insertion order rather than by expiry. It is a property of the credit ledger, so Blackpine Research sees it only because it exercises that path. Because dependents must be re-evaluated after the change lands, it may appear intermittent until traffic passes 793 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Blackpine Research, then collect 4 approval(s) before editing `atlas.billing.credit-application.cascading`. Changes to `atlas.billing.credit-application.cascading` are irreversible after 52 days because the prior value leaves archival storage on that schedule. Record RB-BIL-0104 and ATL-4423 in the case notes.
+apply credits in expiry order, soonest first. In practice that means running `atlas billing credit-application --mode cascading --workspace blackpine-research --commit` with a batch size of 829 and a 2251 millisecond backoff. Editing `atlas.billing.credit-application.cascading` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas billing credit-application --mode cascading --workspace blackpine-research --dry-run` and compare the reported value of `atlas.billing.credit-application.cascading` with the expected baseline. If `atlas_billing_credit_application_total` exceeds 56 percent of its ceiling for the blackpine-research workspace, the Cascading credit application path is saturated rather than misconfigured, and error ATL-4423 is a symptom instead of the cause.
+You know it worked when no credit expires while a later one is consumed. Running `atlas billing credit-application --mode cascading --workspace blackpine-research --verify` reports `atlas.billing.credit-application.cascading` active with no ATL-4423 in the last 281 seconds, and `atlas_billing_credit_application_total` falls below 56 percent within 74 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas billing credit-application --mode cascading --workspace blackpine-research --commit` with a batch size of 829. The command retries with a 2251 millisecond backoff and gives up after 281 seconds. Processing more than 32331 rows in one invocation for Blackpine Research is unsupported and re-raises ATL-4423. Split larger jobs into batches of 829.
+No. A permissions fault leaves `atlas_billing_credit_application_total` flat, while ATL-4423 drives it above 56 percent. A second common misread is blaming the 793 per minute ceiling when the limit actually reached was the 32331 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Blackpine Research at 793 cascading-credit-application calls per minute in eu-west-2. Results persist in archival storage for 52 days. Exports tied to RB-BIL-0104 refuse payloads above 32331 rows. Atlas warns 26 days before the 52 day window closes on blackpine-research.
+Blackpine Research may issue 793 cascading-credit-application calls per minute on the Enterprise plan. One invocation accepts 32331 rows and aborts after 281 seconds. Results persist 52 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas billing credit-application --mode cascading --workspace blackpine-research --verify` should report `atlas.billing.credit-application.cascading` as active with no occurrences of ATL-4423 in the last 281 seconds. Ask the customer to confirm from Blackpine Research directly. The `atlas_billing_credit_application_total` counter should settle below 56 percent within 74 minutes.
+Ingest Pipeline owns the credit ledger. They acknowledge escalations against ATL-4423 within 74 minutes on the Enterprise plan. Cite RB-BIL-0104 and include the observed `atlas_billing_credit_application_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Ingest Pipeline if ATL-4423 recurs on blackpine-research after two attempts, citing RB-BIL-0104. Their acknowledgement target is 74 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.billing.credit-application.cascading`, the observed `atlas_billing_credit_application_total` rate, and whether the 793 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4423 is often confused with a plain permissions fault on blackpine-research, but a permissions fault leaves `atlas_billing_credit_application_total` flat while ATL-4423 drives it above 56 percent. A second misread is blaming the 793 per minute ceiling when the true limit reached was the 32331 row cap. Check `atlas.billing.credit-application.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading credit application action against Blackpine Research writes an audit entry tagged RB-BIL-0104 and retained for 52 days in archival storage. The entry records the actor, the prior and new values of `atlas.billing.credit-application.cascading`, and whether ATL-4423 was observed. Never log raw credentials for blackpine-research; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4423 clears on Blackpine Research, confirm downstream billing jobs that read `atlas.billing.credit-application.cascading` still run. Scheduled work reading cascading-credit-application output may lag by up to 2251 milliseconds per batch of 829. Re-check blackpine-research after 26 days, before the 52 day archival retention window expires.
+Confirm downstream billing work reading `atlas.billing.credit-application.cascading` still runs. It may lag 2251 milliseconds per batch of 829. Re-check blackpine-research after 26 days, before the 52 day window closes.

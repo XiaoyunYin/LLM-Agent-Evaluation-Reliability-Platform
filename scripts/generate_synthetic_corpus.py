@@ -22,10 +22,23 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import sys
 from pathlib import Path
+
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from scripts.corpus_vocabulary import (  # noqa: E402
+    QUALIFIER_VOCAB,
+    TOPIC_VOCAB,
+)
 
 OUTPUT_DIR = Path("datasets/corpus/raw")
 DOCS_PER_DOMAIN = 110
+
+# Document types carry different section structures so two documents differ in
+# shape as well as in subject. A single shared skeleton is what made corpus v0.2
+# embed to near-identical vectors.
+DOC_TYPES = ("runbook", "postmortem", "reference", "faq")
 
 # 11 topics x 10 qualifiers = 110 unique procedure names per domain.
 DOMAIN_TOPICS: dict[str, list[str]] = {
@@ -181,18 +194,272 @@ class DocumentFacts:
         self.approval_count = 1 + global_index % 4
         self.warning_days = 3 + global_index % 25
 
+        # Subject-matter vocabulary. This is the axis that lets an embedding
+        # model tell two documents apart.
+        component, symptom, cause, fix, signal = TOPIC_VOCAB[topic]
+        self.component = component
+        self.symptom = symptom
+        self.cause = cause
+        self.fix = fix
+        self.signal = signal
+        self.actor, self.constraint = QUALIFIER_VOCAB[qualifier]
+
+        self.doc_type = DOC_TYPES[global_index % len(DOC_TYPES)]
+
     @property
     def title(self) -> str:
-        return f"{self.procedure.title()} runbook {self.number:04d}"
+        noun = {
+            "runbook": "runbook",
+            "postmortem": "incident review",
+            "reference": "reference",
+            "faq": "questions and answers",
+        }[self.doc_type]
+        return f"{self.procedure.title()} {noun} {self.number:04d}"
+
+
+def body_runbook(f: DocumentFacts) -> str:
+    return f"""## Overview
+
+{f.runbook_ref} describes {f.procedure} for {f.workspace}, where {f.symptom}. The work is \
+performed by {f.actor}, and {f.constraint}. The affected component is {f.component}. This \
+document applies only when Atlas raises {f.error_code}; other {f.domain} faults are covered \
+elsewhere. {f.owner_team} owns the procedure in {f.region}.
+
+## Symptoms
+
+Reporters describe the same thing: {f.symptom}. Atlas raises {f.error_code} against the \
+{f.workspace_slug} workspace and `{f.metric}` climbs past {f.threshold_percent} percent. \
+Because {f.constraint}, the symptom can look intermittent when {f.component} is under load. \
+Requests beyond {f.rate_limit} per minute make it reproducible.
+
+## Root Cause
+
+The underlying fault is that {f.cause}. This is a property of {f.component} rather than of \
+any single workspace, so {f.workspace} is affected only because it exercises that path. The \
+{f.timeout_seconds} second abort is a consequence, not the cause; raising it hides \
+{f.error_code} without repairing {f.component}.
+
+## Resolution
+
+To repair the fault, {f.fix}. Run `{f.cli} --workspace {f.workspace_slug} --commit` with a \
+batch size of {f.batch_size}, retrying with a {f.backoff_ms} millisecond backoff. Because \
+{f.constraint}, do not exceed {f.max_rows} rows in one invocation. Editing \
+`{f.config_key}` requires {f.approval_count} approval(s).
+
+## Verification
+
+The repair has landed when {f.signal}. Confirm with `{f.cli} --workspace \
+{f.workspace_slug} --verify`, which should report `{f.config_key}` active and no \
+{f.error_code} in the last {f.timeout_seconds} seconds. `{f.metric}` should settle below \
+{f.threshold_percent} percent within {f.sla_minutes} minutes.
+
+## Limits
+
+{f.workspace} is capped at {f.rate_limit} {f.procedure_slug} calls per minute on the \
+{f.plan_tier} plan in {f.region}. Results persist in {f.storage_class} storage for \
+{f.retention_days} days, and Atlas warns {f.warning_days} days before that window closes. \
+Payloads above {f.max_rows} rows are refused.
+
+## Escalation
+
+Escalate to {f.owner_team} citing {f.runbook_ref} if {f.error_code} recurs after two \
+attempts, or if {f.symptom} persists once {f.signal}. Their acknowledgement target is \
+{f.sla_minutes} minutes. Include the value of `{f.config_key}` and the observed \
+`{f.metric}` rate.
+
+## Audit
+
+Every {f.procedure} action against {f.workspace} writes an entry tagged {f.runbook_ref}, \
+retained {f.retention_days} days in {f.storage_class} storage, recording the actor and both \
+values of `{f.config_key}`. Because {f.constraint}, the entry also records whether \
+{f.component} was reconciled.
+
+## Follow-Up
+
+Once {f.error_code} clears, confirm downstream {f.domain} jobs reading `{f.config_key}` \
+still run. Work depending on {f.component} may lag {f.backoff_ms} milliseconds per batch of \
+{f.batch_size}. Re-check {f.workspace_slug} after {f.warning_days} days.
+"""
+
+
+def body_postmortem(f: DocumentFacts) -> str:
+    return f"""## Summary
+
+On the {f.plan_tier} plan in {f.region}, {f.workspace} reported that {f.symptom}. Atlas \
+raised {f.error_code} for {f.sla_minutes} minutes before {f.owner_team} mitigated. The \
+fault was in {f.component}. Review reference {f.runbook_ref}.
+
+## Impact
+
+{f.workspace} was unable to complete {f.procedure} while {f.error_code} persisted. Roughly \
+{f.max_rows} rows were delayed and `{f.metric}` held above {f.threshold_percent} percent \
+throughout. Because {f.constraint}, dependent work queued rather than failing outright, so \
+the customer-visible symptom was latency rather than error.
+
+## Timeline
+
+Operations first saw `{f.metric}` cross {f.threshold_percent} percent. {f.error_code} \
+appeared against {f.workspace_slug} once traffic exceeded {f.rate_limit} per minute. The \
+page reached {f.owner_team} within {f.sla_minutes} minutes. Investigation focused on \
+{f.component} after {f.symptom} was reproduced with `{f.cli} --dry-run`.
+
+## Root Cause
+
+{f.cause}. The condition had existed in {f.component} for some time and became visible only \
+when {f.workspace} crossed {f.rate_limit} calls per minute. The {f.timeout_seconds} second \
+abort masked it earlier by failing requests before the fault surfaced.
+
+## Remediation
+
+The team applied the standing fix: {f.fix}. This was executed with `{f.cli} --workspace \
+{f.workspace_slug} --commit` at a batch size of {f.batch_size}, backing off {f.backoff_ms} \
+milliseconds between attempts, under {f.approval_count} approval(s) against \
+`{f.config_key}`.
+
+## Verification
+
+Recovery was confirmed when {f.signal}. `{f.metric}` returned below \
+{f.threshold_percent} percent and {f.error_code} stopped appearing for {f.workspace_slug}. \
+Because {f.constraint}, the team also confirmed {f.component} had reconciled before closing.
+
+## Prevention
+
+To keep {f.cause} from recurring, {f.owner_team} added monitoring on {f.component} that \
+alerts before `{f.metric}` reaches {f.threshold_percent} percent. Retention for the \
+diagnostic trail is retained for {f.retention_days} days in {f.storage_class} storage.
+
+## Follow-Up
+
+Re-check {f.workspace_slug} after {f.warning_days} days. Confirm the {f.rate_limit} per \
+minute ceiling and the {f.max_rows} row cap still suit {f.workspace} on the {f.plan_tier} \
+plan, and that {f.signal} remains true.
+"""
+
+
+def body_reference(f: DocumentFacts) -> str:
+    return f"""## Overview
+
+This reference documents {f.procedure} as implemented by {f.component} in Atlas Metrics. It \
+is written for {f.actor}. The controlling setting is `{f.config_key}` and the associated \
+failure is {f.error_code}. See {f.runbook_ref} for the operational procedure.
+
+## Behavior
+
+{f.component} performs {f.procedure} whenever the workspace configuration changes. Because \
+{f.constraint}, the operation is ordered rather than concurrent. A correct run ends when \
+{f.signal}. An incorrect run is visible as {f.symptom}.
+
+## Configuration
+
+`{f.config_key}` accepts the batch size, currently {f.batch_size}, and the retry backoff, \
+currently {f.backoff_ms} milliseconds. Editing it requires {f.approval_count} approval(s). \
+The prior value is retained {f.retention_days} days in {f.storage_class} storage. Apply \
+changes with `{f.cli} --workspace {f.workspace_slug} --commit`.
+
+## Limits
+
+On the {f.plan_tier} plan in {f.region}, {f.workspace} may issue {f.rate_limit} \
+{f.procedure_slug} calls per minute. A single invocation accepts at most {f.max_rows} rows \
+and aborts after {f.timeout_seconds} seconds. Atlas warns {f.warning_days} days before the \
+{f.retention_days} day window closes.
+
+## Errors
+
+{f.error_code} is raised when {f.symptom}. The documented cause is that {f.cause}. It is \
+distinct from a plain permissions fault: a permissions fault leaves `{f.metric}` flat, \
+while {f.error_code} drives it above {f.threshold_percent} percent. It is also distinct \
+from exceeding the {f.max_rows} row cap.
+
+## Resolution
+
+The supported repair is to {f.fix}. {f.owner_team} owns {f.component} and acknowledges \
+escalations against {f.error_code} within {f.sla_minutes} minutes. Cite {f.runbook_ref} and \
+include the current value of `{f.config_key}`.
+
+## Verification
+
+Run `{f.cli} --workspace {f.workspace_slug} --verify`. The command confirms {f.signal} and \
+reports no {f.error_code} within the last {f.timeout_seconds} seconds. `{f.metric}` should \
+sit below {f.threshold_percent} percent within {f.sla_minutes} minutes.
+
+## Related
+
+Behavior of {f.component} interacts with downstream {f.domain} work that reads \
+`{f.config_key}`. Dependent jobs may lag {f.backoff_ms} milliseconds per batch of \
+{f.batch_size}. Audit entries are tagged {f.runbook_ref}.
+"""
+
+
+def body_faq(f: DocumentFacts) -> str:
+    return f"""## What does {f.error_code} mean?
+
+It means {f.symptom}. Atlas raises it against {f.workspace_slug} when {f.component} cannot \
+complete {f.procedure}. The operational procedure is {f.runbook_ref}, owned by \
+{f.owner_team} in {f.region}.
+
+## Why does this happen?
+
+The cause is that {f.cause}. It is a property of {f.component}, so {f.workspace} sees it \
+only because it exercises that path. Because {f.constraint}, it may appear intermittent \
+until traffic passes {f.rate_limit} calls per minute.
+
+## How do I fix it?
+
+{f.fix}. In practice that means running `{f.cli} --workspace {f.workspace_slug} --commit` \
+with a batch size of {f.batch_size} and a {f.backoff_ms} millisecond backoff. Editing \
+`{f.config_key}` first requires {f.approval_count} approval(s).
+
+## How do I know the fix worked?
+
+You know it worked when {f.signal}. Running `{f.cli} --workspace {f.workspace_slug} \
+--verify` reports `{f.config_key}` active with no {f.error_code} in the last \
+{f.timeout_seconds} seconds, and `{f.metric}` falls below {f.threshold_percent} percent \
+within {f.sla_minutes} minutes.
+
+## Is this a permissions problem?
+
+No. A permissions fault leaves `{f.metric}` flat, while {f.error_code} drives it above \
+{f.threshold_percent} percent. A second common misread is blaming the {f.rate_limit} per \
+minute ceiling when the limit actually reached was the {f.max_rows} row cap.
+
+## What are the limits?
+
+{f.workspace} may issue {f.rate_limit} {f.procedure_slug} calls per minute on the \
+{f.plan_tier} plan. One invocation accepts {f.max_rows} rows and aborts after \
+{f.timeout_seconds} seconds. Results persist {f.retention_days} days in {f.storage_class} \
+storage.
+
+## Who do I escalate to?
+
+{f.owner_team} owns {f.component}. They acknowledge escalations against {f.error_code} \
+within {f.sla_minutes} minutes on the {f.plan_tier} plan. Cite {f.runbook_ref} and include \
+the observed `{f.metric}` rate.
+
+## What should I check afterwards?
+
+Confirm downstream {f.domain} work reading `{f.config_key}` still runs. It may lag \
+{f.backoff_ms} milliseconds per batch of {f.batch_size}. Re-check {f.workspace_slug} after \
+{f.warning_days} days, before the {f.retention_days} day window closes.
+"""
+
+
+BODY_BUILDERS = {
+    "runbook": body_runbook,
+    "postmortem": body_postmortem,
+    "reference": body_reference,
+    "faq": body_faq,
+}
 
 
 def build_document(facts: DocumentFacts) -> str:
     f = facts
-    return f"""---
+    front_matter = f"""---
 doc_id: {f.doc_id}
 title: {f.title}
 category: {f.domain}
+doc_type: {f.doc_type}
 procedure: {f.procedure}
+component: {f.component}
 error_code: {f.error_code}
 config_key: {f.config_key}
 workspace: {f.workspace}
@@ -204,94 +471,8 @@ source: synthetic
 
 # {f.title}
 
-## Overview
-
-Runbook {f.runbook_ref} covers the {f.procedure} procedure for the {f.workspace} \
-workspace in Atlas Metrics, hosted in {f.region} on the {f.plan_tier} plan. It applies \
-only when the platform emits error {f.error_code}; other {f.domain} faults use a \
-different runbook. Ownership sits with the {f.owner_team} team, who accept escalations \
-against {f.error_code} within {f.sla_minutes} minutes.
-
-## Symptoms
-
-The customer sees error {f.error_code} with the message "{f.procedure} blocked for \
-workspace {f.workspace_slug}". The `{f.metric}` counter rises while the affected \
-{f.domain} operation stalls. Requests exceeding {f.rate_limit} calls per minute against \
-{f.workspace_slug} amplify the failure, and the operation aborts once it has waited \
-{f.timeout_seconds} seconds.
-
-## Prerequisites
-
-Confirm the requester holds an administrator grant on {f.workspace}, then collect \
-{f.approval_count} approval(s) before editing `{f.config_key}`. Changes to \
-`{f.config_key}` are irreversible after {f.retention_days} days because the prior value \
-leaves {f.storage_class} storage on that schedule. Record {f.runbook_ref} and \
-{f.error_code} in the case notes.
-
-## Diagnostic Steps
-
-Run `{f.cli} --workspace {f.workspace_slug} --dry-run` and compare the reported value of \
-`{f.config_key}` with the expected baseline. If `{f.metric}` exceeds \
-{f.threshold_percent} percent of its ceiling for the {f.workspace_slug} workspace, the \
-{f.procedure} path is saturated rather than misconfigured, and error {f.error_code} is a \
-symptom instead of the cause.
-
-## Resolution
-
-Apply `{f.cli} --workspace {f.workspace_slug} --commit` with a batch size of \
-{f.batch_size}. The command retries with a {f.backoff_ms} millisecond backoff and gives \
-up after {f.timeout_seconds} seconds. Processing more than {f.max_rows} rows in one \
-invocation for {f.workspace} is unsupported and re-raises {f.error_code}. Split larger \
-jobs into batches of {f.batch_size}.
-
-## Limits and Quotas
-
-The {f.plan_tier} plan caps {f.workspace} at {f.rate_limit} {f.procedure_slug} calls per \
-minute in {f.region}. Results persist in {f.storage_class} storage for \
-{f.retention_days} days. Exports tied to {f.runbook_ref} refuse payloads above \
-{f.max_rows} rows. Atlas warns {f.warning_days} days before the {f.retention_days} day \
-window closes on {f.workspace_slug}.
-
-## Verification
-
-After the change, `{f.cli} --workspace {f.workspace_slug} --verify` should report \
-`{f.config_key}` as active with no occurrences of {f.error_code} in the last \
-{f.timeout_seconds} seconds. Ask the customer to confirm from {f.workspace} directly. \
-The `{f.metric}` counter should settle below {f.threshold_percent} percent within \
-{f.sla_minutes} minutes.
-
-## Escalation
-
-Escalate to {f.owner_team} if {f.error_code} recurs on {f.workspace_slug} after two \
-attempts, citing {f.runbook_ref}. Their acknowledgement target is {f.sla_minutes} \
-minutes for the {f.plan_tier} plan in {f.region}. Include the value of \
-`{f.config_key}`, the observed `{f.metric}` rate, and whether the {f.rate_limit} per \
-minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error {f.error_code} is often confused with a plain permissions fault on \
-{f.workspace_slug}, but a permissions fault leaves `{f.metric}` flat while {f.error_code} \
-drives it above {f.threshold_percent} percent. A second misread is blaming the \
-{f.rate_limit} per minute ceiling when the true limit reached was the {f.max_rows} row \
-cap. Check `{f.config_key}` before assuming either.
-
-## Audit and Logging
-
-Every {f.procedure} action against {f.workspace} writes an audit entry tagged \
-{f.runbook_ref} and retained for {f.retention_days} days in {f.storage_class} storage. \
-The entry records the actor, the prior and new values of `{f.config_key}`, and whether \
-{f.error_code} was observed. Never log raw credentials for {f.workspace_slug}; redact \
-them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once {f.error_code} clears on {f.workspace}, confirm downstream {f.domain} jobs that \
-read `{f.config_key}` still run. Scheduled work reading {f.procedure_slug} output may \
-lag by up to {f.backoff_ms} milliseconds per batch of {f.batch_size}. Re-check \
-{f.workspace_slug} after {f.warning_days} days, before the {f.retention_days} day \
-{f.storage_class} retention window expires.
 """
+    return front_matter + BODY_BUILDERS[f.doc_type](f)
 
 
 def main() -> int:

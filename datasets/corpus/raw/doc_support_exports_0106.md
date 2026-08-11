@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0106
-title: Cascading Compression Switch runbook 0106
+title: Cascading Compression Switch incident review 0106
 category: exports
+doc_type: postmortem
 procedure: Cascading compression switch
+component: the compression selector
 error_code: ATL-4645
 config_key: atlas.exports.compression-switch.cascading
 workspace: Brightpath Media
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0106
 source: synthetic
 ---
 
-# Cascading Compression Switch runbook 0106
+# Cascading Compression Switch incident review 0106
 
-## Overview
+## Summary
 
-Runbook RB-EXP-0106 covers the Cascading compression switch procedure for the Brightpath Media workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4645; other exports faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4645 within 200 minutes.
+On the Growth plan in us-east-1, Brightpath Media reported that consumers cannot open a newly compressed archive. Atlas raised ATL-4645 for 200 minutes before Core API mitigated. The fault was in the compression selector. Review reference RB-EXP-0106.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4645 with the message "Cascading compression switch blocked for workspace brightpath-media". The `atlas_exports_compression_switch_total` counter rises while the affected exports operation stalls. Requests exceeding 415 calls per minute against brightpath-media amplify the failure, and the operation aborts once it has waited 125 seconds.
+Brightpath Media was unable to complete Cascading compression switch while ATL-4645 persisted. Roughly 53865 rows were delayed and `atlas_exports_compression_switch_total` held above 95 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Brightpath Media, then collect 2 approval(s) before editing `atlas.exports.compression-switch.cascading`. Changes to `atlas.exports.compression-switch.cascading` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-EXP-0106 and ATL-4645 in the case notes.
+Operations first saw `atlas_exports_compression_switch_total` cross 95 percent. ATL-4645 appeared against brightpath-media once traffic exceeded 415 per minute. The page reached Core API within 200 minutes. Investigation focused on the compression selector after consumers cannot open a newly compressed archive was reproduced with `atlas exports compression-switch --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas exports compression-switch --mode cascading --workspace brightpath-media --dry-run` and compare the reported value of `atlas.exports.compression-switch.cascading` with the expected baseline. If `atlas_exports_compression_switch_total` exceeds 95 percent of its ceiling for the brightpath-media workspace, the Cascading compression switch path is saturated rather than misconfigured, and error ATL-4645 is a symptom instead of the cause.
+the selector changes format without updating the advertised content type. The condition had existed in the compression selector for some time and became visible only when Brightpath Media crossed 415 calls per minute. The 125 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas exports compression-switch --mode cascading --workspace brightpath-media --commit` with a batch size of 235. The command retries with a 665 millisecond backoff and gives up after 125 seconds. Processing more than 53865 rows in one invocation for Brightpath Media is unsupported and re-raises ATL-4645. Split larger jobs into batches of 235.
-
-## Limits and Quotas
-
-The Growth plan caps Brightpath Media at 415 cascading-compression-switch calls per minute in us-east-1. Results persist in warm storage for 46 days. Exports tied to RB-EXP-0106 refuse payloads above 53865 rows. Atlas warns 23 days before the 46 day window closes on brightpath-media.
+The team applied the standing fix: advertise the content type that matches the chosen format. This was executed with `atlas exports compression-switch --mode cascading --workspace brightpath-media --commit` at a batch size of 235, backing off 665 milliseconds between attempts, under 2 approval(s) against `atlas.exports.compression-switch.cascading`.
 
 ## Verification
 
-After the change, `atlas exports compression-switch --mode cascading --workspace brightpath-media --verify` should report `atlas.exports.compression-switch.cascading` as active with no occurrences of ATL-4645 in the last 125 seconds. Ask the customer to confirm from Brightpath Media directly. The `atlas_exports_compression_switch_total` counter should settle below 95 percent within 200 minutes.
+Recovery was confirmed when consumers open archives using the advertised type. `atlas_exports_compression_switch_total` returned below 95 percent and ATL-4645 stopped appearing for brightpath-media. Because dependents must be re-evaluated after the change lands, the team also confirmed the compression selector had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Core API if ATL-4645 recurs on brightpath-media after two attempts, citing RB-EXP-0106. Their acknowledgement target is 200 minutes for the Growth plan in us-east-1. Include the value of `atlas.exports.compression-switch.cascading`, the observed `atlas_exports_compression_switch_total` rate, and whether the 415 per minute ceiling was reached.
+To keep the selector changes format without updating the advertised content type from recurring, Core API added monitoring on the compression selector that alerts before `atlas_exports_compression_switch_total` reaches 95 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4645 is often confused with a plain permissions fault on brightpath-media, but a permissions fault leaves `atlas_exports_compression_switch_total` flat while ATL-4645 drives it above 95 percent. A second misread is blaming the 415 per minute ceiling when the true limit reached was the 53865 row cap. Check `atlas.exports.compression-switch.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading compression switch action against Brightpath Media writes an audit entry tagged RB-EXP-0106 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.exports.compression-switch.cascading`, and whether ATL-4645 was observed. Never log raw credentials for brightpath-media; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4645 clears on Brightpath Media, confirm downstream exports jobs that read `atlas.exports.compression-switch.cascading` still run. Scheduled work reading cascading-compression-switch output may lag by up to 665 milliseconds per batch of 235. Re-check brightpath-media after 23 days, before the 46 day warm retention window expires.
+Re-check brightpath-media after 23 days. Confirm the 415 per minute ceiling and the 53865 row cap still suit Brightpath Media on the Growth plan, and that consumers open archives using the advertised type remains true.

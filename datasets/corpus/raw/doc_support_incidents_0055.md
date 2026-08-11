@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0055
 title: Legacy Impact Recalculation runbook 0055
 category: incidents
+doc_type: runbook
 procedure: Legacy impact recalculation
+component: the impact estimator
 error_code: ATL-4704
 config_key: atlas.incidents.impact-recalculation.legacy
 workspace: Kingsley Capital
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0055 covers the Legacy impact recalculation procedure for the Kingsley Capital workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4704; other incidents faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4704 within 277 minutes.
+RB-INC-0055 describes Legacy impact recalculation for Kingsley Capital, where final impact numbers differ from those reported during the incident. The work is performed by a workspace still on the previous configuration format, and the change must be translated into the older format first. The affected component is the impact estimator. This document applies only when Atlas raises ATL-4704; other incidents faults are covered elsewhere. Integrations Guild owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4704 with the message "Legacy impact recalculation blocked for workspace kingsley-capital". The `atlas_incidents_impact_recalculation_total` counter rises while the affected incidents operation stalls. Requests exceeding 124 calls per minute against kingsley-capital amplify the failure, and the operation aborts once it has waited 253 seconds.
+Reporters describe the same thing: final impact numbers differ from those reported during the incident. Atlas raises ATL-4704 against the kingsley-capital workspace and `atlas_incidents_impact_recalculation_total` climbs past 63 percent. Because the change must be translated into the older format first, the symptom can look intermittent when the impact estimator is under load. Requests beyond 124 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kingsley Capital, then collect 1 approval(s) before editing `atlas.incidents.impact-recalculation.legacy`. Changes to `atlas.incidents.impact-recalculation.legacy` are irreversible after 55 days because the prior value leaves hot storage on that schedule. Record RB-INC-0055 and ATL-4704 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents impact-recalculation --mode legacy --workspace kingsley-capital --dry-run` and compare the reported value of `atlas.incidents.impact-recalculation.legacy` with the expected baseline. If `atlas_incidents_impact_recalculation_total` exceeds 63 percent of its ceiling for the kingsley-capital workspace, the Legacy impact recalculation path is saturated rather than misconfigured, and error ATL-4704 is a symptom instead of the cause.
+The underlying fault is that the estimator uses sampled traffic during the event and full data after. This is a property of the impact estimator rather than of any single workspace, so Kingsley Capital is affected only because it exercises that path. The 253 second abort is a consequence, not the cause; raising it hides ATL-4704 without repairing the impact estimator.
 
 ## Resolution
 
-Apply `atlas incidents impact-recalculation --mode legacy --workspace kingsley-capital --commit` with a batch size of 642. The command retries with a 2848 millisecond backoff and gives up after 253 seconds. Processing more than 59588 rows in one invocation for Kingsley Capital is unsupported and re-raises ATL-4704. Split larger jobs into batches of 642.
-
-## Limits and Quotas
-
-The Starter plan caps Kingsley Capital at 124 legacy-impact-recalculation calls per minute in ap-southeast-1. Results persist in hot storage for 55 days. Exports tied to RB-INC-0055 refuse payloads above 59588 rows. Atlas warns 7 days before the 55 day window closes on kingsley-capital.
+To repair the fault, recompute from full data and label the interim figure as an estimate. Run `atlas incidents impact-recalculation --mode legacy --workspace kingsley-capital --commit` with a batch size of 642, retrying with a 2848 millisecond backoff. Because the change must be translated into the older format first, do not exceed 59588 rows in one invocation. Editing `atlas.incidents.impact-recalculation.legacy` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents impact-recalculation --mode legacy --workspace kingsley-capital --verify` should report `atlas.incidents.impact-recalculation.legacy` as active with no occurrences of ATL-4704 in the last 253 seconds. Ask the customer to confirm from Kingsley Capital directly. The `atlas_incidents_impact_recalculation_total` counter should settle below 63 percent within 277 minutes.
+The repair has landed when final and interim numbers are separately labeled. Confirm with `atlas incidents impact-recalculation --mode legacy --workspace kingsley-capital --verify`, which should report `atlas.incidents.impact-recalculation.legacy` active and no ATL-4704 in the last 253 seconds. `atlas_incidents_impact_recalculation_total` should settle below 63 percent within 277 minutes.
+
+## Limits
+
+Kingsley Capital is capped at 124 legacy-impact-recalculation calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 55 days, and Atlas warns 7 days before that window closes. Payloads above 59588 rows are refused.
 
 ## Escalation
 
-Escalate to Integrations Guild if ATL-4704 recurs on kingsley-capital after two attempts, citing RB-INC-0055. Their acknowledgement target is 277 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.incidents.impact-recalculation.legacy`, the observed `atlas_incidents_impact_recalculation_total` rate, and whether the 124 per minute ceiling was reached.
+Escalate to Integrations Guild citing RB-INC-0055 if ATL-4704 recurs after two attempts, or if final impact numbers differ from those reported during the incident persists once final and interim numbers are separately labeled. Their acknowledgement target is 277 minutes. Include the value of `atlas.incidents.impact-recalculation.legacy` and the observed `atlas_incidents_impact_recalculation_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4704 is often confused with a plain permissions fault on kingsley-capital, but a permissions fault leaves `atlas_incidents_impact_recalculation_total` flat while ATL-4704 drives it above 63 percent. A second misread is blaming the 124 per minute ceiling when the true limit reached was the 59588 row cap. Check `atlas.incidents.impact-recalculation.legacy` before assuming either.
+Every Legacy impact recalculation action against Kingsley Capital writes an entry tagged RB-INC-0055, retained 55 days in hot storage, recording the actor and both values of `atlas.incidents.impact-recalculation.legacy`. Because the change must be translated into the older format first, the entry also records whether the impact estimator was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Legacy impact recalculation action against Kingsley Capital writes an audit entry tagged RB-INC-0055 and retained for 55 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.impact-recalculation.legacy`, and whether ATL-4704 was observed. Never log raw credentials for kingsley-capital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4704 clears on Kingsley Capital, confirm downstream incidents jobs that read `atlas.incidents.impact-recalculation.legacy` still run. Scheduled work reading legacy-impact-recalculation output may lag by up to 2848 milliseconds per batch of 642. Re-check kingsley-capital after 7 days, before the 55 day hot retention window expires.
+Once ATL-4704 clears, confirm downstream incidents jobs reading `atlas.incidents.impact-recalculation.legacy` still run. Work depending on the impact estimator may lag 2848 milliseconds per batch of 642. Re-check kingsley-capital after 7 days.

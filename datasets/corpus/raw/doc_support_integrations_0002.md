@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0002
-title: Delegated Field Mapping Repair runbook 0002
+title: Delegated Field Mapping Repair incident review 0002
 category: integrations
+doc_type: postmortem
 procedure: Delegated field mapping repair
+component: the field mapping table
 error_code: ATL-4761
 config_key: atlas.integrations.field-mapping-repair.delegated
 workspace: Westmark Grid
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0002
 source: synthetic
 ---
 
-# Delegated Field Mapping Repair runbook 0002
+# Delegated Field Mapping Repair incident review 0002
 
-## Overview
+## Summary
 
-Runbook RB-INT-0002 covers the Delegated field mapping repair procedure for the Westmark Grid workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4761; other integrations faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4761 within 328 minutes.
+On the Growth plan in ap-northeast-3, Westmark Grid reported that synced records land with fields transposed. Atlas raised ATL-4761 for 328 minutes before Identity Services mitigated. The fault was in the field mapping table. Review reference RB-INT-0002.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4761 with the message "Delegated field mapping repair blocked for workspace westmark-grid". The `atlas_integrations_field_mapping_repair_total` counter rises while the affected integrations operation stalls. Requests exceeding 751 calls per minute against westmark-grid amplify the failure, and the operation aborts once it has waited 82 seconds.
+Westmark Grid was unable to complete Delegated field mapping repair while ATL-4761 persisted. Roughly 65117 rows were delayed and `atlas_integrations_field_mapping_repair_total` held above 87 percent throughout. Because the delegation must be recorded before the change is applied, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Westmark Grid, then collect 2 approval(s) before editing `atlas.integrations.field-mapping-repair.delegated`. Changes to `atlas.integrations.field-mapping-repair.delegated` are irreversible after 58 days because the prior value leaves warm storage on that schedule. Record RB-INT-0002 and ATL-4761 in the case notes.
+Operations first saw `atlas_integrations_field_mapping_repair_total` cross 87 percent. ATL-4761 appeared against westmark-grid once traffic exceeded 751 per minute. The page reached Identity Services within 328 minutes. Investigation focused on the field mapping table after synced records land with fields transposed was reproduced with `atlas integrations field-mapping-repair --mode delegated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas integrations field-mapping-repair --mode delegated --workspace westmark-grid --dry-run` and compare the reported value of `atlas.integrations.field-mapping-repair.delegated` with the expected baseline. If `atlas_integrations_field_mapping_repair_total` exceeds 87 percent of its ceiling for the westmark-grid workspace, the Delegated field mapping repair path is saturated rather than misconfigured, and error ATL-4761 is a symptom instead of the cause.
+the mapping is keyed on remote label, which the remote system renamed. The condition had existed in the field mapping table for some time and became visible only when Westmark Grid crossed 751 calls per minute. The 82 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas integrations field-mapping-repair --mode delegated --workspace westmark-grid --commit` with a batch size of 53. The command retries with a 4957 millisecond backoff and gives up after 82 seconds. Processing more than 65117 rows in one invocation for Westmark Grid is unsupported and re-raises ATL-4761. Split larger jobs into batches of 53.
-
-## Limits and Quotas
-
-The Growth plan caps Westmark Grid at 751 delegated-field-mapping-repair calls per minute in ap-northeast-3. Results persist in warm storage for 58 days. Exports tied to RB-INT-0002 refuse payloads above 65117 rows. Atlas warns 14 days before the 58 day window closes on westmark-grid.
+The team applied the standing fix: key the mapping on the remote field identifier. This was executed with `atlas integrations field-mapping-repair --mode delegated --workspace westmark-grid --commit` at a batch size of 53, backing off 4957 milliseconds between attempts, under 2 approval(s) against `atlas.integrations.field-mapping-repair.delegated`.
 
 ## Verification
 
-After the change, `atlas integrations field-mapping-repair --mode delegated --workspace westmark-grid --verify` should report `atlas.integrations.field-mapping-repair.delegated` as active with no occurrences of ATL-4761 in the last 82 seconds. Ask the customer to confirm from Westmark Grid directly. The `atlas_integrations_field_mapping_repair_total` counter should settle below 87 percent within 328 minutes.
+Recovery was confirmed when renames upstream no longer transpose fields. `atlas_integrations_field_mapping_repair_total` returned below 87 percent and ATL-4761 stopped appearing for westmark-grid. Because the delegation must be recorded before the change is applied, the team also confirmed the field mapping table had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Identity Services if ATL-4761 recurs on westmark-grid after two attempts, citing RB-INT-0002. Their acknowledgement target is 328 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.integrations.field-mapping-repair.delegated`, the observed `atlas_integrations_field_mapping_repair_total` rate, and whether the 751 per minute ceiling was reached.
+To keep the mapping is keyed on remote label, which the remote system renamed from recurring, Identity Services added monitoring on the field mapping table that alerts before `atlas_integrations_field_mapping_repair_total` reaches 87 percent. Retention for the diagnostic trail was set to 58 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4761 is often confused with a plain permissions fault on westmark-grid, but a permissions fault leaves `atlas_integrations_field_mapping_repair_total` flat while ATL-4761 drives it above 87 percent. A second misread is blaming the 751 per minute ceiling when the true limit reached was the 65117 row cap. Check `atlas.integrations.field-mapping-repair.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated field mapping repair action against Westmark Grid writes an audit entry tagged RB-INT-0002 and retained for 58 days in warm storage. The entry records the actor, the prior and new values of `atlas.integrations.field-mapping-repair.delegated`, and whether ATL-4761 was observed. Never log raw credentials for westmark-grid; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4761 clears on Westmark Grid, confirm downstream integrations jobs that read `atlas.integrations.field-mapping-repair.delegated` still run. Scheduled work reading delegated-field-mapping-repair output may lag by up to 4957 milliseconds per batch of 53. Re-check westmark-grid after 14 days, before the 58 day warm retention window expires.
+Re-check westmark-grid after 14 days. Confirm the 751 per minute ceiling and the 65117 row cap still suit Westmark Grid on the Growth plan, and that renames upstream no longer transpose fields remains true.

@@ -2,7 +2,9 @@
 doc_id: doc_support_api_0067
 title: Sandboxed Token Rotation runbook 0067
 category: api
+doc_type: runbook
 procedure: Sandboxed token rotation
+component: the credential issuer
 error_code: ATL-4276
 config_key: atlas.api.token-rotation.sandboxed
 workspace: Meridian Partners
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-API-0067 covers the Sandboxed token rotation procedure for the Meridian Partners workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4276; other api faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4276 within 233 minutes.
+RB-API-0067 describes Sandboxed token rotation for Meridian Partners, where clients receive authentication failures mid-rotation. The work is performed by an engineer validating the change in a non-production copy, and the change must never write to production resources. The affected component is the credential issuer. This document applies only when Atlas raises ATL-4276; other api faults are covered elsewhere. Platform Reliability owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4276 with the message "Sandboxed token rotation blocked for workspace meridian-partners". The `atlas_api_token_rotation_total` counter rises while the affected api operation stalls. Requests exceeding 116 calls per minute against meridian-partners amplify the failure, and the operation aborts once it has waited 107 seconds.
+Reporters describe the same thing: clients receive authentication failures mid-rotation. Atlas raises ATL-4276 against the meridian-partners workspace and `atlas_api_token_rotation_total` climbs past 77 percent. Because the change must never write to production resources, the symptom can look intermittent when the credential issuer is under load. Requests beyond 116 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Meridian Partners, then collect 1 approval(s) before editing `atlas.api.token-rotation.sandboxed`. Changes to `atlas.api.token-rotation.sandboxed` are irreversible after 31 days because the prior value leaves hot storage on that schedule. Record RB-API-0067 and ATL-4276 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas api token-rotation --mode sandboxed --workspace meridian-partners --dry-run` and compare the reported value of `atlas.api.token-rotation.sandboxed` with the expected baseline. If `atlas_api_token_rotation_total` exceeds 77 percent of its ceiling for the meridian-partners workspace, the Sandboxed token rotation path is saturated rather than misconfigured, and error ATL-4276 is a symptom instead of the cause.
+The underlying fault is that the old token is revoked before the new one finishes propagating. This is a property of the credential issuer rather than of any single workspace, so Meridian Partners is affected only because it exercises that path. The 107 second abort is a consequence, not the cause; raising it hides ATL-4276 without repairing the credential issuer.
 
 ## Resolution
 
-Apply `atlas api token-rotation --mode sandboxed --workspace meridian-partners --commit` with a batch size of 298. The command retries with a 1712 millisecond backoff and gives up after 107 seconds. Processing more than 18072 rows in one invocation for Meridian Partners is unsupported and re-raises ATL-4276. Split larger jobs into batches of 298.
-
-## Limits and Quotas
-
-The Starter plan caps Meridian Partners at 116 sandboxed-token-rotation calls per minute in us-west-2. Results persist in hot storage for 31 days. Exports tied to RB-API-0067 refuse payloads above 18072 rows. Atlas warns 4 days before the 31 day window closes on meridian-partners.
+To repair the fault, overlap both tokens for the propagation window, then revoke. Run `atlas api token-rotation --mode sandboxed --workspace meridian-partners --commit` with a batch size of 298, retrying with a 1712 millisecond backoff. Because the change must never write to production resources, do not exceed 18072 rows in one invocation. Editing `atlas.api.token-rotation.sandboxed` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas api token-rotation --mode sandboxed --workspace meridian-partners --verify` should report `atlas.api.token-rotation.sandboxed` as active with no occurrences of ATL-4276 in the last 107 seconds. Ask the customer to confirm from Meridian Partners directly. The `atlas_api_token_rotation_total` counter should settle below 77 percent within 233 minutes.
+The repair has landed when no authentication failures occur during the overlap. Confirm with `atlas api token-rotation --mode sandboxed --workspace meridian-partners --verify`, which should report `atlas.api.token-rotation.sandboxed` active and no ATL-4276 in the last 107 seconds. `atlas_api_token_rotation_total` should settle below 77 percent within 233 minutes.
+
+## Limits
+
+Meridian Partners is capped at 116 sandboxed-token-rotation calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 31 days, and Atlas warns 4 days before that window closes. Payloads above 18072 rows are refused.
 
 ## Escalation
 
-Escalate to Platform Reliability if ATL-4276 recurs on meridian-partners after two attempts, citing RB-API-0067. Their acknowledgement target is 233 minutes for the Starter plan in us-west-2. Include the value of `atlas.api.token-rotation.sandboxed`, the observed `atlas_api_token_rotation_total` rate, and whether the 116 per minute ceiling was reached.
+Escalate to Platform Reliability citing RB-API-0067 if ATL-4276 recurs after two attempts, or if clients receive authentication failures mid-rotation persists once no authentication failures occur during the overlap. Their acknowledgement target is 233 minutes. Include the value of `atlas.api.token-rotation.sandboxed` and the observed `atlas_api_token_rotation_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4276 is often confused with a plain permissions fault on meridian-partners, but a permissions fault leaves `atlas_api_token_rotation_total` flat while ATL-4276 drives it above 77 percent. A second misread is blaming the 116 per minute ceiling when the true limit reached was the 18072 row cap. Check `atlas.api.token-rotation.sandboxed` before assuming either.
+Every Sandboxed token rotation action against Meridian Partners writes an entry tagged RB-API-0067, retained 31 days in hot storage, recording the actor and both values of `atlas.api.token-rotation.sandboxed`. Because the change must never write to production resources, the entry also records whether the credential issuer was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Sandboxed token rotation action against Meridian Partners writes an audit entry tagged RB-API-0067 and retained for 31 days in hot storage. The entry records the actor, the prior and new values of `atlas.api.token-rotation.sandboxed`, and whether ATL-4276 was observed. Never log raw credentials for meridian-partners; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4276 clears on Meridian Partners, confirm downstream api jobs that read `atlas.api.token-rotation.sandboxed` still run. Scheduled work reading sandboxed-token-rotation output may lag by up to 1712 milliseconds per batch of 298. Re-check meridian-partners after 4 days, before the 31 day hot retention window expires.
+Once ATL-4276 clears, confirm downstream api jobs reading `atlas.api.token-rotation.sandboxed` still run. Work depending on the credential issuer may lag 1712 milliseconds per batch of 298. Re-check meridian-partners after 4 days.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0091
-title: Audited Identity Merge runbook 0091
+title: Audited Identity Merge reference 0091
 category: accounts
+doc_type: reference
 procedure: Audited identity merge
+component: the identity graph
 error_code: ATL-4190
 config_key: atlas.accounts.identity-merge.audited
 workspace: Glacier Labs
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0091
 source: synthetic
 ---
 
-# Audited Identity Merge runbook 0091
+# Audited Identity Merge reference 0091
 
 ## Overview
 
-Runbook RB-ACC-0091 covers the Audited identity merge procedure for the Glacier Labs workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4190; other accounts faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4190 within 150 minutes.
+This reference documents Audited identity merge as implemented by the identity graph in Atlas Metrics. It is written for a reviewer who must leave an evidence trail. The controlling setting is `atlas.accounts.identity-merge.audited` and the associated failure is ATL-4190. See RB-ACC-0091 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4190 with the message "Audited identity merge blocked for workspace glacier-labs". The `atlas_accounts_identity_merge_total` counter rises while the affected accounts operation stalls. Requests exceeding 110 calls per minute against glacier-labs amplify the failure, and the operation aborts once it has waited 75 seconds.
+the identity graph performs Audited identity merge whenever the workspace configuration changes. Because every step must be recorded with the actor and timestamp, the operation is ordered rather than concurrent. A correct run ends when the graph resolves the person to exactly one node. An incorrect run is visible as one person appears twice with split activity history.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Glacier Labs, then collect 3 approval(s) before editing `atlas.accounts.identity-merge.audited`. Changes to `atlas.accounts.identity-merge.audited` are irreversible after 25 days because the prior value leaves cold storage on that schedule. Record RB-ACC-0091 and ATL-4190 in the case notes.
+`atlas.accounts.identity-merge.audited` accepts the batch size, currently 220, and the retry backoff, currently 3430 milliseconds. Editing it requires 3 approval(s). The prior value is retained 25 days in cold storage. Apply changes with `atlas accounts identity-merge --mode audited --workspace glacier-labs --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas accounts identity-merge --mode audited --workspace glacier-labs --dry-run` and compare the reported value of `atlas.accounts.identity-merge.audited` with the expected baseline. If `atlas_accounts_identity_merge_total` exceeds 55 percent of its ceiling for the glacier-labs workspace, the Audited identity merge path is saturated rather than misconfigured, and error ATL-4190 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Glacier Labs may issue 110 audited-identity-merge calls per minute. A single invocation accepts at most 9730 rows and aborts after 75 seconds. Atlas warns 18 days before the 25 day window closes.
+
+## Errors
+
+ATL-4190 is raised when one person appears twice with split activity history. The documented cause is that two identity nodes were created before the email link resolved. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_accounts_identity_merge_total` flat, while ATL-4190 drives it above 55 percent. It is also distinct from exceeding the 9730 row cap.
 
 ## Resolution
 
-Apply `atlas accounts identity-merge --mode audited --workspace glacier-labs --commit` with a batch size of 220. The command retries with a 3430 millisecond backoff and gives up after 75 seconds. Processing more than 9730 rows in one invocation for Glacier Labs is unsupported and re-raises ATL-4190. Split larger jobs into batches of 220.
-
-## Limits and Quotas
-
-The Business plan caps Glacier Labs at 110 audited-identity-merge calls per minute in eu-central-1. Results persist in cold storage for 25 days. Exports tied to RB-ACC-0091 refuse payloads above 9730 rows. Atlas warns 18 days before the 25 day window closes on glacier-labs.
+The supported repair is to merge the nodes and re-parent activity edges to the survivor. Revenue Engineering owns the identity graph and acknowledges escalations against ATL-4190 within 150 minutes. Cite RB-ACC-0091 and include the current value of `atlas.accounts.identity-merge.audited`.
 
 ## Verification
 
-After the change, `atlas accounts identity-merge --mode audited --workspace glacier-labs --verify` should report `atlas.accounts.identity-merge.audited` as active with no occurrences of ATL-4190 in the last 75 seconds. Ask the customer to confirm from Glacier Labs directly. The `atlas_accounts_identity_merge_total` counter should settle below 55 percent within 150 minutes.
+Run `atlas accounts identity-merge --mode audited --workspace glacier-labs --verify`. The command confirms the graph resolves the person to exactly one node and reports no ATL-4190 within the last 75 seconds. `atlas_accounts_identity_merge_total` should sit below 55 percent within 150 minutes.
 
-## Escalation
+## Related
 
-Escalate to Revenue Engineering if ATL-4190 recurs on glacier-labs after two attempts, citing RB-ACC-0091. Their acknowledgement target is 150 minutes for the Business plan in eu-central-1. Include the value of `atlas.accounts.identity-merge.audited`, the observed `atlas_accounts_identity_merge_total` rate, and whether the 110 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4190 is often confused with a plain permissions fault on glacier-labs, but a permissions fault leaves `atlas_accounts_identity_merge_total` flat while ATL-4190 drives it above 55 percent. A second misread is blaming the 110 per minute ceiling when the true limit reached was the 9730 row cap. Check `atlas.accounts.identity-merge.audited` before assuming either.
-
-## Audit and Logging
-
-Every Audited identity merge action against Glacier Labs writes an audit entry tagged RB-ACC-0091 and retained for 25 days in cold storage. The entry records the actor, the prior and new values of `atlas.accounts.identity-merge.audited`, and whether ATL-4190 was observed. Never log raw credentials for glacier-labs; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4190 clears on Glacier Labs, confirm downstream accounts jobs that read `atlas.accounts.identity-merge.audited` still run. Scheduled work reading audited-identity-merge output may lag by up to 3430 milliseconds per batch of 220. Re-check glacier-labs after 18 days, before the 25 day cold retention window expires.
+Behavior of the identity graph interacts with downstream accounts work that reads `atlas.accounts.identity-merge.audited`. Dependent jobs may lag 3430 milliseconds per batch of 220. Audit entries are tagged RB-ACC-0091.

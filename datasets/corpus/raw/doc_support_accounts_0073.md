@@ -2,7 +2,9 @@
 doc_id: doc_support_accounts_0073
 title: Sandboxed Account Reactivation runbook 0073
 category: accounts
+doc_type: runbook
 procedure: Sandboxed account reactivation
+component: the dormancy reaper
 error_code: ATL-4172
 config_key: atlas.accounts.account-reactivation.sandboxed
 workspace: Kestrel Labs
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-ACC-0073 covers the Sandboxed account reactivation procedure for the Kestrel Labs workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4172; other accounts faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4172 within 261 minutes.
+RB-ACC-0073 describes Sandboxed account reactivation for Kestrel Labs, where a reactivated account loses saved views and preferences. The work is performed by an engineer validating the change in a non-production copy, and the change must never write to production resources. The affected component is the dormancy reaper. This document applies only when Atlas raises ATL-4172; other accounts faults are covered elsewhere. Core API owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4172 with the message "Sandboxed account reactivation blocked for workspace kestrel-labs". The `atlas_accounts_account_reactivation_total` counter rises while the affected accounts operation stalls. Requests exceeding 852 calls per minute against kestrel-labs amplify the failure, and the operation aborts once it has waited 234 seconds.
+Reporters describe the same thing: a reactivated account loses saved views and preferences. Atlas raises ATL-4172 against the kestrel-labs workspace and `atlas_accounts_account_reactivation_total` climbs past 64 percent. Because the change must never write to production resources, the symptom can look intermittent when the dormancy reaper is under load. Requests beyond 852 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kestrel Labs, then collect 1 approval(s) before editing `atlas.accounts.account-reactivation.sandboxed`. Changes to `atlas.accounts.account-reactivation.sandboxed` are irreversible after 55 days because the prior value leaves hot storage on that schedule. Record RB-ACC-0073 and ATL-4172 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas accounts account-reactivation --mode sandboxed --workspace kestrel-labs --dry-run` and compare the reported value of `atlas.accounts.account-reactivation.sandboxed` with the expected baseline. If `atlas_accounts_account_reactivation_total` exceeds 64 percent of its ceiling for the kestrel-labs workspace, the Sandboxed account reactivation path is saturated rather than misconfigured, and error ATL-4172 is a symptom instead of the cause.
+The underlying fault is that the reaper hard-deletes preferences before the grace window ends. This is a property of the dormancy reaper rather than of any single workspace, so Kestrel Labs is affected only because it exercises that path. The 234 second abort is a consequence, not the cause; raising it hides ATL-4172 without repairing the dormancy reaper.
 
 ## Resolution
 
-Apply `atlas accounts account-reactivation --mode sandboxed --workspace kestrel-labs --commit` with a batch size of 756. The command retries with a 2764 millisecond backoff and gives up after 234 seconds. Processing more than 7984 rows in one invocation for Kestrel Labs is unsupported and re-raises ATL-4172. Split larger jobs into batches of 756.
-
-## Limits and Quotas
-
-The Starter plan caps Kestrel Labs at 852 sandboxed-account-reactivation calls per minute in us-west-2. Results persist in hot storage for 55 days. Exports tied to RB-ACC-0073 refuse payloads above 7984 rows. Atlas warns 25 days before the 55 day window closes on kestrel-labs.
+To repair the fault, restore preferences from the retention snapshot, then clear dormancy. Run `atlas accounts account-reactivation --mode sandboxed --workspace kestrel-labs --commit` with a batch size of 756, retrying with a 2764 millisecond backoff. Because the change must never write to production resources, do not exceed 7984 rows in one invocation. Editing `atlas.accounts.account-reactivation.sandboxed` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas accounts account-reactivation --mode sandboxed --workspace kestrel-labs --verify` should report `atlas.accounts.account-reactivation.sandboxed` as active with no occurrences of ATL-4172 in the last 234 seconds. Ask the customer to confirm from Kestrel Labs directly. The `atlas_accounts_account_reactivation_total` counter should settle below 64 percent within 261 minutes.
+The repair has landed when saved views reappear for every previously active user. Confirm with `atlas accounts account-reactivation --mode sandboxed --workspace kestrel-labs --verify`, which should report `atlas.accounts.account-reactivation.sandboxed` active and no ATL-4172 in the last 234 seconds. `atlas_accounts_account_reactivation_total` should settle below 64 percent within 261 minutes.
+
+## Limits
+
+Kestrel Labs is capped at 852 sandboxed-account-reactivation calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 55 days, and Atlas warns 25 days before that window closes. Payloads above 7984 rows are refused.
 
 ## Escalation
 
-Escalate to Core API if ATL-4172 recurs on kestrel-labs after two attempts, citing RB-ACC-0073. Their acknowledgement target is 261 minutes for the Starter plan in us-west-2. Include the value of `atlas.accounts.account-reactivation.sandboxed`, the observed `atlas_accounts_account_reactivation_total` rate, and whether the 852 per minute ceiling was reached.
+Escalate to Core API citing RB-ACC-0073 if ATL-4172 recurs after two attempts, or if a reactivated account loses saved views and preferences persists once saved views reappear for every previously active user. Their acknowledgement target is 261 minutes. Include the value of `atlas.accounts.account-reactivation.sandboxed` and the observed `atlas_accounts_account_reactivation_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4172 is often confused with a plain permissions fault on kestrel-labs, but a permissions fault leaves `atlas_accounts_account_reactivation_total` flat while ATL-4172 drives it above 64 percent. A second misread is blaming the 852 per minute ceiling when the true limit reached was the 7984 row cap. Check `atlas.accounts.account-reactivation.sandboxed` before assuming either.
+Every Sandboxed account reactivation action against Kestrel Labs writes an entry tagged RB-ACC-0073, retained 55 days in hot storage, recording the actor and both values of `atlas.accounts.account-reactivation.sandboxed`. Because the change must never write to production resources, the entry also records whether the dormancy reaper was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Sandboxed account reactivation action against Kestrel Labs writes an audit entry tagged RB-ACC-0073 and retained for 55 days in hot storage. The entry records the actor, the prior and new values of `atlas.accounts.account-reactivation.sandboxed`, and whether ATL-4172 was observed. Never log raw credentials for kestrel-labs; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4172 clears on Kestrel Labs, confirm downstream accounts jobs that read `atlas.accounts.account-reactivation.sandboxed` still run. Scheduled work reading sandboxed-account-reactivation output may lag by up to 2764 milliseconds per batch of 756. Re-check kestrel-labs after 25 days, before the 55 day hot retention window expires.
+Once ATL-4172 clears, confirm downstream accounts jobs reading `atlas.accounts.account-reactivation.sandboxed` still run. Work depending on the dormancy reaper may lag 2764 milliseconds per batch of 756. Re-check kestrel-labs after 25 days.

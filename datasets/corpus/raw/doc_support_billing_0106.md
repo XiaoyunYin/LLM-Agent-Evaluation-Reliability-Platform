@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0106
-title: Cascading Currency Migration runbook 0106
+title: Cascading Currency Migration incident review 0106
 category: billing
+doc_type: postmortem
 procedure: Cascading currency migration
+component: the currency conversion table
 error_code: ATL-4425
 config_key: atlas.billing.currency-migration.cascading
 workspace: Dunmore Research
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0106
 source: synthetic
 ---
 
-# Cascading Currency Migration runbook 0106
+# Cascading Currency Migration incident review 0106
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0106 covers the Cascading currency migration procedure for the Dunmore Research workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4425; other billing faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4425 within 100 minutes.
+On the Growth plan in ap-northeast-3, Dunmore Research reported that historical invoices change value after a currency switch. Atlas raised ATL-4425 for 100 minutes before Core API mitigated. The fault was in the currency conversion table. Review reference RB-BIL-0106.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4425 with the message "Cascading currency migration blocked for workspace dunmore-research". The `atlas_billing_currency_migration_total` counter rises while the affected billing operation stalls. Requests exceeding 815 calls per minute against dunmore-research amplify the failure, and the operation aborts once it has waited 295 seconds.
+Dunmore Research was unable to complete Cascading currency migration while ATL-4425 persisted. Roughly 32525 rows were delayed and `atlas_billing_currency_migration_total` held above 90 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Dunmore Research, then collect 2 approval(s) before editing `atlas.billing.currency-migration.cascading`. Changes to `atlas.billing.currency-migration.cascading` are irreversible after 58 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0106 and ATL-4425 in the case notes.
+Operations first saw `atlas_billing_currency_migration_total` cross 90 percent. ATL-4425 appeared against dunmore-research once traffic exceeded 815 per minute. The page reached Core API within 100 minutes. Investigation focused on the currency conversion table after historical invoices change value after a currency switch was reproduced with `atlas billing currency-migration --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing currency-migration --mode cascading --workspace dunmore-research --dry-run` and compare the reported value of `atlas.billing.currency-migration.cascading` with the expected baseline. If `atlas_billing_currency_migration_total` exceeds 90 percent of its ceiling for the dunmore-research workspace, the Cascading currency migration path is saturated rather than misconfigured, and error ATL-4425 is a symptom instead of the cause.
+conversion applies the current rate to already-issued documents. The condition had existed in the currency conversion table for some time and became visible only when Dunmore Research crossed 815 calls per minute. The 295 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing currency-migration --mode cascading --workspace dunmore-research --commit` with a batch size of 875. The command retries with a 2325 millisecond backoff and gives up after 295 seconds. Processing more than 32525 rows in one invocation for Dunmore Research is unsupported and re-raises ATL-4425. Split larger jobs into batches of 875.
-
-## Limits and Quotas
-
-The Growth plan caps Dunmore Research at 815 cascading-currency-migration calls per minute in ap-northeast-3. Results persist in warm storage for 58 days. Exports tied to RB-BIL-0106 refuse payloads above 32525 rows. Atlas warns 3 days before the 58 day window closes on dunmore-research.
+The team applied the standing fix: freeze the rate on each document at issue time. This was executed with `atlas billing currency-migration --mode cascading --workspace dunmore-research --commit` at a batch size of 875, backing off 2325 milliseconds between attempts, under 2 approval(s) against `atlas.billing.currency-migration.cascading`.
 
 ## Verification
 
-After the change, `atlas billing currency-migration --mode cascading --workspace dunmore-research --verify` should report `atlas.billing.currency-migration.cascading` as active with no occurrences of ATL-4425 in the last 295 seconds. Ask the customer to confirm from Dunmore Research directly. The `atlas_billing_currency_migration_total` counter should settle below 90 percent within 100 minutes.
+Recovery was confirmed when issued invoices keep their original value. `atlas_billing_currency_migration_total` returned below 90 percent and ATL-4425 stopped appearing for dunmore-research. Because dependents must be re-evaluated after the change lands, the team also confirmed the currency conversion table had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Core API if ATL-4425 recurs on dunmore-research after two attempts, citing RB-BIL-0106. Their acknowledgement target is 100 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.billing.currency-migration.cascading`, the observed `atlas_billing_currency_migration_total` rate, and whether the 815 per minute ceiling was reached.
+To keep conversion applies the current rate to already-issued documents from recurring, Core API added monitoring on the currency conversion table that alerts before `atlas_billing_currency_migration_total` reaches 90 percent. Retention for the diagnostic trail was set to 58 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4425 is often confused with a plain permissions fault on dunmore-research, but a permissions fault leaves `atlas_billing_currency_migration_total` flat while ATL-4425 drives it above 90 percent. A second misread is blaming the 815 per minute ceiling when the true limit reached was the 32525 row cap. Check `atlas.billing.currency-migration.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading currency migration action against Dunmore Research writes an audit entry tagged RB-BIL-0106 and retained for 58 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.currency-migration.cascading`, and whether ATL-4425 was observed. Never log raw credentials for dunmore-research; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4425 clears on Dunmore Research, confirm downstream billing jobs that read `atlas.billing.currency-migration.cascading` still run. Scheduled work reading cascading-currency-migration output may lag by up to 2325 milliseconds per batch of 875. Re-check dunmore-research after 3 days, before the 58 day warm retention window expires.
+Re-check dunmore-research after 3 days. Confirm the 815 per minute ceiling and the 32525 row cap still suit Dunmore Research on the Growth plan, and that issued invoices keep their original value remains true.

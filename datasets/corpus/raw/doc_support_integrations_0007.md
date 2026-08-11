@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0007
-title: Delegated Throttle Negotiation runbook 0007
+title: Delegated Throttle Negotiation reference 0007
 category: integrations
+doc_type: reference
 procedure: Delegated throttle negotiation
+component: the adaptive throttle
 error_code: ATL-4766
 config_key: atlas.integrations.throttle-negotiation.delegated
 workspace: Eastgate Grid
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0007
 source: synthetic
 ---
 
-# Delegated Throttle Negotiation runbook 0007
+# Delegated Throttle Negotiation reference 0007
 
 ## Overview
 
-Runbook RB-INT-0007 covers the Delegated throttle negotiation procedure for the Eastgate Grid workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4766; other integrations faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4766 within 48 minutes.
+This reference documents Delegated throttle negotiation as implemented by the adaptive throttle in Atlas Metrics. It is written for an approver acting on the owner's behalf. The controlling setting is `atlas.integrations.throttle-negotiation.delegated` and the associated failure is ATL-4766. See RB-INT-0007 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4766 with the message "Delegated throttle negotiation blocked for workspace eastgate-grid". The `atlas_integrations_throttle_negotiation_total` counter rises while the affected integrations operation stalls. Requests exceeding 806 calls per minute against eastgate-grid amplify the failure, and the operation aborts once it has waited 117 seconds.
+the adaptive throttle performs Delegated throttle negotiation whenever the workspace configuration changes. Because the delegation must be recorded before the change is applied, the operation is ordered rather than concurrent. A correct run ends when remote rate-limit responses fall to zero. An incorrect run is visible as the connector is rate-limited by the remote system.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Eastgate Grid, then collect 3 approval(s) before editing `atlas.integrations.throttle-negotiation.delegated`. Changes to `atlas.integrations.throttle-negotiation.delegated` are irreversible after 73 days because the prior value leaves cold storage on that schedule. Record RB-INT-0007 and ATL-4766 in the case notes.
+`atlas.integrations.throttle-negotiation.delegated` accepts the batch size, currently 168, and the retry backoff, currently 242 milliseconds. Editing it requires 3 approval(s). The prior value is retained 73 days in cold storage. Apply changes with `atlas integrations throttle-negotiation --mode delegated --workspace eastgate-grid --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas integrations throttle-negotiation --mode delegated --workspace eastgate-grid --dry-run` and compare the reported value of `atlas.integrations.throttle-negotiation.delegated` with the expected baseline. If `atlas_integrations_throttle_negotiation_total` exceeds 82 percent of its ceiling for the eastgate-grid workspace, the Delegated throttle negotiation path is saturated rather than misconfigured, and error ATL-4766 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Eastgate Grid may issue 806 delegated-throttle-negotiation calls per minute. A single invocation accepts at most 65602 rows and aborts after 117 seconds. Atlas warns 19 days before the 73 day window closes.
+
+## Errors
+
+ATL-4766 is raised when the connector is rate-limited by the remote system. The documented cause is that the throttle ignores the remote system's advertised limit headers. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_integrations_throttle_negotiation_total` flat, while ATL-4766 drives it above 82 percent. It is also distinct from exceeding the 65602 row cap.
 
 ## Resolution
 
-Apply `atlas integrations throttle-negotiation --mode delegated --workspace eastgate-grid --commit` with a batch size of 168. The command retries with a 242 millisecond backoff and gives up after 117 seconds. Processing more than 65602 rows in one invocation for Eastgate Grid is unsupported and re-raises ATL-4766. Split larger jobs into batches of 168.
-
-## Limits and Quotas
-
-The Business plan caps Eastgate Grid at 806 delegated-throttle-negotiation calls per minute in eu-central-1. Results persist in cold storage for 73 days. Exports tied to RB-INT-0007 refuse payloads above 65602 rows. Atlas warns 19 days before the 73 day window closes on eastgate-grid.
+The supported repair is to adapt the send rate to the advertised limit headers. Core API owns the adaptive throttle and acknowledges escalations against ATL-4766 within 48 minutes. Cite RB-INT-0007 and include the current value of `atlas.integrations.throttle-negotiation.delegated`.
 
 ## Verification
 
-After the change, `atlas integrations throttle-negotiation --mode delegated --workspace eastgate-grid --verify` should report `atlas.integrations.throttle-negotiation.delegated` as active with no occurrences of ATL-4766 in the last 117 seconds. Ask the customer to confirm from Eastgate Grid directly. The `atlas_integrations_throttle_negotiation_total` counter should settle below 82 percent within 48 minutes.
+Run `atlas integrations throttle-negotiation --mode delegated --workspace eastgate-grid --verify`. The command confirms remote rate-limit responses fall to zero and reports no ATL-4766 within the last 117 seconds. `atlas_integrations_throttle_negotiation_total` should sit below 82 percent within 48 minutes.
 
-## Escalation
+## Related
 
-Escalate to Core API if ATL-4766 recurs on eastgate-grid after two attempts, citing RB-INT-0007. Their acknowledgement target is 48 minutes for the Business plan in eu-central-1. Include the value of `atlas.integrations.throttle-negotiation.delegated`, the observed `atlas_integrations_throttle_negotiation_total` rate, and whether the 806 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4766 is often confused with a plain permissions fault on eastgate-grid, but a permissions fault leaves `atlas_integrations_throttle_negotiation_total` flat while ATL-4766 drives it above 82 percent. A second misread is blaming the 806 per minute ceiling when the true limit reached was the 65602 row cap. Check `atlas.integrations.throttle-negotiation.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated throttle negotiation action against Eastgate Grid writes an audit entry tagged RB-INT-0007 and retained for 73 days in cold storage. The entry records the actor, the prior and new values of `atlas.integrations.throttle-negotiation.delegated`, and whether ATL-4766 was observed. Never log raw credentials for eastgate-grid; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4766 clears on Eastgate Grid, confirm downstream integrations jobs that read `atlas.integrations.throttle-negotiation.delegated` still run. Scheduled work reading delegated-throttle-negotiation output may lag by up to 242 milliseconds per batch of 168. Re-check eastgate-grid after 19 days, before the 73 day cold retention window expires.
+Behavior of the adaptive throttle interacts with downstream integrations work that reads `atlas.integrations.throttle-negotiation.delegated`. Dependent jobs may lag 242 milliseconds per batch of 168. Audit entries are tagged RB-INT-0007.

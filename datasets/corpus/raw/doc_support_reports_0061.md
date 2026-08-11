@@ -2,7 +2,9 @@
 doc_id: doc_support_reports_0061
 title: Federated Subscription Transfer runbook 0061
 category: reports
+doc_type: runbook
 procedure: Federated subscription transfer
+component: the subscription ledger
 error_code: ATL-5040
 config_key: atlas.reports.subscription-transfer.federated
 workspace: Glacier Insurance
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-REP-0061 covers the Federated subscription transfer procedure for the Glacier Insurance workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-5040; other reports faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-5040 within 160 minutes.
+RB-REP-0061 describes Federated subscription transfer for Glacier Insurance, where transferred subscriptions keep the original owner's filters. The work is performed by an administrator whose identity is held by an external provider, and the external provider must confirm the identity before the change. The affected component is the subscription ledger. This document applies only when Atlas raises ATL-5040; other reports faults are covered elsewhere. Customer Trust owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-5040 with the message "Federated subscription transfer blocked for workspace glacier-insurance". The `atlas_reports_subscription_transfer_total` counter rises while the affected reports operation stalls. Requests exceeding 60 calls per minute against glacier-insurance amplify the failure, and the operation aborts once it has waited 40 seconds.
+Reporters describe the same thing: transferred subscriptions keep the original owner's filters. Atlas raises ATL-5040 against the glacier-insurance workspace and `atlas_reports_subscription_transfer_total` climbs past 60 percent. Because the external provider must confirm the identity before the change, the symptom can look intermittent when the subscription ledger is under load. Requests beyond 60 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Glacier Insurance, then collect 1 approval(s) before editing `atlas.reports.subscription-transfer.federated`. Changes to `atlas.reports.subscription-transfer.federated` are irreversible after 55 days because the prior value leaves hot storage on that schedule. Record RB-REP-0061 and ATL-5040 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas reports subscription-transfer --mode federated --workspace glacier-insurance --dry-run` and compare the reported value of `atlas.reports.subscription-transfer.federated` with the expected baseline. If `atlas_reports_subscription_transfer_total` exceeds 60 percent of its ceiling for the glacier-insurance workspace, the Federated subscription transfer path is saturated rather than misconfigured, and error ATL-5040 is a symptom instead of the cause.
+The underlying fault is that transfer moves delivery but not the owner-scoped filter context. This is a property of the subscription ledger rather than of any single workspace, so Glacier Insurance is affected only because it exercises that path. The 40 second abort is a consequence, not the cause; raising it hides ATL-5040 without repairing the subscription ledger.
 
 ## Resolution
 
-Apply `atlas reports subscription-transfer --mode federated --workspace glacier-insurance --commit` with a batch size of 770. The command retries with a 580 millisecond backoff and gives up after 40 seconds. Processing more than 92180 rows in one invocation for Glacier Insurance is unsupported and re-raises ATL-5040. Split larger jobs into batches of 770.
-
-## Limits and Quotas
-
-The Starter plan caps Glacier Insurance at 60 federated-subscription-transfer calls per minute in ap-southeast-1. Results persist in hot storage for 55 days. Exports tied to RB-REP-0061 refuse payloads above 92180 rows. Atlas warns 18 days before the 55 day window closes on glacier-insurance.
+To repair the fault, re-resolve filter context against the new owner. Run `atlas reports subscription-transfer --mode federated --workspace glacier-insurance --commit` with a batch size of 770, retrying with a 580 millisecond backoff. Because the external provider must confirm the identity before the change, do not exceed 92180 rows in one invocation. Editing `atlas.reports.subscription-transfer.federated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas reports subscription-transfer --mode federated --workspace glacier-insurance --verify` should report `atlas.reports.subscription-transfer.federated` as active with no occurrences of ATL-5040 in the last 40 seconds. Ask the customer to confirm from Glacier Insurance directly. The `atlas_reports_subscription_transfer_total` counter should settle below 60 percent within 160 minutes.
+The repair has landed when the new owner sees data scoped to their access. Confirm with `atlas reports subscription-transfer --mode federated --workspace glacier-insurance --verify`, which should report `atlas.reports.subscription-transfer.federated` active and no ATL-5040 in the last 40 seconds. `atlas_reports_subscription_transfer_total` should settle below 60 percent within 160 minutes.
+
+## Limits
+
+Glacier Insurance is capped at 60 federated-subscription-transfer calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 55 days, and Atlas warns 18 days before that window closes. Payloads above 92180 rows are refused.
 
 ## Escalation
 
-Escalate to Customer Trust if ATL-5040 recurs on glacier-insurance after two attempts, citing RB-REP-0061. Their acknowledgement target is 160 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.reports.subscription-transfer.federated`, the observed `atlas_reports_subscription_transfer_total` rate, and whether the 60 per minute ceiling was reached.
+Escalate to Customer Trust citing RB-REP-0061 if ATL-5040 recurs after two attempts, or if transferred subscriptions keep the original owner's filters persists once the new owner sees data scoped to their access. Their acknowledgement target is 160 minutes. Include the value of `atlas.reports.subscription-transfer.federated` and the observed `atlas_reports_subscription_transfer_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-5040 is often confused with a plain permissions fault on glacier-insurance, but a permissions fault leaves `atlas_reports_subscription_transfer_total` flat while ATL-5040 drives it above 60 percent. A second misread is blaming the 60 per minute ceiling when the true limit reached was the 92180 row cap. Check `atlas.reports.subscription-transfer.federated` before assuming either.
+Every Federated subscription transfer action against Glacier Insurance writes an entry tagged RB-REP-0061, retained 55 days in hot storage, recording the actor and both values of `atlas.reports.subscription-transfer.federated`. Because the external provider must confirm the identity before the change, the entry also records whether the subscription ledger was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Federated subscription transfer action against Glacier Insurance writes an audit entry tagged RB-REP-0061 and retained for 55 days in hot storage. The entry records the actor, the prior and new values of `atlas.reports.subscription-transfer.federated`, and whether ATL-5040 was observed. Never log raw credentials for glacier-insurance; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5040 clears on Glacier Insurance, confirm downstream reports jobs that read `atlas.reports.subscription-transfer.federated` still run. Scheduled work reading federated-subscription-transfer output may lag by up to 580 milliseconds per batch of 770. Re-check glacier-insurance after 18 days, before the 55 day hot retention window expires.
+Once ATL-5040 clears, confirm downstream reports jobs reading `atlas.reports.subscription-transfer.federated` still run. Work depending on the subscription ledger may lag 580 milliseconds per batch of 770. Re-check glacier-insurance after 18 days.

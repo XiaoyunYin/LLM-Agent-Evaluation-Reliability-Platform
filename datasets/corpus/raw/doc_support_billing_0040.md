@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0040
-title: Regional Currency Migration runbook 0040
+title: Regional Currency Migration questions and answers 0040
 category: billing
+doc_type: faq
 procedure: Regional currency migration
+component: the currency conversion table
 error_code: ATL-4359
 config_key: atlas.billing.currency-migration.regional
 workspace: Fernhill Networks
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0040
 source: synthetic
 ---
 
-# Regional Currency Migration runbook 0040
+# Regional Currency Migration questions and answers 0040
 
-## Overview
+## What does ATL-4359 mean?
 
-Runbook RB-BIL-0040 covers the Regional currency migration procedure for the Fernhill Networks workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4359; other billing faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4359 within 277 minutes.
+It means historical invoices change value after a currency switch. Atlas raises it against fernhill-networks when the currency conversion table cannot complete Regional currency migration. The operational procedure is RB-BIL-0040, owned by Core API in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4359 with the message "Regional currency migration blocked for workspace fernhill-networks". The `atlas_billing_currency_migration_total` counter rises while the affected billing operation stalls. Requests exceeding 89 calls per minute against fernhill-networks amplify the failure, and the operation aborts once it has waited 118 seconds.
+The cause is that conversion applies the current rate to already-issued documents. It is a property of the currency conversion table, so Fernhill Networks sees it only because it exercises that path. Because the change must not propagate across region boundaries, it may appear intermittent until traffic passes 89 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Fernhill Networks, then collect 4 approval(s) before editing `atlas.billing.currency-migration.regional`. Changes to `atlas.billing.currency-migration.regional` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-BIL-0040 and ATL-4359 in the case notes.
+freeze the rate on each document at issue time. In practice that means running `atlas billing currency-migration --mode regional --workspace fernhill-networks --commit` with a batch size of 307 and a 4783 millisecond backoff. Editing `atlas.billing.currency-migration.regional` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas billing currency-migration --mode regional --workspace fernhill-networks --dry-run` and compare the reported value of `atlas.billing.currency-migration.regional` with the expected baseline. If `atlas_billing_currency_migration_total` exceeds 93 percent of its ceiling for the fernhill-networks workspace, the Regional currency migration path is saturated rather than misconfigured, and error ATL-4359 is a symptom instead of the cause.
+You know it worked when issued invoices keep their original value. Running `atlas billing currency-migration --mode regional --workspace fernhill-networks --verify` reports `atlas.billing.currency-migration.regional` active with no ATL-4359 in the last 118 seconds, and `atlas_billing_currency_migration_total` falls below 93 percent within 277 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas billing currency-migration --mode regional --workspace fernhill-networks --commit` with a batch size of 307. The command retries with a 4783 millisecond backoff and gives up after 118 seconds. Processing more than 26123 rows in one invocation for Fernhill Networks is unsupported and re-raises ATL-4359. Split larger jobs into batches of 307.
+No. A permissions fault leaves `atlas_billing_currency_migration_total` flat, while ATL-4359 drives it above 93 percent. A second common misread is blaming the 89 per minute ceiling when the limit actually reached was the 26123 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Fernhill Networks at 89 regional-currency-migration calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-BIL-0040 refuse payloads above 26123 rows. Atlas warns 12 days before the 28 day window closes on fernhill-networks.
+Fernhill Networks may issue 89 regional-currency-migration calls per minute on the Enterprise plan. One invocation accepts 26123 rows and aborts after 118 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas billing currency-migration --mode regional --workspace fernhill-networks --verify` should report `atlas.billing.currency-migration.regional` as active with no occurrences of ATL-4359 in the last 118 seconds. Ask the customer to confirm from Fernhill Networks directly. The `atlas_billing_currency_migration_total` counter should settle below 93 percent within 277 minutes.
+Core API owns the currency conversion table. They acknowledge escalations against ATL-4359 within 277 minutes on the Enterprise plan. Cite RB-BIL-0040 and include the observed `atlas_billing_currency_migration_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Core API if ATL-4359 recurs on fernhill-networks after two attempts, citing RB-BIL-0040. Their acknowledgement target is 277 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.billing.currency-migration.regional`, the observed `atlas_billing_currency_migration_total` rate, and whether the 89 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4359 is often confused with a plain permissions fault on fernhill-networks, but a permissions fault leaves `atlas_billing_currency_migration_total` flat while ATL-4359 drives it above 93 percent. A second misread is blaming the 89 per minute ceiling when the true limit reached was the 26123 row cap. Check `atlas.billing.currency-migration.regional` before assuming either.
-
-## Audit and Logging
-
-Every Regional currency migration action against Fernhill Networks writes an audit entry tagged RB-BIL-0040 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.billing.currency-migration.regional`, and whether ATL-4359 was observed. Never log raw credentials for fernhill-networks; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4359 clears on Fernhill Networks, confirm downstream billing jobs that read `atlas.billing.currency-migration.regional` still run. Scheduled work reading regional-currency-migration output may lag by up to 4783 milliseconds per batch of 307. Re-check fernhill-networks after 12 days, before the 28 day archival retention window expires.
+Confirm downstream billing work reading `atlas.billing.currency-migration.regional` still runs. It may lag 4783 milliseconds per batch of 307. Re-check fernhill-networks after 12 days, before the 28 day window closes.

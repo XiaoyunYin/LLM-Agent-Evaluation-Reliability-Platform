@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0079
 title: Throttled Timeline Reconstruction runbook 0079
 category: incidents
+doc_type: runbook
 procedure: Throttled timeline reconstruction
+component: the incident timeline builder
 error_code: ATL-4728
 config_key: atlas.incidents.timeline-reconstruction.throttled
 workspace: Ashgrove Freight
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0079 covers the Throttled timeline reconstruction procedure for the Ashgrove Freight workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4728; other incidents faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4728 within 244 minutes.
+RB-INC-0079 describes Throttled timeline reconstruction for Ashgrove Freight, where the timeline shows events out of order across regions. The work is performed by a caller operating under an active rate limit, and the change must yield capacity to interactive traffic. The affected component is the incident timeline builder. This document applies only when Atlas raises ATL-4728; other incidents faults are covered elsewhere. Identity Services owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4728 with the message "Throttled timeline reconstruction blocked for workspace ashgrove-freight". The `atlas_incidents_timeline_reconstruction_total` counter rises while the affected incidents operation stalls. Requests exceeding 388 calls per minute against ashgrove-freight amplify the failure, and the operation aborts once it has waited 136 seconds.
+Reporters describe the same thing: the timeline shows events out of order across regions. Atlas raises ATL-4728 against the ashgrove-freight workspace and `atlas_incidents_timeline_reconstruction_total` climbs past 66 percent. Because the change must yield capacity to interactive traffic, the symptom can look intermittent when the incident timeline builder is under load. Requests beyond 388 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ashgrove Freight, then collect 1 approval(s) before editing `atlas.incidents.timeline-reconstruction.throttled`. Changes to `atlas.incidents.timeline-reconstruction.throttled` are irreversible after 43 days because the prior value leaves hot storage on that schedule. Record RB-INC-0079 and ATL-4728 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents timeline-reconstruction --mode throttled --workspace ashgrove-freight --dry-run` and compare the reported value of `atlas.incidents.timeline-reconstruction.throttled` with the expected baseline. If `atlas_incidents_timeline_reconstruction_total` exceeds 66 percent of its ceiling for the ashgrove-freight workspace, the Throttled timeline reconstruction path is saturated rather than misconfigured, and error ATL-4728 is a symptom instead of the cause.
+The underlying fault is that the builder sorts on local timestamps from different clocks. This is a property of the incident timeline builder rather than of any single workspace, so Ashgrove Freight is affected only because it exercises that path. The 136 second abort is a consequence, not the cause; raising it hides ATL-4728 without repairing the incident timeline builder.
 
 ## Resolution
 
-Apply `atlas incidents timeline-reconstruction --mode throttled --workspace ashgrove-freight --commit` with a batch size of 244. The command retries with a 3736 millisecond backoff and gives up after 136 seconds. Processing more than 61916 rows in one invocation for Ashgrove Freight is unsupported and re-raises ATL-4728. Split larger jobs into batches of 244.
-
-## Limits and Quotas
-
-The Starter plan caps Ashgrove Freight at 388 throttled-timeline-reconstruction calls per minute in ap-southeast-1. Results persist in hot storage for 43 days. Exports tied to RB-INC-0079 refuse payloads above 61916 rows. Atlas warns 6 days before the 43 day window closes on ashgrove-freight.
+To repair the fault, sort on a monotonic sequence rather than wall-clock time. Run `atlas incidents timeline-reconstruction --mode throttled --workspace ashgrove-freight --commit` with a batch size of 244, retrying with a 3736 millisecond backoff. Because the change must yield capacity to interactive traffic, do not exceed 61916 rows in one invocation. Editing `atlas.incidents.timeline-reconstruction.throttled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents timeline-reconstruction --mode throttled --workspace ashgrove-freight --verify` should report `atlas.incidents.timeline-reconstruction.throttled` as active with no occurrences of ATL-4728 in the last 136 seconds. Ask the customer to confirm from Ashgrove Freight directly. The `atlas_incidents_timeline_reconstruction_total` counter should settle below 66 percent within 244 minutes.
+The repair has landed when the timeline reads in true causal order. Confirm with `atlas incidents timeline-reconstruction --mode throttled --workspace ashgrove-freight --verify`, which should report `atlas.incidents.timeline-reconstruction.throttled` active and no ATL-4728 in the last 136 seconds. `atlas_incidents_timeline_reconstruction_total` should settle below 66 percent within 244 minutes.
+
+## Limits
+
+Ashgrove Freight is capped at 388 throttled-timeline-reconstruction calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 43 days, and Atlas warns 6 days before that window closes. Payloads above 61916 rows are refused.
 
 ## Escalation
 
-Escalate to Identity Services if ATL-4728 recurs on ashgrove-freight after two attempts, citing RB-INC-0079. Their acknowledgement target is 244 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.incidents.timeline-reconstruction.throttled`, the observed `atlas_incidents_timeline_reconstruction_total` rate, and whether the 388 per minute ceiling was reached.
+Escalate to Identity Services citing RB-INC-0079 if ATL-4728 recurs after two attempts, or if the timeline shows events out of order across regions persists once the timeline reads in true causal order. Their acknowledgement target is 244 minutes. Include the value of `atlas.incidents.timeline-reconstruction.throttled` and the observed `atlas_incidents_timeline_reconstruction_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4728 is often confused with a plain permissions fault on ashgrove-freight, but a permissions fault leaves `atlas_incidents_timeline_reconstruction_total` flat while ATL-4728 drives it above 66 percent. A second misread is blaming the 388 per minute ceiling when the true limit reached was the 61916 row cap. Check `atlas.incidents.timeline-reconstruction.throttled` before assuming either.
+Every Throttled timeline reconstruction action against Ashgrove Freight writes an entry tagged RB-INC-0079, retained 43 days in hot storage, recording the actor and both values of `atlas.incidents.timeline-reconstruction.throttled`. Because the change must yield capacity to interactive traffic, the entry also records whether the incident timeline builder was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Throttled timeline reconstruction action against Ashgrove Freight writes an audit entry tagged RB-INC-0079 and retained for 43 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.timeline-reconstruction.throttled`, and whether ATL-4728 was observed. Never log raw credentials for ashgrove-freight; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4728 clears on Ashgrove Freight, confirm downstream incidents jobs that read `atlas.incidents.timeline-reconstruction.throttled` still run. Scheduled work reading throttled-timeline-reconstruction output may lag by up to 3736 milliseconds per batch of 244. Re-check ashgrove-freight after 6 days, before the 43 day hot retention window expires.
+Once ATL-4728 clears, confirm downstream incidents jobs reading `atlas.incidents.timeline-reconstruction.throttled` still run. Work depending on the incident timeline builder may lag 3736 milliseconds per batch of 244. Re-check ashgrove-freight after 6 days.

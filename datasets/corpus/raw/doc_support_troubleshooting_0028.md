@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0028
-title: Bulk Index Rebuild runbook 0028
+title: Bulk Index Rebuild incident review 0028
 category: troubleshooting
+doc_type: postmortem
 procedure: Bulk index rebuild
+component: the search index builder
 error_code: ATL-5117
 config_key: atlas.troubleshooting.index-rebuild.bulk
 workspace: Pinecrest Ceramics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0028
 source: synthetic
 ---
 
-# Bulk Index Rebuild runbook 0028
+# Bulk Index Rebuild incident review 0028
 
-## Overview
+## Summary
 
-Runbook RB-TRO-0028 covers the Bulk index rebuild procedure for the Pinecrest Ceramics workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-5117; other troubleshooting faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-5117 within 126 minutes.
+On the Growth plan in us-east-1, Pinecrest Ceramics reported that queries return records that no longer exist. Atlas raised ATL-5117 for 126 minutes before Customer Trust mitigated. The fault was in the search index builder. Review reference RB-TRO-0028.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5117 with the message "Bulk index rebuild blocked for workspace pinecrest-ceramics". The `atlas_troubleshooting_index_rebuild_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 907 calls per minute against pinecrest-ceramics amplify the failure, and the operation aborts once it has waited 294 seconds.
+Pinecrest Ceramics was unable to complete Bulk index rebuild while ATL-5117 persisted. Roughly 99649 rows were delayed and `atlas_troubleshooting_index_rebuild_total` held above 64 percent throughout. Because the batch must be splittable so a partial failure is recoverable, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Pinecrest Ceramics, then collect 2 approval(s) before editing `atlas.troubleshooting.index-rebuild.bulk`. Changes to `atlas.troubleshooting.index-rebuild.bulk` are irreversible after 34 days because the prior value leaves warm storage on that schedule. Record RB-TRO-0028 and ATL-5117 in the case notes.
+Operations first saw `atlas_troubleshooting_index_rebuild_total` cross 64 percent. ATL-5117 appeared against pinecrest-ceramics once traffic exceeded 907 per minute. The page reached Customer Trust within 126 minutes. Investigation focused on the search index builder after queries return records that no longer exist was reproduced with `atlas troubleshooting index-rebuild --mode bulk --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas troubleshooting index-rebuild --mode bulk --workspace pinecrest-ceramics --dry-run` and compare the reported value of `atlas.troubleshooting.index-rebuild.bulk` with the expected baseline. If `atlas_troubleshooting_index_rebuild_total` exceeds 64 percent of its ceiling for the pinecrest-ceramics workspace, the Bulk index rebuild path is saturated rather than misconfigured, and error ATL-5117 is a symptom instead of the cause.
+deletions are applied to storage but not propagated to the index. The condition had existed in the search index builder for some time and became visible only when Pinecrest Ceramics crossed 907 calls per minute. The 294 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas troubleshooting index-rebuild --mode bulk --workspace pinecrest-ceramics --commit` with a batch size of 641. The command retries with a 3429 millisecond backoff and gives up after 294 seconds. Processing more than 99649 rows in one invocation for Pinecrest Ceramics is unsupported and re-raises ATL-5117. Split larger jobs into batches of 641.
-
-## Limits and Quotas
-
-The Growth plan caps Pinecrest Ceramics at 907 bulk-index-rebuild calls per minute in us-east-1. Results persist in warm storage for 34 days. Exports tied to RB-TRO-0028 refuse payloads above 99649 rows. Atlas warns 20 days before the 34 day window closes on pinecrest-ceramics.
+The team applied the standing fix: propagate deletions to the index and rebuild affected segments. This was executed with `atlas troubleshooting index-rebuild --mode bulk --workspace pinecrest-ceramics --commit` at a batch size of 641, backing off 3429 milliseconds between attempts, under 2 approval(s) against `atlas.troubleshooting.index-rebuild.bulk`.
 
 ## Verification
 
-After the change, `atlas troubleshooting index-rebuild --mode bulk --workspace pinecrest-ceramics --verify` should report `atlas.troubleshooting.index-rebuild.bulk` as active with no occurrences of ATL-5117 in the last 294 seconds. Ask the customer to confirm from Pinecrest Ceramics directly. The `atlas_troubleshooting_index_rebuild_total` counter should settle below 64 percent within 126 minutes.
+Recovery was confirmed when index and storage agree on record existence. `atlas_troubleshooting_index_rebuild_total` returned below 64 percent and ATL-5117 stopped appearing for pinecrest-ceramics. Because the batch must be splittable so a partial failure is recoverable, the team also confirmed the search index builder had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Customer Trust if ATL-5117 recurs on pinecrest-ceramics after two attempts, citing RB-TRO-0028. Their acknowledgement target is 126 minutes for the Growth plan in us-east-1. Include the value of `atlas.troubleshooting.index-rebuild.bulk`, the observed `atlas_troubleshooting_index_rebuild_total` rate, and whether the 907 per minute ceiling was reached.
+To keep deletions are applied to storage but not propagated to the index from recurring, Customer Trust added monitoring on the search index builder that alerts before `atlas_troubleshooting_index_rebuild_total` reaches 64 percent. Retention for the diagnostic trail was set to 34 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5117 is often confused with a plain permissions fault on pinecrest-ceramics, but a permissions fault leaves `atlas_troubleshooting_index_rebuild_total` flat while ATL-5117 drives it above 64 percent. A second misread is blaming the 907 per minute ceiling when the true limit reached was the 99649 row cap. Check `atlas.troubleshooting.index-rebuild.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk index rebuild action against Pinecrest Ceramics writes an audit entry tagged RB-TRO-0028 and retained for 34 days in warm storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.index-rebuild.bulk`, and whether ATL-5117 was observed. Never log raw credentials for pinecrest-ceramics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5117 clears on Pinecrest Ceramics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.index-rebuild.bulk` still run. Scheduled work reading bulk-index-rebuild output may lag by up to 3429 milliseconds per batch of 641. Re-check pinecrest-ceramics after 20 days, before the 34 day warm retention window expires.
+Re-check pinecrest-ceramics after 20 days. Confirm the 907 per minute ceiling and the 99649 row cap still suit Pinecrest Ceramics on the Growth plan, and that index and storage agree on record existence remains true.

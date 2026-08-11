@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0067
 title: Sandboxed Severity Reclassification runbook 0067
 category: incidents
+doc_type: runbook
 procedure: Sandboxed severity reclassification
+component: the severity rubric
 error_code: ATL-4716
 config_key: atlas.incidents.severity-reclassification.sandboxed
 workspace: Kestrel Freight
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0067 covers the Sandboxed severity reclassification procedure for the Kestrel Freight workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4716; other incidents faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4716 within 88 minutes.
+RB-INC-0067 describes Sandboxed severity reclassification for Kestrel Freight, where an incident's severity changes without notifying subscribers. The work is performed by an engineer validating the change in a non-production copy, and the change must never write to production resources. The affected component is the severity rubric. This document applies only when Atlas raises ATL-4716; other incidents faults are covered elsewhere. Platform Reliability owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4716 with the message "Sandboxed severity reclassification blocked for workspace kestrel-freight". The `atlas_incidents_severity_reclassification_total` counter rises while the affected incidents operation stalls. Requests exceeding 256 calls per minute against kestrel-freight amplify the failure, and the operation aborts once it has waited 52 seconds.
+Reporters describe the same thing: an incident's severity changes without notifying subscribers. Atlas raises ATL-4716 against the kestrel-freight workspace and `atlas_incidents_severity_reclassification_total` climbs past 87 percent. Because the change must never write to production resources, the symptom can look intermittent when the severity rubric is under load. Requests beyond 256 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kestrel Freight, then collect 1 approval(s) before editing `atlas.incidents.severity-reclassification.sandboxed`. Changes to `atlas.incidents.severity-reclassification.sandboxed` are irreversible after 7 days because the prior value leaves hot storage on that schedule. Record RB-INC-0067 and ATL-4716 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents severity-reclassification --mode sandboxed --workspace kestrel-freight --dry-run` and compare the reported value of `atlas.incidents.severity-reclassification.sandboxed` with the expected baseline. If `atlas_incidents_severity_reclassification_total` exceeds 87 percent of its ceiling for the kestrel-freight workspace, the Sandboxed severity reclassification path is saturated rather than misconfigured, and error ATL-4716 is a symptom instead of the cause.
+The underlying fault is that reclassification writes the new level outside the notification path. This is a property of the severity rubric rather than of any single workspace, so Kestrel Freight is affected only because it exercises that path. The 52 second abort is a consequence, not the cause; raising it hides ATL-4716 without repairing the severity rubric.
 
 ## Resolution
 
-Apply `atlas incidents severity-reclassification --mode sandboxed --workspace kestrel-freight --commit` with a batch size of 918. The command retries with a 3292 millisecond backoff and gives up after 52 seconds. Processing more than 60752 rows in one invocation for Kestrel Freight is unsupported and re-raises ATL-4716. Split larger jobs into batches of 918.
-
-## Limits and Quotas
-
-The Starter plan caps Kestrel Freight at 256 sandboxed-severity-reclassification calls per minute in us-west-2. Results persist in hot storage for 7 days. Exports tied to RB-INC-0067 refuse payloads above 60752 rows. Atlas warns 19 days before the 7 day window closes on kestrel-freight.
+To repair the fault, route reclassification through the same notification path as creation. Run `atlas incidents severity-reclassification --mode sandboxed --workspace kestrel-freight --commit` with a batch size of 918, retrying with a 3292 millisecond backoff. Because the change must never write to production resources, do not exceed 60752 rows in one invocation. Editing `atlas.incidents.severity-reclassification.sandboxed` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents severity-reclassification --mode sandboxed --workspace kestrel-freight --verify` should report `atlas.incidents.severity-reclassification.sandboxed` as active with no occurrences of ATL-4716 in the last 52 seconds. Ask the customer to confirm from Kestrel Freight directly. The `atlas_incidents_severity_reclassification_total` counter should settle below 87 percent within 88 minutes.
+The repair has landed when subscribers receive every severity change. Confirm with `atlas incidents severity-reclassification --mode sandboxed --workspace kestrel-freight --verify`, which should report `atlas.incidents.severity-reclassification.sandboxed` active and no ATL-4716 in the last 52 seconds. `atlas_incidents_severity_reclassification_total` should settle below 87 percent within 88 minutes.
+
+## Limits
+
+Kestrel Freight is capped at 256 sandboxed-severity-reclassification calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 7 days, and Atlas warns 19 days before that window closes. Payloads above 60752 rows are refused.
 
 ## Escalation
 
-Escalate to Platform Reliability if ATL-4716 recurs on kestrel-freight after two attempts, citing RB-INC-0067. Their acknowledgement target is 88 minutes for the Starter plan in us-west-2. Include the value of `atlas.incidents.severity-reclassification.sandboxed`, the observed `atlas_incidents_severity_reclassification_total` rate, and whether the 256 per minute ceiling was reached.
+Escalate to Platform Reliability citing RB-INC-0067 if ATL-4716 recurs after two attempts, or if an incident's severity changes without notifying subscribers persists once subscribers receive every severity change. Their acknowledgement target is 88 minutes. Include the value of `atlas.incidents.severity-reclassification.sandboxed` and the observed `atlas_incidents_severity_reclassification_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4716 is often confused with a plain permissions fault on kestrel-freight, but a permissions fault leaves `atlas_incidents_severity_reclassification_total` flat while ATL-4716 drives it above 87 percent. A second misread is blaming the 256 per minute ceiling when the true limit reached was the 60752 row cap. Check `atlas.incidents.severity-reclassification.sandboxed` before assuming either.
+Every Sandboxed severity reclassification action against Kestrel Freight writes an entry tagged RB-INC-0067, retained 7 days in hot storage, recording the actor and both values of `atlas.incidents.severity-reclassification.sandboxed`. Because the change must never write to production resources, the entry also records whether the severity rubric was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Sandboxed severity reclassification action against Kestrel Freight writes an audit entry tagged RB-INC-0067 and retained for 7 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.severity-reclassification.sandboxed`, and whether ATL-4716 was observed. Never log raw credentials for kestrel-freight; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4716 clears on Kestrel Freight, confirm downstream incidents jobs that read `atlas.incidents.severity-reclassification.sandboxed` still run. Scheduled work reading sandboxed-severity-reclassification output may lag by up to 3292 milliseconds per batch of 918. Re-check kestrel-freight after 19 days, before the 7 day hot retention window expires.
+Once ATL-4716 clears, confirm downstream incidents jobs reading `atlas.incidents.severity-reclassification.sandboxed` still run. Work depending on the severity rubric may lag 3292 milliseconds per batch of 918. Re-check kestrel-freight after 19 days.

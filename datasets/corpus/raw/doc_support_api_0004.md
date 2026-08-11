@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0004
-title: Delegated Cursor Pagination runbook 0004
+title: Delegated Cursor Pagination incident review 0004
 category: api
+doc_type: postmortem
 procedure: Delegated cursor pagination
+component: the cursor encoder
 error_code: ATL-4213
 config_key: atlas.api.cursor-pagination.delegated
 workspace: Silverlake Group
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0004
 source: synthetic
 ---
 
-# Delegated Cursor Pagination runbook 0004
+# Delegated Cursor Pagination incident review 0004
 
-## Overview
+## Summary
 
-Runbook RB-API-0004 covers the Delegated cursor pagination procedure for the Silverlake Group workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4213; other api faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4213 within 104 minutes.
+On the Growth plan in us-east-1, Silverlake Group reported that pagination skips or repeats records under concurrent writes. Atlas raised ATL-4213 for 104 minutes before Data Delivery mitigated. The fault was in the cursor encoder. Review reference RB-API-0004.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4213 with the message "Delegated cursor pagination blocked for workspace silverlake-group". The `atlas_api_cursor_pagination_total` counter rises while the affected api operation stalls. Requests exceeding 363 calls per minute against silverlake-group amplify the failure, and the operation aborts once it has waited 236 seconds.
+Silverlake Group was unable to complete Delegated cursor pagination while ATL-4213 persisted. Roughly 11961 rows were delayed and `atlas_api_cursor_pagination_total` held above 86 percent throughout. Because the delegation must be recorded before the change is applied, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Silverlake Group, then collect 2 approval(s) before editing `atlas.api.cursor-pagination.delegated`. Changes to `atlas.api.cursor-pagination.delegated` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-API-0004 and ATL-4213 in the case notes.
+Operations first saw `atlas_api_cursor_pagination_total` cross 86 percent. ATL-4213 appeared against silverlake-group once traffic exceeded 363 per minute. The page reached Data Delivery within 104 minutes. Investigation focused on the cursor encoder after pagination skips or repeats records under concurrent writes was reproduced with `atlas api cursor-pagination --mode delegated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas api cursor-pagination --mode delegated --workspace silverlake-group --dry-run` and compare the reported value of `atlas.api.cursor-pagination.delegated` with the expected baseline. If `atlas_api_cursor_pagination_total` exceeds 86 percent of its ceiling for the silverlake-group workspace, the Delegated cursor pagination path is saturated rather than misconfigured, and error ATL-4213 is a symptom instead of the cause.
+the cursor encodes an offset rather than a stable sort key. The condition had existed in the cursor encoder for some time and became visible only when Silverlake Group crossed 363 calls per minute. The 236 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas api cursor-pagination --mode delegated --workspace silverlake-group --commit` with a batch size of 749. The command retries with a 4281 millisecond backoff and gives up after 236 seconds. Processing more than 11961 rows in one invocation for Silverlake Group is unsupported and re-raises ATL-4213. Split larger jobs into batches of 749.
-
-## Limits and Quotas
-
-The Growth plan caps Silverlake Group at 363 delegated-cursor-pagination calls per minute in us-east-1. Results persist in warm storage for 10 days. Exports tied to RB-API-0004 refuse payloads above 11961 rows. Atlas warns 16 days before the 10 day window closes on silverlake-group.
+The team applied the standing fix: re-encode the cursor around an immutable sort key. This was executed with `atlas api cursor-pagination --mode delegated --workspace silverlake-group --commit` at a batch size of 749, backing off 4281 milliseconds between attempts, under 2 approval(s) against `atlas.api.cursor-pagination.delegated`.
 
 ## Verification
 
-After the change, `atlas api cursor-pagination --mode delegated --workspace silverlake-group --verify` should report `atlas.api.cursor-pagination.delegated` as active with no occurrences of ATL-4213 in the last 236 seconds. Ask the customer to confirm from Silverlake Group directly. The `atlas_api_cursor_pagination_total` counter should settle below 86 percent within 104 minutes.
+Recovery was confirmed when a full walk returns each record exactly once. `atlas_api_cursor_pagination_total` returned below 86 percent and ATL-4213 stopped appearing for silverlake-group. Because the delegation must be recorded before the change is applied, the team also confirmed the cursor encoder had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Data Delivery if ATL-4213 recurs on silverlake-group after two attempts, citing RB-API-0004. Their acknowledgement target is 104 minutes for the Growth plan in us-east-1. Include the value of `atlas.api.cursor-pagination.delegated`, the observed `atlas_api_cursor_pagination_total` rate, and whether the 363 per minute ceiling was reached.
+To keep the cursor encodes an offset rather than a stable sort key from recurring, Data Delivery added monitoring on the cursor encoder that alerts before `atlas_api_cursor_pagination_total` reaches 86 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4213 is often confused with a plain permissions fault on silverlake-group, but a permissions fault leaves `atlas_api_cursor_pagination_total` flat while ATL-4213 drives it above 86 percent. A second misread is blaming the 363 per minute ceiling when the true limit reached was the 11961 row cap. Check `atlas.api.cursor-pagination.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated cursor pagination action against Silverlake Group writes an audit entry tagged RB-API-0004 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.api.cursor-pagination.delegated`, and whether ATL-4213 was observed. Never log raw credentials for silverlake-group; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4213 clears on Silverlake Group, confirm downstream api jobs that read `atlas.api.cursor-pagination.delegated` still run. Scheduled work reading delegated-cursor-pagination output may lag by up to 4281 milliseconds per batch of 749. Re-check silverlake-group after 16 days, before the 10 day warm retention window expires.
+Re-check silverlake-group after 16 days. Confirm the 363 per minute ceiling and the 11961 row cap still suit Silverlake Group on the Growth plan, and that a full walk returns each record exactly once remains true.

@@ -2,7 +2,9 @@
 doc_id: doc_support_permissions_0107
 title: Cascading Resource Boundary Fix runbook 0107
 category: permissions
+doc_type: runbook
 procedure: Cascading resource boundary fix
+component: the resource boundary index
 error_code: ATL-4976
 config_key: atlas.permissions.resource-boundary-fix.cascading
 workspace: Kingsley Maritime
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-PER-0107 covers the Cascading resource boundary fix procedure for the Kingsley Maritime workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4976; other permissions faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4976 within 18 minutes.
+RB-PER-0107 describes Cascading resource boundary fix for Kingsley Maritime, where access checks pass for resources in another workspace. The work is performed by an operator whose change propagates to dependent resources, and dependents must be re-evaluated after the change lands. The affected component is the resource boundary index. This document applies only when Atlas raises ATL-4976; other permissions faults are covered elsewhere. Workspace Experience owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4976 with the message "Cascading resource boundary fix blocked for workspace kingsley-maritime". The `atlas_permissions_resource_boundary_fix_total` counter rises while the affected permissions operation stalls. Requests exceeding 296 calls per minute against kingsley-maritime amplify the failure, and the operation aborts once it has waited 162 seconds.
+Reporters describe the same thing: access checks pass for resources in another workspace. Atlas raises ATL-4976 against the kingsley-maritime workspace and `atlas_permissions_resource_boundary_fix_total` climbs past 97 percent. Because dependents must be re-evaluated after the change lands, the symptom can look intermittent when the resource boundary index is under load. Requests beyond 296 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kingsley Maritime, then collect 1 approval(s) before editing `atlas.permissions.resource-boundary-fix.cascading`. Changes to `atlas.permissions.resource-boundary-fix.cascading` are irreversible after 31 days because the prior value leaves hot storage on that schedule. Record RB-PER-0107 and ATL-4976 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas permissions resource-boundary-fix --mode cascading --workspace kingsley-maritime --dry-run` and compare the reported value of `atlas.permissions.resource-boundary-fix.cascading` with the expected baseline. If `atlas_permissions_resource_boundary_fix_total` exceeds 97 percent of its ceiling for the kingsley-maritime workspace, the Cascading resource boundary fix path is saturated rather than misconfigured, and error ATL-4976 is a symptom instead of the cause.
+The underlying fault is that the index omits the workspace qualifier for legacy resources. This is a property of the resource boundary index rather than of any single workspace, so Kingsley Maritime is affected only because it exercises that path. The 162 second abort is a consequence, not the cause; raising it hides ATL-4976 without repairing the resource boundary index.
 
 ## Resolution
 
-Apply `atlas permissions resource-boundary-fix --mode cascading --workspace kingsley-maritime --commit` with a batch size of 248. The command retries with a 3112 millisecond backoff and gives up after 162 seconds. Processing more than 85972 rows in one invocation for Kingsley Maritime is unsupported and re-raises ATL-4976. Split larger jobs into batches of 248.
-
-## Limits and Quotas
-
-The Starter plan caps Kingsley Maritime at 296 cascading-resource-boundary-fix calls per minute in ap-southeast-1. Results persist in hot storage for 31 days. Exports tied to RB-PER-0107 refuse payloads above 85972 rows. Atlas warns 4 days before the 31 day window closes on kingsley-maritime.
+To repair the fault, backfill workspace qualifiers on legacy resources. Run `atlas permissions resource-boundary-fix --mode cascading --workspace kingsley-maritime --commit` with a batch size of 248, retrying with a 3112 millisecond backoff. Because dependents must be re-evaluated after the change lands, do not exceed 85972 rows in one invocation. Editing `atlas.permissions.resource-boundary-fix.cascading` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas permissions resource-boundary-fix --mode cascading --workspace kingsley-maritime --verify` should report `atlas.permissions.resource-boundary-fix.cascading` as active with no occurrences of ATL-4976 in the last 162 seconds. Ask the customer to confirm from Kingsley Maritime directly. The `atlas_permissions_resource_boundary_fix_total` counter should settle below 97 percent within 18 minutes.
+The repair has landed when cross-workspace access checks fail closed. Confirm with `atlas permissions resource-boundary-fix --mode cascading --workspace kingsley-maritime --verify`, which should report `atlas.permissions.resource-boundary-fix.cascading` active and no ATL-4976 in the last 162 seconds. `atlas_permissions_resource_boundary_fix_total` should settle below 97 percent within 18 minutes.
+
+## Limits
+
+Kingsley Maritime is capped at 296 cascading-resource-boundary-fix calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 31 days, and Atlas warns 4 days before that window closes. Payloads above 85972 rows are refused.
 
 ## Escalation
 
-Escalate to Workspace Experience if ATL-4976 recurs on kingsley-maritime after two attempts, citing RB-PER-0107. Their acknowledgement target is 18 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.permissions.resource-boundary-fix.cascading`, the observed `atlas_permissions_resource_boundary_fix_total` rate, and whether the 296 per minute ceiling was reached.
+Escalate to Workspace Experience citing RB-PER-0107 if ATL-4976 recurs after two attempts, or if access checks pass for resources in another workspace persists once cross-workspace access checks fail closed. Their acknowledgement target is 18 minutes. Include the value of `atlas.permissions.resource-boundary-fix.cascading` and the observed `atlas_permissions_resource_boundary_fix_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4976 is often confused with a plain permissions fault on kingsley-maritime, but a permissions fault leaves `atlas_permissions_resource_boundary_fix_total` flat while ATL-4976 drives it above 97 percent. A second misread is blaming the 296 per minute ceiling when the true limit reached was the 85972 row cap. Check `atlas.permissions.resource-boundary-fix.cascading` before assuming either.
+Every Cascading resource boundary fix action against Kingsley Maritime writes an entry tagged RB-PER-0107, retained 31 days in hot storage, recording the actor and both values of `atlas.permissions.resource-boundary-fix.cascading`. Because dependents must be re-evaluated after the change lands, the entry also records whether the resource boundary index was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Cascading resource boundary fix action against Kingsley Maritime writes an audit entry tagged RB-PER-0107 and retained for 31 days in hot storage. The entry records the actor, the prior and new values of `atlas.permissions.resource-boundary-fix.cascading`, and whether ATL-4976 was observed. Never log raw credentials for kingsley-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4976 clears on Kingsley Maritime, confirm downstream permissions jobs that read `atlas.permissions.resource-boundary-fix.cascading` still run. Scheduled work reading cascading-resource-boundary-fix output may lag by up to 3112 milliseconds per batch of 248. Re-check kingsley-maritime after 4 days, before the 31 day hot retention window expires.
+Once ATL-4976 clears, confirm downstream permissions jobs reading `atlas.permissions.resource-boundary-fix.cascading` still run. Work depending on the resource boundary index may lag 3112 milliseconds per batch of 248. Re-check kingsley-maritime after 4 days.

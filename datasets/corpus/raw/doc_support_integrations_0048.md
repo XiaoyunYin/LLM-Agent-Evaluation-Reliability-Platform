@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0048
-title: Legacy Credential Rotation runbook 0048
+title: Legacy Credential Rotation questions and answers 0048
 category: integrations
+doc_type: faq
 procedure: Legacy credential rotation
+component: the integration secret store
 error_code: ATL-4807
 config_key: atlas.integrations.credential-rotation.legacy
 workspace: Larkspur Biotech
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0048
 source: synthetic
 ---
 
-# Legacy Credential Rotation runbook 0048
+# Legacy Credential Rotation questions and answers 0048
 
-## Overview
+## What does ATL-4807 mean?
 
-Runbook RB-INT-0048 covers the Legacy credential rotation procedure for the Larkspur Biotech workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4807; other integrations faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4807 within 236 minutes.
+It means rotation breaks a connector that uses a cached secret. Atlas raises it against larkspur-biotech when the integration secret store cannot complete Legacy credential rotation. The operational procedure is RB-INT-0048, owned by Data Delivery in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4807 with the message "Legacy credential rotation blocked for workspace larkspur-biotech". The `atlas_integrations_credential_rotation_total` counter rises while the affected integrations operation stalls. Requests exceeding 317 calls per minute against larkspur-biotech amplify the failure, and the operation aborts once it has waited 119 seconds.
+The cause is that the connector reads the secret once at process start. It is a property of the integration secret store, so Larkspur Biotech sees it only because it exercises that path. Because the change must be translated into the older format first, it may appear intermittent until traffic passes 317 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Larkspur Biotech, then collect 4 approval(s) before editing `atlas.integrations.credential-rotation.legacy`. Changes to `atlas.integrations.credential-rotation.legacy` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-INT-0048 and ATL-4807 in the case notes.
+re-read the secret on each authentication attempt. In practice that means running `atlas integrations credential-rotation --mode legacy --workspace larkspur-biotech --commit` with a batch size of 161 and a 1759 millisecond backoff. Editing `atlas.integrations.credential-rotation.legacy` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas integrations credential-rotation --mode legacy --workspace larkspur-biotech --dry-run` and compare the reported value of `atlas.integrations.credential-rotation.legacy` with the expected baseline. If `atlas_integrations_credential_rotation_total` exceeds 59 percent of its ceiling for the larkspur-biotech workspace, the Legacy credential rotation path is saturated rather than misconfigured, and error ATL-4807 is a symptom instead of the cause.
+You know it worked when rotation takes effect without a connector restart. Running `atlas integrations credential-rotation --mode legacy --workspace larkspur-biotech --verify` reports `atlas.integrations.credential-rotation.legacy` active with no ATL-4807 in the last 119 seconds, and `atlas_integrations_credential_rotation_total` falls below 59 percent within 236 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas integrations credential-rotation --mode legacy --workspace larkspur-biotech --commit` with a batch size of 161. The command retries with a 1759 millisecond backoff and gives up after 119 seconds. Processing more than 69579 rows in one invocation for Larkspur Biotech is unsupported and re-raises ATL-4807. Split larger jobs into batches of 161.
+No. A permissions fault leaves `atlas_integrations_credential_rotation_total` flat, while ATL-4807 drives it above 59 percent. A second common misread is blaming the 317 per minute ceiling when the limit actually reached was the 69579 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Larkspur Biotech at 317 legacy-credential-rotation calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-INT-0048 refuse payloads above 69579 rows. Atlas warns 10 days before the 28 day window closes on larkspur-biotech.
+Larkspur Biotech may issue 317 legacy-credential-rotation calls per minute on the Enterprise plan. One invocation accepts 69579 rows and aborts after 119 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas integrations credential-rotation --mode legacy --workspace larkspur-biotech --verify` should report `atlas.integrations.credential-rotation.legacy` as active with no occurrences of ATL-4807 in the last 119 seconds. Ask the customer to confirm from Larkspur Biotech directly. The `atlas_integrations_credential_rotation_total` counter should settle below 59 percent within 236 minutes.
+Data Delivery owns the integration secret store. They acknowledge escalations against ATL-4807 within 236 minutes on the Enterprise plan. Cite RB-INT-0048 and include the observed `atlas_integrations_credential_rotation_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Data Delivery if ATL-4807 recurs on larkspur-biotech after two attempts, citing RB-INT-0048. Their acknowledgement target is 236 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.integrations.credential-rotation.legacy`, the observed `atlas_integrations_credential_rotation_total` rate, and whether the 317 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4807 is often confused with a plain permissions fault on larkspur-biotech, but a permissions fault leaves `atlas_integrations_credential_rotation_total` flat while ATL-4807 drives it above 59 percent. A second misread is blaming the 317 per minute ceiling when the true limit reached was the 69579 row cap. Check `atlas.integrations.credential-rotation.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy credential rotation action against Larkspur Biotech writes an audit entry tagged RB-INT-0048 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.integrations.credential-rotation.legacy`, and whether ATL-4807 was observed. Never log raw credentials for larkspur-biotech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4807 clears on Larkspur Biotech, confirm downstream integrations jobs that read `atlas.integrations.credential-rotation.legacy` still run. Scheduled work reading legacy-credential-rotation output may lag by up to 1759 milliseconds per batch of 161. Re-check larkspur-biotech after 10 days, before the 28 day archival retention window expires.
+Confirm downstream integrations work reading `atlas.integrations.credential-rotation.legacy` still runs. It may lag 1759 milliseconds per batch of 161. Re-check larkspur-biotech after 10 days, before the 28 day window closes.

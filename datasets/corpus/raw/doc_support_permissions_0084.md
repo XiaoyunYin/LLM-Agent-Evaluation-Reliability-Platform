@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0084
-title: Throttled Custom Role Migration runbook 0084
+title: Throttled Custom Role Migration incident review 0084
 category: permissions
+doc_type: postmortem
 procedure: Throttled custom role migration
+component: the role definition migrator
 error_code: ATL-4953
 config_key: atlas.permissions.custom-role-migration.throttled
 workspace: Harborview Maritime
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0084
 source: synthetic
 ---
 
-# Throttled Custom Role Migration runbook 0084
+# Throttled Custom Role Migration incident review 0084
 
-## Overview
+## Summary
 
-Runbook RB-PER-0084 covers the Throttled custom role migration procedure for the Harborview Maritime workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4953; other permissions faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-4953 within 64 minutes.
+On the Growth plan in ap-northeast-3, Harborview Maritime reported that migrated custom roles silently gain permissions. Atlas raised ATL-4953 for 64 minutes before Core API mitigated. The fault was in the role definition migrator. Review reference RB-PER-0084.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4953 with the message "Throttled custom role migration blocked for workspace harborview-maritime". The `atlas_permissions_custom_role_migration_total` counter rises while the affected permissions operation stalls. Requests exceeding 983 calls per minute against harborview-maritime amplify the failure, and the operation aborts once it has waited 286 seconds.
+Harborview Maritime was unable to complete Throttled custom role migration while ATL-4953 persisted. Roughly 83741 rows were delayed and `atlas_permissions_custom_role_migration_total` held above 66 percent throughout. Because the change must yield capacity to interactive traffic, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Harborview Maritime, then collect 2 approval(s) before editing `atlas.permissions.custom-role-migration.throttled`. Changes to `atlas.permissions.custom-role-migration.throttled` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-PER-0084 and ATL-4953 in the case notes.
+Operations first saw `atlas_permissions_custom_role_migration_total` cross 66 percent. ATL-4953 appeared against harborview-maritime once traffic exceeded 983 per minute. The page reached Core API within 64 minutes. Investigation focused on the role definition migrator after migrated custom roles silently gain permissions was reproduced with `atlas permissions custom-role-migration --mode throttled --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas permissions custom-role-migration --mode throttled --workspace harborview-maritime --dry-run` and compare the reported value of `atlas.permissions.custom-role-migration.throttled` with the expected baseline. If `atlas_permissions_custom_role_migration_total` exceeds 66 percent of its ceiling for the harborview-maritime workspace, the Throttled custom role migration path is saturated rather than misconfigured, and error ATL-4953 is a symptom instead of the cause.
+the migrator maps unknown permissions to the nearest broader one. The condition had existed in the role definition migrator for some time and became visible only when Harborview Maritime crossed 983 calls per minute. The 286 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas permissions custom-role-migration --mode throttled --workspace harborview-maritime --commit` with a batch size of 669. The command retries with a 2261 millisecond backoff and gives up after 286 seconds. Processing more than 83741 rows in one invocation for Harborview Maritime is unsupported and re-raises ATL-4953. Split larger jobs into batches of 669.
-
-## Limits and Quotas
-
-The Growth plan caps Harborview Maritime at 983 throttled-custom-role-migration calls per minute in ap-northeast-3. Results persist in warm storage for 46 days. Exports tied to RB-PER-0084 refuse payloads above 83741 rows. Atlas warns 6 days before the 46 day window closes on harborview-maritime.
+The team applied the standing fix: fail migration on unmappable permissions instead of widening. This was executed with `atlas permissions custom-role-migration --mode throttled --workspace harborview-maritime --commit` at a batch size of 669, backing off 2261 milliseconds between attempts, under 2 approval(s) against `atlas.permissions.custom-role-migration.throttled`.
 
 ## Verification
 
-After the change, `atlas permissions custom-role-migration --mode throttled --workspace harborview-maritime --verify` should report `atlas.permissions.custom-role-migration.throttled` as active with no occurrences of ATL-4953 in the last 286 seconds. Ask the customer to confirm from Harborview Maritime directly. The `atlas_permissions_custom_role_migration_total` counter should settle below 66 percent within 64 minutes.
+Recovery was confirmed when no migrated role holds a permission its source lacked. `atlas_permissions_custom_role_migration_total` returned below 66 percent and ATL-4953 stopped appearing for harborview-maritime. Because the change must yield capacity to interactive traffic, the team also confirmed the role definition migrator had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Core API if ATL-4953 recurs on harborview-maritime after two attempts, citing RB-PER-0084. Their acknowledgement target is 64 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.permissions.custom-role-migration.throttled`, the observed `atlas_permissions_custom_role_migration_total` rate, and whether the 983 per minute ceiling was reached.
+To keep the migrator maps unknown permissions to the nearest broader one from recurring, Core API added monitoring on the role definition migrator that alerts before `atlas_permissions_custom_role_migration_total` reaches 66 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4953 is often confused with a plain permissions fault on harborview-maritime, but a permissions fault leaves `atlas_permissions_custom_role_migration_total` flat while ATL-4953 drives it above 66 percent. A second misread is blaming the 983 per minute ceiling when the true limit reached was the 83741 row cap. Check `atlas.permissions.custom-role-migration.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled custom role migration action against Harborview Maritime writes an audit entry tagged RB-PER-0084 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.permissions.custom-role-migration.throttled`, and whether ATL-4953 was observed. Never log raw credentials for harborview-maritime; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4953 clears on Harborview Maritime, confirm downstream permissions jobs that read `atlas.permissions.custom-role-migration.throttled` still run. Scheduled work reading throttled-custom-role-migration output may lag by up to 2261 milliseconds per batch of 669. Re-check harborview-maritime after 6 days, before the 46 day warm retention window expires.
+Re-check harborview-maritime after 6 days. Confirm the 983 per minute ceiling and the 83741 row cap still suit Harborview Maritime on the Growth plan, and that no migrated role holds a permission its source lacked remains true.

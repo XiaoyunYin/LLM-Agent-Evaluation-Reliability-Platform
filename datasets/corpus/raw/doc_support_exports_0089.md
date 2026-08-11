@@ -2,7 +2,9 @@
 doc_id: doc_support_exports_0089
 title: Audited Column Remapping runbook 0089
 category: exports
+doc_type: runbook
 procedure: Audited column remapping
+component: the export column mapper
 error_code: ATL-4628
 config_key: atlas.exports.column-remapping.audited
 workspace: Clearwater Interactive
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-EXP-0089 covers the Audited column remapping procedure for the Clearwater Interactive workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4628; other exports faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4628 within 324 minutes.
+RB-EXP-0089 describes Audited column remapping for Clearwater Interactive, where exported columns land under the wrong headers. The work is performed by a reviewer who must leave an evidence trail, and every step must be recorded with the actor and timestamp. The affected component is the export column mapper. This document applies only when Atlas raises ATL-4628; other exports faults are covered elsewhere. Platform Reliability owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4628 with the message "Audited column remapping blocked for workspace clearwater-interactive". The `atlas_exports_column_remapping_total` counter rises while the affected exports operation stalls. Requests exceeding 228 calls per minute against clearwater-interactive amplify the failure, and the operation aborts once it has waited 291 seconds.
+Reporters describe the same thing: exported columns land under the wrong headers. Atlas raises ATL-4628 against the clearwater-interactive workspace and `atlas_exports_column_remapping_total` climbs past 76 percent. Because every step must be recorded with the actor and timestamp, the symptom can look intermittent when the export column mapper is under load. Requests beyond 228 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Clearwater Interactive, then collect 1 approval(s) before editing `atlas.exports.column-remapping.audited`. Changes to `atlas.exports.column-remapping.audited` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-EXP-0089 and ATL-4628 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas exports column-remapping --mode audited --workspace clearwater-interactive --dry-run` and compare the reported value of `atlas.exports.column-remapping.audited` with the expected baseline. If `atlas_exports_column_remapping_total` exceeds 76 percent of its ceiling for the clearwater-interactive workspace, the Audited column remapping path is saturated rather than misconfigured, and error ATL-4628 is a symptom instead of the cause.
+The underlying fault is that the mapper matches by ordinal after an upstream column insert. This is a property of the export column mapper rather than of any single workspace, so Clearwater Interactive is affected only because it exercises that path. The 291 second abort is a consequence, not the cause; raising it hides ATL-4628 without repairing the export column mapper.
 
 ## Resolution
 
-Apply `atlas exports column-remapping --mode audited --workspace clearwater-interactive --commit` with a batch size of 794. The command retries with a 4936 millisecond backoff and gives up after 291 seconds. Processing more than 52216 rows in one invocation for Clearwater Interactive is unsupported and re-raises ATL-4628. Split larger jobs into batches of 794.
-
-## Limits and Quotas
-
-The Starter plan caps Clearwater Interactive at 228 audited-column-remapping calls per minute in us-west-2. Results persist in hot storage for 79 days. Exports tied to RB-EXP-0089 refuse payloads above 52216 rows. Atlas warns 6 days before the 79 day window closes on clearwater-interactive.
+To repair the fault, match columns by name rather than ordinal. Run `atlas exports column-remapping --mode audited --workspace clearwater-interactive --commit` with a batch size of 794, retrying with a 4936 millisecond backoff. Because every step must be recorded with the actor and timestamp, do not exceed 52216 rows in one invocation. Editing `atlas.exports.column-remapping.audited` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas exports column-remapping --mode audited --workspace clearwater-interactive --verify` should report `atlas.exports.column-remapping.audited` as active with no occurrences of ATL-4628 in the last 291 seconds. Ask the customer to confirm from Clearwater Interactive directly. The `atlas_exports_column_remapping_total` counter should settle below 76 percent within 324 minutes.
+The repair has landed when headers and values correspond in every row. Confirm with `atlas exports column-remapping --mode audited --workspace clearwater-interactive --verify`, which should report `atlas.exports.column-remapping.audited` active and no ATL-4628 in the last 291 seconds. `atlas_exports_column_remapping_total` should settle below 76 percent within 324 minutes.
+
+## Limits
+
+Clearwater Interactive is capped at 228 audited-column-remapping calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 79 days, and Atlas warns 6 days before that window closes. Payloads above 52216 rows are refused.
 
 ## Escalation
 
-Escalate to Platform Reliability if ATL-4628 recurs on clearwater-interactive after two attempts, citing RB-EXP-0089. Their acknowledgement target is 324 minutes for the Starter plan in us-west-2. Include the value of `atlas.exports.column-remapping.audited`, the observed `atlas_exports_column_remapping_total` rate, and whether the 228 per minute ceiling was reached.
+Escalate to Platform Reliability citing RB-EXP-0089 if ATL-4628 recurs after two attempts, or if exported columns land under the wrong headers persists once headers and values correspond in every row. Their acknowledgement target is 324 minutes. Include the value of `atlas.exports.column-remapping.audited` and the observed `atlas_exports_column_remapping_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4628 is often confused with a plain permissions fault on clearwater-interactive, but a permissions fault leaves `atlas_exports_column_remapping_total` flat while ATL-4628 drives it above 76 percent. A second misread is blaming the 228 per minute ceiling when the true limit reached was the 52216 row cap. Check `atlas.exports.column-remapping.audited` before assuming either.
+Every Audited column remapping action against Clearwater Interactive writes an entry tagged RB-EXP-0089, retained 79 days in hot storage, recording the actor and both values of `atlas.exports.column-remapping.audited`. Because every step must be recorded with the actor and timestamp, the entry also records whether the export column mapper was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Audited column remapping action against Clearwater Interactive writes an audit entry tagged RB-EXP-0089 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.exports.column-remapping.audited`, and whether ATL-4628 was observed. Never log raw credentials for clearwater-interactive; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4628 clears on Clearwater Interactive, confirm downstream exports jobs that read `atlas.exports.column-remapping.audited` still run. Scheduled work reading audited-column-remapping output may lag by up to 4936 milliseconds per batch of 794. Re-check clearwater-interactive after 6 days, before the 79 day hot retention window expires.
+Once ATL-4628 clears, confirm downstream exports jobs reading `atlas.exports.column-remapping.audited` still run. Work depending on the export column mapper may lag 4936 milliseconds per batch of 794. Re-check clearwater-interactive after 6 days.

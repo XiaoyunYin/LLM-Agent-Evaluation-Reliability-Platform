@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0004
-title: Delegated Credential Rotation runbook 0004
+title: Delegated Credential Rotation questions and answers 0004
 category: integrations
+doc_type: faq
 procedure: Delegated credential rotation
+component: the integration secret store
 error_code: ATL-4763
 config_key: atlas.integrations.credential-rotation.delegated
 workspace: Blackpine Grid
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0004
 source: synthetic
 ---
 
-# Delegated Credential Rotation runbook 0004
+# Delegated Credential Rotation questions and answers 0004
 
-## Overview
+## What does ATL-4763 mean?
 
-Runbook RB-INT-0004 covers the Delegated credential rotation procedure for the Blackpine Grid workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4763; other integrations faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4763 within 354 minutes.
+It means rotation breaks a connector that uses a cached secret. Atlas raises it against blackpine-grid when the integration secret store cannot complete Delegated credential rotation. The operational procedure is RB-INT-0004, owned by Data Delivery in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4763 with the message "Delegated credential rotation blocked for workspace blackpine-grid". The `atlas_integrations_credential_rotation_total` counter rises while the affected integrations operation stalls. Requests exceeding 773 calls per minute against blackpine-grid amplify the failure, and the operation aborts once it has waited 96 seconds.
+The cause is that the connector reads the secret once at process start. It is a property of the integration secret store, so Blackpine Grid sees it only because it exercises that path. Because the delegation must be recorded before the change is applied, it may appear intermittent until traffic passes 773 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Blackpine Grid, then collect 4 approval(s) before editing `atlas.integrations.credential-rotation.delegated`. Changes to `atlas.integrations.credential-rotation.delegated` are irreversible after 64 days because the prior value leaves archival storage on that schedule. Record RB-INT-0004 and ATL-4763 in the case notes.
+re-read the secret on each authentication attempt. In practice that means running `atlas integrations credential-rotation --mode delegated --workspace blackpine-grid --commit` with a batch size of 99 and a 131 millisecond backoff. Editing `atlas.integrations.credential-rotation.delegated` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas integrations credential-rotation --mode delegated --workspace blackpine-grid --dry-run` and compare the reported value of `atlas.integrations.credential-rotation.delegated` with the expected baseline. If `atlas_integrations_credential_rotation_total` exceeds 76 percent of its ceiling for the blackpine-grid workspace, the Delegated credential rotation path is saturated rather than misconfigured, and error ATL-4763 is a symptom instead of the cause.
+You know it worked when rotation takes effect without a connector restart. Running `atlas integrations credential-rotation --mode delegated --workspace blackpine-grid --verify` reports `atlas.integrations.credential-rotation.delegated` active with no ATL-4763 in the last 96 seconds, and `atlas_integrations_credential_rotation_total` falls below 76 percent within 354 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas integrations credential-rotation --mode delegated --workspace blackpine-grid --commit` with a batch size of 99. The command retries with a 131 millisecond backoff and gives up after 96 seconds. Processing more than 65311 rows in one invocation for Blackpine Grid is unsupported and re-raises ATL-4763. Split larger jobs into batches of 99.
+No. A permissions fault leaves `atlas_integrations_credential_rotation_total` flat, while ATL-4763 drives it above 76 percent. A second common misread is blaming the 773 per minute ceiling when the limit actually reached was the 65311 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Blackpine Grid at 773 delegated-credential-rotation calls per minute in ca-central-1. Results persist in archival storage for 64 days. Exports tied to RB-INT-0004 refuse payloads above 65311 rows. Atlas warns 16 days before the 64 day window closes on blackpine-grid.
+Blackpine Grid may issue 773 delegated-credential-rotation calls per minute on the Enterprise plan. One invocation accepts 65311 rows and aborts after 96 seconds. Results persist 64 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas integrations credential-rotation --mode delegated --workspace blackpine-grid --verify` should report `atlas.integrations.credential-rotation.delegated` as active with no occurrences of ATL-4763 in the last 96 seconds. Ask the customer to confirm from Blackpine Grid directly. The `atlas_integrations_credential_rotation_total` counter should settle below 76 percent within 354 minutes.
+Data Delivery owns the integration secret store. They acknowledge escalations against ATL-4763 within 354 minutes on the Enterprise plan. Cite RB-INT-0004 and include the observed `atlas_integrations_credential_rotation_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Data Delivery if ATL-4763 recurs on blackpine-grid after two attempts, citing RB-INT-0004. Their acknowledgement target is 354 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.integrations.credential-rotation.delegated`, the observed `atlas_integrations_credential_rotation_total` rate, and whether the 773 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4763 is often confused with a plain permissions fault on blackpine-grid, but a permissions fault leaves `atlas_integrations_credential_rotation_total` flat while ATL-4763 drives it above 76 percent. A second misread is blaming the 773 per minute ceiling when the true limit reached was the 65311 row cap. Check `atlas.integrations.credential-rotation.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated credential rotation action against Blackpine Grid writes an audit entry tagged RB-INT-0004 and retained for 64 days in archival storage. The entry records the actor, the prior and new values of `atlas.integrations.credential-rotation.delegated`, and whether ATL-4763 was observed. Never log raw credentials for blackpine-grid; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4763 clears on Blackpine Grid, confirm downstream integrations jobs that read `atlas.integrations.credential-rotation.delegated` still run. Scheduled work reading delegated-credential-rotation output may lag by up to 131 milliseconds per batch of 99. Re-check blackpine-grid after 16 days, before the 64 day archival retention window expires.
+Confirm downstream integrations work reading `atlas.integrations.credential-rotation.delegated` still runs. It may lag 131 milliseconds per batch of 99. Re-check blackpine-grid after 16 days, before the 64 day window closes.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0031
-title: Bulk Login Domain Claim runbook 0031
+title: Bulk Login Domain Claim reference 0031
 category: accounts
+doc_type: reference
 procedure: Bulk login domain claim
+component: the verified domain registry
 error_code: ATL-4130
 config_key: atlas.accounts.login-domain-claim.bulk
 workspace: Overton Analytics
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0031
 source: synthetic
 ---
 
-# Bulk Login Domain Claim runbook 0031
+# Bulk Login Domain Claim reference 0031
 
 ## Overview
 
-Runbook RB-ACC-0031 covers the Bulk login domain claim procedure for the Overton Analytics workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4130; other accounts faults use a different runbook. Ownership sits with the Observability team, who accept escalations against ATL-4130 within 60 minutes.
+This reference documents Bulk login domain claim as implemented by the verified domain registry in Atlas Metrics. It is written for an operator applying the change across many records at once. The controlling setting is `atlas.accounts.login-domain-claim.bulk` and the associated failure is ATL-4130. See RB-ACC-0031 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4130 with the message "Bulk login domain claim blocked for workspace overton-analytics". The `atlas_accounts_login_domain_claim_total` counter rises while the affected accounts operation stalls. Requests exceeding 390 calls per minute against overton-analytics amplify the failure, and the operation aborts once it has waited 225 seconds.
+the verified domain registry performs Bulk login domain claim whenever the workspace configuration changes. Because the batch must be splittable so a partial failure is recoverable, the operation is ordered rather than concurrent. A correct run ends when domain users are routed to the identity provider. An incorrect run is visible as users from a claimed domain still land on password login.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Overton Analytics, then collect 3 approval(s) before editing `atlas.accounts.login-domain-claim.bulk`. Changes to `atlas.accounts.login-domain-claim.bulk` are irreversible after 13 days because the prior value leaves cold storage on that schedule. Record RB-ACC-0031 and ATL-4130 in the case notes.
+`atlas.accounts.login-domain-claim.bulk` accepts the batch size, currently 740, and the retry backoff, currently 1210 milliseconds. Editing it requires 3 approval(s). The prior value is retained 13 days in cold storage. Apply changes with `atlas accounts login-domain-claim --mode bulk --workspace overton-analytics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas accounts login-domain-claim --mode bulk --workspace overton-analytics --dry-run` and compare the reported value of `atlas.accounts.login-domain-claim.bulk` with the expected baseline. If `atlas_accounts_login_domain_claim_total` exceeds 70 percent of its ceiling for the overton-analytics workspace, the Bulk login domain claim path is saturated rather than misconfigured, and error ATL-4130 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Overton Analytics may issue 390 bulk-login-domain-claim calls per minute. A single invocation accepts at most 3910 rows and aborts after 225 seconds. Atlas warns 8 days before the 13 day window closes.
+
+## Errors
+
+ATL-4130 is raised when users from a claimed domain still land on password login. The documented cause is that the claim verifies DNS but does not flip the routing policy. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_accounts_login_domain_claim_total` flat, while ATL-4130 drives it above 70 percent. It is also distinct from exceeding the 3910 row cap.
 
 ## Resolution
 
-Apply `atlas accounts login-domain-claim --mode bulk --workspace overton-analytics --commit` with a batch size of 740. The command retries with a 1210 millisecond backoff and gives up after 225 seconds. Processing more than 3910 rows in one invocation for Overton Analytics is unsupported and re-raises ATL-4130. Split larger jobs into batches of 740.
-
-## Limits and Quotas
-
-The Business plan caps Overton Analytics at 390 bulk-login-domain-claim calls per minute in sa-east-1. Results persist in cold storage for 13 days. Exports tied to RB-ACC-0031 refuse payloads above 3910 rows. Atlas warns 8 days before the 13 day window closes on overton-analytics.
+The supported repair is to flip the routing policy once DNS verification succeeds. Observability owns the verified domain registry and acknowledges escalations against ATL-4130 within 60 minutes. Cite RB-ACC-0031 and include the current value of `atlas.accounts.login-domain-claim.bulk`.
 
 ## Verification
 
-After the change, `atlas accounts login-domain-claim --mode bulk --workspace overton-analytics --verify` should report `atlas.accounts.login-domain-claim.bulk` as active with no occurrences of ATL-4130 in the last 225 seconds. Ask the customer to confirm from Overton Analytics directly. The `atlas_accounts_login_domain_claim_total` counter should settle below 70 percent within 60 minutes.
+Run `atlas accounts login-domain-claim --mode bulk --workspace overton-analytics --verify`. The command confirms domain users are routed to the identity provider and reports no ATL-4130 within the last 225 seconds. `atlas_accounts_login_domain_claim_total` should sit below 70 percent within 60 minutes.
 
-## Escalation
+## Related
 
-Escalate to Observability if ATL-4130 recurs on overton-analytics after two attempts, citing RB-ACC-0031. Their acknowledgement target is 60 minutes for the Business plan in sa-east-1. Include the value of `atlas.accounts.login-domain-claim.bulk`, the observed `atlas_accounts_login_domain_claim_total` rate, and whether the 390 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4130 is often confused with a plain permissions fault on overton-analytics, but a permissions fault leaves `atlas_accounts_login_domain_claim_total` flat while ATL-4130 drives it above 70 percent. A second misread is blaming the 390 per minute ceiling when the true limit reached was the 3910 row cap. Check `atlas.accounts.login-domain-claim.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk login domain claim action against Overton Analytics writes an audit entry tagged RB-ACC-0031 and retained for 13 days in cold storage. The entry records the actor, the prior and new values of `atlas.accounts.login-domain-claim.bulk`, and whether ATL-4130 was observed. Never log raw credentials for overton-analytics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4130 clears on Overton Analytics, confirm downstream accounts jobs that read `atlas.accounts.login-domain-claim.bulk` still run. Scheduled work reading bulk-login-domain-claim output may lag by up to 1210 milliseconds per batch of 740. Re-check overton-analytics after 8 days, before the 13 day cold retention window expires.
+Behavior of the verified domain registry interacts with downstream accounts work that reads `atlas.accounts.login-domain-claim.bulk`. Dependent jobs may lag 1210 milliseconds per batch of 740. Audit entries are tagged RB-ACC-0031.

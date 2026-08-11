@@ -2,7 +2,9 @@
 doc_id: doc_support_accounts_0081
 title: Throttled Email Rebinding runbook 0081
 category: accounts
+doc_type: runbook
 procedure: Throttled email rebinding
+component: the primary address binding
 error_code: ATL-4180
 config_key: atlas.accounts.email-rebinding.throttled
 workspace: Tidewater Labs
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-ACC-0081 covers the Throttled email rebinding procedure for the Tidewater Labs workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4180; other accounts faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4180 within 20 minutes.
+RB-ACC-0081 describes Throttled email rebinding for Tidewater Labs, where notifications continue to reach a decommissioned address. The work is performed by a caller operating under an active rate limit, and the change must yield capacity to interactive traffic. The affected component is the primary address binding. This document applies only when Atlas raises ATL-4180; other accounts faults are covered elsewhere. Data Delivery owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4180 with the message "Throttled email rebinding blocked for workspace tidewater-labs". The `atlas_accounts_email_rebinding_total` counter rises while the affected accounts operation stalls. Requests exceeding 940 calls per minute against tidewater-labs amplify the failure, and the operation aborts once it has waited 290 seconds.
+Reporters describe the same thing: notifications continue to reach a decommissioned address. Atlas raises ATL-4180 against the tidewater-labs workspace and `atlas_accounts_email_rebinding_total` climbs past 65 percent. Because the change must yield capacity to interactive traffic, the symptom can look intermittent when the primary address binding is under load. Requests beyond 940 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Tidewater Labs, then collect 1 approval(s) before editing `atlas.accounts.email-rebinding.throttled`. Changes to `atlas.accounts.email-rebinding.throttled` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-ACC-0081 and ATL-4180 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas accounts email-rebinding --mode throttled --workspace tidewater-labs --dry-run` and compare the reported value of `atlas.accounts.email-rebinding.throttled` with the expected baseline. If `atlas_accounts_email_rebinding_total` exceeds 65 percent of its ceiling for the tidewater-labs workspace, the Throttled email rebinding path is saturated rather than misconfigured, and error ATL-4180 is a symptom instead of the cause.
+The underlying fault is that the binding update does not invalidate cached delivery routes. This is a property of the primary address binding rather than of any single workspace, so Tidewater Labs is affected only because it exercises that path. The 290 second abort is a consequence, not the cause; raising it hides ATL-4180 without repairing the primary address binding.
 
 ## Resolution
 
-Apply `atlas accounts email-rebinding --mode throttled --workspace tidewater-labs --commit` with a batch size of 940. The command retries with a 3060 millisecond backoff and gives up after 290 seconds. Processing more than 8760 rows in one invocation for Tidewater Labs is unsupported and re-raises ATL-4180. Split larger jobs into batches of 940.
-
-## Limits and Quotas
-
-The Starter plan caps Tidewater Labs at 940 throttled-email-rebinding calls per minute in us-west-2. Results persist in hot storage for 79 days. Exports tied to RB-ACC-0081 refuse payloads above 8760 rows. Atlas warns 8 days before the 79 day window closes on tidewater-labs.
+To repair the fault, rewrite the binding and purge the cached delivery route. Run `atlas accounts email-rebinding --mode throttled --workspace tidewater-labs --commit` with a batch size of 940, retrying with a 3060 millisecond backoff. Because the change must yield capacity to interactive traffic, do not exceed 8760 rows in one invocation. Editing `atlas.accounts.email-rebinding.throttled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas accounts email-rebinding --mode throttled --workspace tidewater-labs --verify` should report `atlas.accounts.email-rebinding.throttled` as active with no occurrences of ATL-4180 in the last 290 seconds. Ask the customer to confirm from Tidewater Labs directly. The `atlas_accounts_email_rebinding_total` counter should settle below 65 percent within 20 minutes.
+The repair has landed when test notifications arrive only at the new address. Confirm with `atlas accounts email-rebinding --mode throttled --workspace tidewater-labs --verify`, which should report `atlas.accounts.email-rebinding.throttled` active and no ATL-4180 in the last 290 seconds. `atlas_accounts_email_rebinding_total` should settle below 65 percent within 20 minutes.
+
+## Limits
+
+Tidewater Labs is capped at 940 throttled-email-rebinding calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 79 days, and Atlas warns 8 days before that window closes. Payloads above 8760 rows are refused.
 
 ## Escalation
 
-Escalate to Data Delivery if ATL-4180 recurs on tidewater-labs after two attempts, citing RB-ACC-0081. Their acknowledgement target is 20 minutes for the Starter plan in us-west-2. Include the value of `atlas.accounts.email-rebinding.throttled`, the observed `atlas_accounts_email_rebinding_total` rate, and whether the 940 per minute ceiling was reached.
+Escalate to Data Delivery citing RB-ACC-0081 if ATL-4180 recurs after two attempts, or if notifications continue to reach a decommissioned address persists once test notifications arrive only at the new address. Their acknowledgement target is 20 minutes. Include the value of `atlas.accounts.email-rebinding.throttled` and the observed `atlas_accounts_email_rebinding_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4180 is often confused with a plain permissions fault on tidewater-labs, but a permissions fault leaves `atlas_accounts_email_rebinding_total` flat while ATL-4180 drives it above 65 percent. A second misread is blaming the 940 per minute ceiling when the true limit reached was the 8760 row cap. Check `atlas.accounts.email-rebinding.throttled` before assuming either.
+Every Throttled email rebinding action against Tidewater Labs writes an entry tagged RB-ACC-0081, retained 79 days in hot storage, recording the actor and both values of `atlas.accounts.email-rebinding.throttled`. Because the change must yield capacity to interactive traffic, the entry also records whether the primary address binding was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Throttled email rebinding action against Tidewater Labs writes an audit entry tagged RB-ACC-0081 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.accounts.email-rebinding.throttled`, and whether ATL-4180 was observed. Never log raw credentials for tidewater-labs; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4180 clears on Tidewater Labs, confirm downstream accounts jobs that read `atlas.accounts.email-rebinding.throttled` still run. Scheduled work reading throttled-email-rebinding output may lag by up to 3060 milliseconds per batch of 940. Re-check tidewater-labs after 8 days, before the 79 day hot retention window expires.
+Once ATL-4180 clears, confirm downstream accounts jobs reading `atlas.accounts.email-rebinding.throttled` still run. Work depending on the primary address binding may lag 3060 milliseconds per batch of 940. Re-check tidewater-labs after 8 days.

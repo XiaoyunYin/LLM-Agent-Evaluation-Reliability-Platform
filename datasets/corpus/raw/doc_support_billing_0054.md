@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0054
-title: Legacy Contract Amendment runbook 0054
+title: Legacy Contract Amendment incident review 0054
 category: billing
+doc_type: postmortem
 procedure: Legacy contract amendment
+component: the contract term store
 error_code: ATL-4373
 config_key: atlas.billing.contract-amendment.legacy
 workspace: Brightpath Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0054
 source: synthetic
 ---
 
-# Legacy Contract Amendment runbook 0054
+# Legacy Contract Amendment incident review 0054
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0054 covers the Legacy contract amendment procedure for the Brightpath Digital workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4373; other billing faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-4373 within 114 minutes.
+On the Growth plan in us-east-1, Brightpath Digital reported that an amended rate does not apply until the next renewal. Atlas raised ATL-4373 for 114 minutes before Billing Infrastructure mitigated. The fault was in the contract term store. Review reference RB-BIL-0054.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4373 with the message "Legacy contract amendment blocked for workspace brightpath-digital". The `atlas_billing_contract_amendment_total` counter rises while the affected billing operation stalls. Requests exceeding 243 calls per minute against brightpath-digital amplify the failure, and the operation aborts once it has waited 216 seconds.
+Brightpath Digital was unable to complete Legacy contract amendment while ATL-4373 persisted. Roughly 27481 rows were delayed and `atlas_billing_contract_amendment_total` held above 61 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Brightpath Digital, then collect 2 approval(s) before editing `atlas.billing.contract-amendment.legacy`. Changes to `atlas.billing.contract-amendment.legacy` are irreversible after 70 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0054 and ATL-4373 in the case notes.
+Operations first saw `atlas_billing_contract_amendment_total` cross 61 percent. ATL-4373 appeared against brightpath-digital once traffic exceeded 243 per minute. The page reached Billing Infrastructure within 114 minutes. Investigation focused on the contract term store after an amended rate does not apply until the next renewal was reproduced with `atlas billing contract-amendment --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing contract-amendment --mode legacy --workspace brightpath-digital --dry-run` and compare the reported value of `atlas.billing.contract-amendment.legacy` with the expected baseline. If `atlas_billing_contract_amendment_total` exceeds 61 percent of its ceiling for the brightpath-digital workspace, the Legacy contract amendment path is saturated rather than misconfigured, and error ATL-4373 is a symptom instead of the cause.
+amendments write a future term without an effective-date override. The condition had existed in the contract term store for some time and became visible only when Brightpath Digital crossed 243 calls per minute. The 216 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing contract-amendment --mode legacy --workspace brightpath-digital --commit` with a batch size of 629. The command retries with a 401 millisecond backoff and gives up after 216 seconds. Processing more than 27481 rows in one invocation for Brightpath Digital is unsupported and re-raises ATL-4373. Split larger jobs into batches of 629.
-
-## Limits and Quotas
-
-The Growth plan caps Brightpath Digital at 243 legacy-contract-amendment calls per minute in us-east-1. Results persist in warm storage for 70 days. Exports tied to RB-BIL-0054 refuse payloads above 27481 rows. Atlas warns 26 days before the 70 day window closes on brightpath-digital.
+The team applied the standing fix: record the effective date and re-rate the open period. This was executed with `atlas billing contract-amendment --mode legacy --workspace brightpath-digital --commit` at a batch size of 629, backing off 401 milliseconds between attempts, under 2 approval(s) against `atlas.billing.contract-amendment.legacy`.
 
 ## Verification
 
-After the change, `atlas billing contract-amendment --mode legacy --workspace brightpath-digital --verify` should report `atlas.billing.contract-amendment.legacy` as active with no occurrences of ATL-4373 in the last 216 seconds. Ask the customer to confirm from Brightpath Digital directly. The `atlas_billing_contract_amendment_total` counter should settle below 61 percent within 114 minutes.
+Recovery was confirmed when the current period bills at the amended rate. `atlas_billing_contract_amendment_total` returned below 61 percent and ATL-4373 stopped appearing for brightpath-digital. Because the change must be translated into the older format first, the team also confirmed the contract term store had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Billing Infrastructure if ATL-4373 recurs on brightpath-digital after two attempts, citing RB-BIL-0054. Their acknowledgement target is 114 minutes for the Growth plan in us-east-1. Include the value of `atlas.billing.contract-amendment.legacy`, the observed `atlas_billing_contract_amendment_total` rate, and whether the 243 per minute ceiling was reached.
+To keep amendments write a future term without an effective-date override from recurring, Billing Infrastructure added monitoring on the contract term store that alerts before `atlas_billing_contract_amendment_total` reaches 61 percent. Retention for the diagnostic trail was set to 70 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4373 is often confused with a plain permissions fault on brightpath-digital, but a permissions fault leaves `atlas_billing_contract_amendment_total` flat while ATL-4373 drives it above 61 percent. A second misread is blaming the 243 per minute ceiling when the true limit reached was the 27481 row cap. Check `atlas.billing.contract-amendment.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy contract amendment action against Brightpath Digital writes an audit entry tagged RB-BIL-0054 and retained for 70 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.contract-amendment.legacy`, and whether ATL-4373 was observed. Never log raw credentials for brightpath-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4373 clears on Brightpath Digital, confirm downstream billing jobs that read `atlas.billing.contract-amendment.legacy` still run. Scheduled work reading legacy-contract-amendment output may lag by up to 401 milliseconds per batch of 629. Re-check brightpath-digital after 26 days, before the 70 day warm retention window expires.
+Re-check brightpath-digital after 26 days. Confirm the 243 per minute ceiling and the 27481 row cap still suit Brightpath Digital on the Growth plan, and that the current period bills at the amended rate remains true.

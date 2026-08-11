@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0067
-title: Sandboxed Seat Reassignment runbook 0067
+title: Sandboxed Seat Reassignment reference 0067
 category: accounts
+doc_type: reference
 procedure: Sandboxed seat reassignment
+component: the seat allocation ledger
 error_code: ATL-4166
 config_key: atlas.accounts.seat-reassignment.sandboxed
 workspace: Ravenswood Systems
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0067
 source: synthetic
 ---
 
-# Sandboxed Seat Reassignment runbook 0067
+# Sandboxed Seat Reassignment reference 0067
 
 ## Overview
 
-Runbook RB-ACC-0067 covers the Sandboxed seat reassignment procedure for the Ravenswood Systems workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4166; other accounts faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4166 within 183 minutes.
+This reference documents Sandboxed seat reassignment as implemented by the seat allocation ledger in Atlas Metrics. It is written for an engineer validating the change in a non-production copy. The controlling setting is `atlas.accounts.seat-reassignment.sandboxed` and the associated failure is ATL-4166. See RB-ACC-0067 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4166 with the message "Sandboxed seat reassignment blocked for workspace ravenswood-systems". The `atlas_accounts_seat_reassignment_total` counter rises while the affected accounts operation stalls. Requests exceeding 786 calls per minute against ravenswood-systems amplify the failure, and the operation aborts once it has waited 192 seconds.
+the seat allocation ledger performs Sandboxed seat reassignment whenever the workspace configuration changes. Because the change must never write to production resources, the operation is ordered rather than concurrent. A correct run ends when the ledger shows one active claim per seat. An incorrect run is visible as a transferred seat still bills the previous holder.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Ravenswood Systems, then collect 3 approval(s) before editing `atlas.accounts.seat-reassignment.sandboxed`. Changes to `atlas.accounts.seat-reassignment.sandboxed` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-ACC-0067 and ATL-4166 in the case notes.
+`atlas.accounts.seat-reassignment.sandboxed` accepts the batch size, currently 618, and the retry backoff, currently 2542 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas accounts seat-reassignment --mode sandboxed --workspace ravenswood-systems --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas accounts seat-reassignment --mode sandboxed --workspace ravenswood-systems --dry-run` and compare the reported value of `atlas.accounts.seat-reassignment.sandboxed` with the expected baseline. If `atlas_accounts_seat_reassignment_total` exceeds 97 percent of its ceiling for the ravenswood-systems workspace, the Sandboxed seat reassignment path is saturated rather than misconfigured, and error ATL-4166 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Ravenswood Systems may issue 786 sandboxed-seat-reassignment calls per minute. A single invocation accepts at most 7402 rows and aborts after 192 seconds. Atlas warns 19 days before the 37 day window closes.
+
+## Errors
+
+ATL-4166 is raised when a transferred seat still bills the previous holder. The documented cause is that the ledger writes the new holder before releasing the old claim. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_accounts_seat_reassignment_total` flat, while ATL-4166 drives it above 97 percent. It is also distinct from exceeding the 7402 row cap.
 
 ## Resolution
 
-Apply `atlas accounts seat-reassignment --mode sandboxed --workspace ravenswood-systems --commit` with a batch size of 618. The command retries with a 2542 millisecond backoff and gives up after 192 seconds. Processing more than 7402 rows in one invocation for Ravenswood Systems is unsupported and re-raises ATL-4166. Split larger jobs into batches of 618.
-
-## Limits and Quotas
-
-The Business plan caps Ravenswood Systems at 786 sandboxed-seat-reassignment calls per minute in eu-central-1. Results persist in cold storage for 37 days. Exports tied to RB-ACC-0067 refuse payloads above 7402 rows. Atlas warns 19 days before the 37 day window closes on ravenswood-systems.
+The supported repair is to release the stale claim, then replay the allocation entry. Platform Reliability owns the seat allocation ledger and acknowledges escalations against ATL-4166 within 183 minutes. Cite RB-ACC-0067 and include the current value of `atlas.accounts.seat-reassignment.sandboxed`.
 
 ## Verification
 
-After the change, `atlas accounts seat-reassignment --mode sandboxed --workspace ravenswood-systems --verify` should report `atlas.accounts.seat-reassignment.sandboxed` as active with no occurrences of ATL-4166 in the last 192 seconds. Ask the customer to confirm from Ravenswood Systems directly. The `atlas_accounts_seat_reassignment_total` counter should settle below 97 percent within 183 minutes.
+Run `atlas accounts seat-reassignment --mode sandboxed --workspace ravenswood-systems --verify`. The command confirms the ledger shows one active claim per seat and reports no ATL-4166 within the last 192 seconds. `atlas_accounts_seat_reassignment_total` should sit below 97 percent within 183 minutes.
 
-## Escalation
+## Related
 
-Escalate to Platform Reliability if ATL-4166 recurs on ravenswood-systems after two attempts, citing RB-ACC-0067. Their acknowledgement target is 183 minutes for the Business plan in eu-central-1. Include the value of `atlas.accounts.seat-reassignment.sandboxed`, the observed `atlas_accounts_seat_reassignment_total` rate, and whether the 786 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4166 is often confused with a plain permissions fault on ravenswood-systems, but a permissions fault leaves `atlas_accounts_seat_reassignment_total` flat while ATL-4166 drives it above 97 percent. A second misread is blaming the 786 per minute ceiling when the true limit reached was the 7402 row cap. Check `atlas.accounts.seat-reassignment.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed seat reassignment action against Ravenswood Systems writes an audit entry tagged RB-ACC-0067 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.accounts.seat-reassignment.sandboxed`, and whether ATL-4166 was observed. Never log raw credentials for ravenswood-systems; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4166 clears on Ravenswood Systems, confirm downstream accounts jobs that read `atlas.accounts.seat-reassignment.sandboxed` still run. Scheduled work reading sandboxed-seat-reassignment output may lag by up to 2542 milliseconds per batch of 618. Re-check ravenswood-systems after 19 days, before the 37 day cold retention window expires.
+Behavior of the seat allocation ledger interacts with downstream accounts work that reads `atlas.accounts.seat-reassignment.sandboxed`. Dependent jobs may lag 2542 milliseconds per batch of 618. Audit entries are tagged RB-ACC-0067.

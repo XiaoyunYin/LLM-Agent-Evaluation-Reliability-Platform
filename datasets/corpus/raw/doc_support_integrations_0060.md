@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0060
-title: Federated Endpoint Migration runbook 0060
+title: Federated Endpoint Migration questions and answers 0060
 category: integrations
+doc_type: faq
 procedure: Federated endpoint migration
+component: the remote endpoint resolver
 error_code: ATL-4819
 config_key: atlas.integrations.endpoint-migration.federated
 workspace: Lumen Studios
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0060
 source: synthetic
 ---
 
-# Federated Endpoint Migration runbook 0060
+# Federated Endpoint Migration questions and answers 0060
 
-## Overview
+## What does ATL-4819 mean?
 
-Runbook RB-INT-0060 covers the Federated endpoint migration procedure for the Lumen Studios workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4819; other integrations faults use a different runbook. Ownership sits with the Ingest Pipeline team, who accept escalations against ATL-4819 within 47 minutes.
+It means traffic continues to a retired remote endpoint. Atlas raises it against lumen-studios when the remote endpoint resolver cannot complete Federated endpoint migration. The operational procedure is RB-INT-0060, owned by Ingest Pipeline in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4819 with the message "Federated endpoint migration blocked for workspace lumen-studios". The `atlas_integrations_endpoint_migration_total` counter rises while the affected integrations operation stalls. Requests exceeding 449 calls per minute against lumen-studios amplify the failure, and the operation aborts once it has waited 203 seconds.
+The cause is that the resolver pins the endpoint at connector creation. It is a property of the remote endpoint resolver, so Lumen Studios sees it only because it exercises that path. Because the external provider must confirm the identity before the change, it may appear intermittent until traffic passes 449 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Lumen Studios, then collect 4 approval(s) before editing `atlas.integrations.endpoint-migration.federated`. Changes to `atlas.integrations.endpoint-migration.federated` are irreversible after 64 days because the prior value leaves archival storage on that schedule. Record RB-INT-0060 and ATL-4819 in the case notes.
+resolve the endpoint per request from current configuration. In practice that means running `atlas integrations endpoint-migration --mode federated --workspace lumen-studios --commit` with a batch size of 437 and a 2203 millisecond backoff. Editing `atlas.integrations.endpoint-migration.federated` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas integrations endpoint-migration --mode federated --workspace lumen-studios --dry-run` and compare the reported value of `atlas.integrations.endpoint-migration.federated` with the expected baseline. If `atlas_integrations_endpoint_migration_total` exceeds 83 percent of its ceiling for the lumen-studios workspace, the Federated endpoint migration path is saturated rather than misconfigured, and error ATL-4819 is a symptom instead of the cause.
+You know it worked when traffic follows the configured endpoint. Running `atlas integrations endpoint-migration --mode federated --workspace lumen-studios --verify` reports `atlas.integrations.endpoint-migration.federated` active with no ATL-4819 in the last 203 seconds, and `atlas_integrations_endpoint_migration_total` falls below 83 percent within 47 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas integrations endpoint-migration --mode federated --workspace lumen-studios --commit` with a batch size of 437. The command retries with a 2203 millisecond backoff and gives up after 203 seconds. Processing more than 70743 rows in one invocation for Lumen Studios is unsupported and re-raises ATL-4819. Split larger jobs into batches of 437.
+No. A permissions fault leaves `atlas_integrations_endpoint_migration_total` flat, while ATL-4819 drives it above 83 percent. A second common misread is blaming the 449 per minute ceiling when the limit actually reached was the 70743 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Lumen Studios at 449 federated-endpoint-migration calls per minute in ca-central-1. Results persist in archival storage for 64 days. Exports tied to RB-INT-0060 refuse payloads above 70743 rows. Atlas warns 22 days before the 64 day window closes on lumen-studios.
+Lumen Studios may issue 449 federated-endpoint-migration calls per minute on the Enterprise plan. One invocation accepts 70743 rows and aborts after 203 seconds. Results persist 64 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas integrations endpoint-migration --mode federated --workspace lumen-studios --verify` should report `atlas.integrations.endpoint-migration.federated` as active with no occurrences of ATL-4819 in the last 203 seconds. Ask the customer to confirm from Lumen Studios directly. The `atlas_integrations_endpoint_migration_total` counter should settle below 83 percent within 47 minutes.
+Ingest Pipeline owns the remote endpoint resolver. They acknowledge escalations against ATL-4819 within 47 minutes on the Enterprise plan. Cite RB-INT-0060 and include the observed `atlas_integrations_endpoint_migration_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Ingest Pipeline if ATL-4819 recurs on lumen-studios after two attempts, citing RB-INT-0060. Their acknowledgement target is 47 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.integrations.endpoint-migration.federated`, the observed `atlas_integrations_endpoint_migration_total` rate, and whether the 449 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4819 is often confused with a plain permissions fault on lumen-studios, but a permissions fault leaves `atlas_integrations_endpoint_migration_total` flat while ATL-4819 drives it above 83 percent. A second misread is blaming the 449 per minute ceiling when the true limit reached was the 70743 row cap. Check `atlas.integrations.endpoint-migration.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated endpoint migration action against Lumen Studios writes an audit entry tagged RB-INT-0060 and retained for 64 days in archival storage. The entry records the actor, the prior and new values of `atlas.integrations.endpoint-migration.federated`, and whether ATL-4819 was observed. Never log raw credentials for lumen-studios; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4819 clears on Lumen Studios, confirm downstream integrations jobs that read `atlas.integrations.endpoint-migration.federated` still run. Scheduled work reading federated-endpoint-migration output may lag by up to 2203 milliseconds per batch of 437. Re-check lumen-studios after 22 days, before the 64 day archival retention window expires.
+Confirm downstream integrations work reading `atlas.integrations.endpoint-migration.federated` still runs. It may lag 2203 milliseconds per batch of 437. Re-check lumen-studios after 22 days, before the 64 day window closes.

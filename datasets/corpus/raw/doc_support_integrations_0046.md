@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0046
-title: Legacy Field Mapping Repair runbook 0046
+title: Legacy Field Mapping Repair incident review 0046
 category: integrations
+doc_type: postmortem
 procedure: Legacy field mapping repair
+component: the field mapping table
 error_code: ATL-4805
 config_key: atlas.integrations.field-mapping-repair.legacy
 workspace: Junegrass Biotech
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0046
 source: synthetic
 ---
 
-# Legacy Field Mapping Repair runbook 0046
+# Legacy Field Mapping Repair incident review 0046
 
-## Overview
+## Summary
 
-Runbook RB-INT-0046 covers the Legacy field mapping repair procedure for the Junegrass Biotech workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4805; other integrations faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4805 within 210 minutes.
+On the Growth plan in us-east-1, Junegrass Biotech reported that synced records land with fields transposed. Atlas raised ATL-4805 for 210 minutes before Identity Services mitigated. The fault was in the field mapping table. Review reference RB-INT-0046.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4805 with the message "Legacy field mapping repair blocked for workspace junegrass-biotech". The `atlas_integrations_field_mapping_repair_total` counter rises while the affected integrations operation stalls. Requests exceeding 295 calls per minute against junegrass-biotech amplify the failure, and the operation aborts once it has waited 105 seconds.
+Junegrass Biotech was unable to complete Legacy field mapping repair while ATL-4805 persisted. Roughly 69385 rows were delayed and `atlas_integrations_field_mapping_repair_total` held above 70 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Junegrass Biotech, then collect 2 approval(s) before editing `atlas.integrations.field-mapping-repair.legacy`. Changes to `atlas.integrations.field-mapping-repair.legacy` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-INT-0046 and ATL-4805 in the case notes.
+Operations first saw `atlas_integrations_field_mapping_repair_total` cross 70 percent. ATL-4805 appeared against junegrass-biotech once traffic exceeded 295 per minute. The page reached Identity Services within 210 minutes. Investigation focused on the field mapping table after synced records land with fields transposed was reproduced with `atlas integrations field-mapping-repair --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas integrations field-mapping-repair --mode legacy --workspace junegrass-biotech --dry-run` and compare the reported value of `atlas.integrations.field-mapping-repair.legacy` with the expected baseline. If `atlas_integrations_field_mapping_repair_total` exceeds 70 percent of its ceiling for the junegrass-biotech workspace, the Legacy field mapping repair path is saturated rather than misconfigured, and error ATL-4805 is a symptom instead of the cause.
+the mapping is keyed on remote label, which the remote system renamed. The condition had existed in the field mapping table for some time and became visible only when Junegrass Biotech crossed 295 calls per minute. The 105 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas integrations field-mapping-repair --mode legacy --workspace junegrass-biotech --commit` with a batch size of 115. The command retries with a 1685 millisecond backoff and gives up after 105 seconds. Processing more than 69385 rows in one invocation for Junegrass Biotech is unsupported and re-raises ATL-4805. Split larger jobs into batches of 115.
-
-## Limits and Quotas
-
-The Growth plan caps Junegrass Biotech at 295 legacy-field-mapping-repair calls per minute in us-east-1. Results persist in warm storage for 22 days. Exports tied to RB-INT-0046 refuse payloads above 69385 rows. Atlas warns 8 days before the 22 day window closes on junegrass-biotech.
+The team applied the standing fix: key the mapping on the remote field identifier. This was executed with `atlas integrations field-mapping-repair --mode legacy --workspace junegrass-biotech --commit` at a batch size of 115, backing off 1685 milliseconds between attempts, under 2 approval(s) against `atlas.integrations.field-mapping-repair.legacy`.
 
 ## Verification
 
-After the change, `atlas integrations field-mapping-repair --mode legacy --workspace junegrass-biotech --verify` should report `atlas.integrations.field-mapping-repair.legacy` as active with no occurrences of ATL-4805 in the last 105 seconds. Ask the customer to confirm from Junegrass Biotech directly. The `atlas_integrations_field_mapping_repair_total` counter should settle below 70 percent within 210 minutes.
+Recovery was confirmed when renames upstream no longer transpose fields. `atlas_integrations_field_mapping_repair_total` returned below 70 percent and ATL-4805 stopped appearing for junegrass-biotech. Because the change must be translated into the older format first, the team also confirmed the field mapping table had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Identity Services if ATL-4805 recurs on junegrass-biotech after two attempts, citing RB-INT-0046. Their acknowledgement target is 210 minutes for the Growth plan in us-east-1. Include the value of `atlas.integrations.field-mapping-repair.legacy`, the observed `atlas_integrations_field_mapping_repair_total` rate, and whether the 295 per minute ceiling was reached.
+To keep the mapping is keyed on remote label, which the remote system renamed from recurring, Identity Services added monitoring on the field mapping table that alerts before `atlas_integrations_field_mapping_repair_total` reaches 70 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4805 is often confused with a plain permissions fault on junegrass-biotech, but a permissions fault leaves `atlas_integrations_field_mapping_repair_total` flat while ATL-4805 drives it above 70 percent. A second misread is blaming the 295 per minute ceiling when the true limit reached was the 69385 row cap. Check `atlas.integrations.field-mapping-repair.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy field mapping repair action against Junegrass Biotech writes an audit entry tagged RB-INT-0046 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.integrations.field-mapping-repair.legacy`, and whether ATL-4805 was observed. Never log raw credentials for junegrass-biotech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4805 clears on Junegrass Biotech, confirm downstream integrations jobs that read `atlas.integrations.field-mapping-repair.legacy` still run. Scheduled work reading legacy-field-mapping-repair output may lag by up to 1685 milliseconds per batch of 115. Re-check junegrass-biotech after 8 days, before the 22 day warm retention window expires.
+Re-check junegrass-biotech after 8 days. Confirm the 295 per minute ceiling and the 69385 row cap still suit Junegrass Biotech on the Growth plan, and that renames upstream no longer transpose fields remains true.

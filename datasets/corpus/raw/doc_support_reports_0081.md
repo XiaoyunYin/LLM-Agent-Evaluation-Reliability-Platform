@@ -2,7 +2,9 @@
 doc_id: doc_support_reports_0081
 title: Throttled Aggregation Repair runbook 0081
 category: reports
+doc_type: runbook
 procedure: Throttled aggregation repair
+component: the aggregation planner
 error_code: ATL-5060
 config_key: atlas.reports.aggregation-repair.throttled
 workspace: Perihelion Telecom
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-REP-0081 covers the Throttled aggregation repair procedure for the Perihelion Telecom workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-5060; other reports faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-5060 within 75 minutes.
+RB-REP-0081 describes Throttled aggregation repair for Perihelion Telecom, where totals do not equal the sum of their parts. The work is performed by a caller operating under an active rate limit, and the change must yield capacity to interactive traffic. The affected component is the aggregation planner. This document applies only when Atlas raises ATL-5060; other reports faults are covered elsewhere. Data Delivery owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-5060 with the message "Throttled aggregation repair blocked for workspace perihelion-telecom". The `atlas_reports_aggregation_repair_total` counter rises while the affected reports operation stalls. Requests exceeding 280 calls per minute against perihelion-telecom amplify the failure, and the operation aborts once it has waited 180 seconds.
+Reporters describe the same thing: totals do not equal the sum of their parts. Atlas raises ATL-5060 against the perihelion-telecom workspace and `atlas_reports_aggregation_repair_total` climbs past 85 percent. Because the change must yield capacity to interactive traffic, the symptom can look intermittent when the aggregation planner is under load. Requests beyond 280 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Perihelion Telecom, then collect 1 approval(s) before editing `atlas.reports.aggregation-repair.throttled`. Changes to `atlas.reports.aggregation-repair.throttled` are irreversible after 31 days because the prior value leaves hot storage on that schedule. Record RB-REP-0081 and ATL-5060 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas reports aggregation-repair --mode throttled --workspace perihelion-telecom --dry-run` and compare the reported value of `atlas.reports.aggregation-repair.throttled` with the expected baseline. If `atlas_reports_aggregation_repair_total` exceeds 85 percent of its ceiling for the perihelion-telecom workspace, the Throttled aggregation repair path is saturated rather than misconfigured, and error ATL-5060 is a symptom instead of the cause.
+The underlying fault is that the planner averages pre-aggregated averages. This is a property of the aggregation planner rather than of any single workspace, so Perihelion Telecom is affected only because it exercises that path. The 180 second abort is a consequence, not the cause; raising it hides ATL-5060 without repairing the aggregation planner.
 
 ## Resolution
 
-Apply `atlas reports aggregation-repair --mode throttled --workspace perihelion-telecom --commit` with a batch size of 280. The command retries with a 1320 millisecond backoff and gives up after 180 seconds. Processing more than 94120 rows in one invocation for Perihelion Telecom is unsupported and re-raises ATL-5060. Split larger jobs into batches of 280.
-
-## Limits and Quotas
-
-The Starter plan caps Perihelion Telecom at 280 throttled-aggregation-repair calls per minute in us-west-2. Results persist in hot storage for 31 days. Exports tied to RB-REP-0081 refuse payloads above 94120 rows. Atlas warns 13 days before the 31 day window closes on perihelion-telecom.
+To repair the fault, aggregate from base records rather than from partial aggregates. Run `atlas reports aggregation-repair --mode throttled --workspace perihelion-telecom --commit` with a batch size of 280, retrying with a 1320 millisecond backoff. Because the change must yield capacity to interactive traffic, do not exceed 94120 rows in one invocation. Editing `atlas.reports.aggregation-repair.throttled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas reports aggregation-repair --mode throttled --workspace perihelion-telecom --verify` should report `atlas.reports.aggregation-repair.throttled` as active with no occurrences of ATL-5060 in the last 180 seconds. Ask the customer to confirm from Perihelion Telecom directly. The `atlas_reports_aggregation_repair_total` counter should settle below 85 percent within 75 minutes.
+The repair has landed when totals reconcile with their components. Confirm with `atlas reports aggregation-repair --mode throttled --workspace perihelion-telecom --verify`, which should report `atlas.reports.aggregation-repair.throttled` active and no ATL-5060 in the last 180 seconds. `atlas_reports_aggregation_repair_total` should settle below 85 percent within 75 minutes.
+
+## Limits
+
+Perihelion Telecom is capped at 280 throttled-aggregation-repair calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 31 days, and Atlas warns 13 days before that window closes. Payloads above 94120 rows are refused.
 
 ## Escalation
 
-Escalate to Data Delivery if ATL-5060 recurs on perihelion-telecom after two attempts, citing RB-REP-0081. Their acknowledgement target is 75 minutes for the Starter plan in us-west-2. Include the value of `atlas.reports.aggregation-repair.throttled`, the observed `atlas_reports_aggregation_repair_total` rate, and whether the 280 per minute ceiling was reached.
+Escalate to Data Delivery citing RB-REP-0081 if ATL-5060 recurs after two attempts, or if totals do not equal the sum of their parts persists once totals reconcile with their components. Their acknowledgement target is 75 minutes. Include the value of `atlas.reports.aggregation-repair.throttled` and the observed `atlas_reports_aggregation_repair_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-5060 is often confused with a plain permissions fault on perihelion-telecom, but a permissions fault leaves `atlas_reports_aggregation_repair_total` flat while ATL-5060 drives it above 85 percent. A second misread is blaming the 280 per minute ceiling when the true limit reached was the 94120 row cap. Check `atlas.reports.aggregation-repair.throttled` before assuming either.
+Every Throttled aggregation repair action against Perihelion Telecom writes an entry tagged RB-REP-0081, retained 31 days in hot storage, recording the actor and both values of `atlas.reports.aggregation-repair.throttled`. Because the change must yield capacity to interactive traffic, the entry also records whether the aggregation planner was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Throttled aggregation repair action against Perihelion Telecom writes an audit entry tagged RB-REP-0081 and retained for 31 days in hot storage. The entry records the actor, the prior and new values of `atlas.reports.aggregation-repair.throttled`, and whether ATL-5060 was observed. Never log raw credentials for perihelion-telecom; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5060 clears on Perihelion Telecom, confirm downstream reports jobs that read `atlas.reports.aggregation-repair.throttled` still run. Scheduled work reading throttled-aggregation-repair output may lag by up to 1320 milliseconds per batch of 280. Re-check perihelion-telecom after 13 days, before the 31 day hot retention window expires.
+Once ATL-5060 clears, confirm downstream reports jobs reading `atlas.reports.aggregation-repair.throttled` still run. Work depending on the aggregation planner may lag 1320 milliseconds per batch of 280. Re-check perihelion-telecom after 13 days.

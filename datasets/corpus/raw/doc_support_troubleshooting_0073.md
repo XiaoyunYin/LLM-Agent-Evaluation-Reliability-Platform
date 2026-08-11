@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0073
-title: Sandboxed Memory Pressure Relief runbook 0073
+title: Sandboxed Memory Pressure Relief reference 0073
 category: troubleshooting
+doc_type: reference
 procedure: Sandboxed memory pressure relief
+component: the memory pressure governor
 error_code: ATL-5162
 config_key: atlas.troubleshooting.memory-pressure-relief.sandboxed
 workspace: Perihelion Textiles
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0073
 source: synthetic
 ---
 
-# Sandboxed Memory Pressure Relief runbook 0073
+# Sandboxed Memory Pressure Relief reference 0073
 
 ## Overview
 
-Runbook RB-TRO-0073 covers the Sandboxed memory pressure relief procedure for the Perihelion Textiles workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-5162; other troubleshooting faults use a different runbook. Ownership sits with the Core API team, who accept escalations against ATL-5162 within 21 minutes.
+This reference documents Sandboxed memory pressure relief as implemented by the memory pressure governor in Atlas Metrics. It is written for an engineer validating the change in a non-production copy. The controlling setting is `atlas.troubleshooting.memory-pressure-relief.sandboxed` and the associated failure is ATL-5162. See RB-TRO-0073 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5162 with the message "Sandboxed memory pressure relief blocked for workspace perihelion-textiles". The `atlas_troubleshooting_memory_pressure_relief_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 462 calls per minute against perihelion-textiles amplify the failure, and the operation aborts once it has waited 39 seconds.
+the memory pressure governor performs Sandboxed memory pressure relief whenever the workspace configuration changes. Because the change must never write to production resources, the operation is ordered rather than concurrent. A correct run ends when the service sheds work rather than restarting. An incorrect run is visible as the service restarts under load instead of shedding work.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Perihelion Textiles, then collect 3 approval(s) before editing `atlas.troubleshooting.memory-pressure-relief.sandboxed`. Changes to `atlas.troubleshooting.memory-pressure-relief.sandboxed` are irreversible after 85 days because the prior value leaves cold storage on that schedule. Record RB-TRO-0073 and ATL-5162 in the case notes.
+`atlas.troubleshooting.memory-pressure-relief.sandboxed` accepts the batch size, currently 726, and the retry backoff, currently 194 milliseconds. Editing it requires 3 approval(s). The prior value is retained 85 days in cold storage. Apply changes with `atlas troubleshooting memory-pressure-relief --mode sandboxed --workspace perihelion-textiles --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas troubleshooting memory-pressure-relief --mode sandboxed --workspace perihelion-textiles --dry-run` and compare the reported value of `atlas.troubleshooting.memory-pressure-relief.sandboxed` with the expected baseline. If `atlas_troubleshooting_memory_pressure_relief_total` exceeds 64 percent of its ceiling for the perihelion-textiles workspace, the Sandboxed memory pressure relief path is saturated rather than misconfigured, and error ATL-5162 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Perihelion Textiles may issue 462 sandboxed-memory-pressure-relief calls per minute. A single invocation accepts at most 5014 rows and aborts after 39 seconds. Atlas warns 15 days before the 85 day window closes.
+
+## Errors
+
+ATL-5162 is raised when the service restarts under load instead of shedding work. The documented cause is that the governor has no shed threshold below the fatal limit. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_troubleshooting_memory_pressure_relief_total` flat, while ATL-5162 drives it above 64 percent. It is also distinct from exceeding the 5014 row cap.
 
 ## Resolution
 
-Apply `atlas troubleshooting memory-pressure-relief --mode sandboxed --workspace perihelion-textiles --commit` with a batch size of 726. The command retries with a 194 millisecond backoff and gives up after 39 seconds. Processing more than 5014 rows in one invocation for Perihelion Textiles is unsupported and re-raises ATL-5162. Split larger jobs into batches of 726.
-
-## Limits and Quotas
-
-The Business plan caps Perihelion Textiles at 462 sandboxed-memory-pressure-relief calls per minute in sa-east-1. Results persist in cold storage for 85 days. Exports tied to RB-TRO-0073 refuse payloads above 5014 rows. Atlas warns 15 days before the 85 day window closes on perihelion-textiles.
+The supported repair is to shed low-priority work before reaching the fatal limit. Core API owns the memory pressure governor and acknowledges escalations against ATL-5162 within 21 minutes. Cite RB-TRO-0073 and include the current value of `atlas.troubleshooting.memory-pressure-relief.sandboxed`.
 
 ## Verification
 
-After the change, `atlas troubleshooting memory-pressure-relief --mode sandboxed --workspace perihelion-textiles --verify` should report `atlas.troubleshooting.memory-pressure-relief.sandboxed` as active with no occurrences of ATL-5162 in the last 39 seconds. Ask the customer to confirm from Perihelion Textiles directly. The `atlas_troubleshooting_memory_pressure_relief_total` counter should settle below 64 percent within 21 minutes.
+Run `atlas troubleshooting memory-pressure-relief --mode sandboxed --workspace perihelion-textiles --verify`. The command confirms the service sheds work rather than restarting and reports no ATL-5162 within the last 39 seconds. `atlas_troubleshooting_memory_pressure_relief_total` should sit below 64 percent within 21 minutes.
 
-## Escalation
+## Related
 
-Escalate to Core API if ATL-5162 recurs on perihelion-textiles after two attempts, citing RB-TRO-0073. Their acknowledgement target is 21 minutes for the Business plan in sa-east-1. Include the value of `atlas.troubleshooting.memory-pressure-relief.sandboxed`, the observed `atlas_troubleshooting_memory_pressure_relief_total` rate, and whether the 462 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5162 is often confused with a plain permissions fault on perihelion-textiles, but a permissions fault leaves `atlas_troubleshooting_memory_pressure_relief_total` flat while ATL-5162 drives it above 64 percent. A second misread is blaming the 462 per minute ceiling when the true limit reached was the 5014 row cap. Check `atlas.troubleshooting.memory-pressure-relief.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed memory pressure relief action against Perihelion Textiles writes an audit entry tagged RB-TRO-0073 and retained for 85 days in cold storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.memory-pressure-relief.sandboxed`, and whether ATL-5162 was observed. Never log raw credentials for perihelion-textiles; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5162 clears on Perihelion Textiles, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.memory-pressure-relief.sandboxed` still run. Scheduled work reading sandboxed-memory-pressure-relief output may lag by up to 194 milliseconds per batch of 726. Re-check perihelion-textiles after 15 days, before the 85 day cold retention window expires.
+Behavior of the memory pressure governor interacts with downstream troubleshooting work that reads `atlas.troubleshooting.memory-pressure-relief.sandboxed`. Dependent jobs may lag 194 milliseconds per batch of 726. Audit entries are tagged RB-TRO-0073.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0061
-title: Federated Index Rebuild runbook 0061
+title: Federated Index Rebuild reference 0061
 category: troubleshooting
+doc_type: reference
 procedure: Federated index rebuild
+component: the search index builder
 error_code: ATL-5150
 config_key: atlas.troubleshooting.index-rebuild.federated
 workspace: Overton Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0061
 source: synthetic
 ---
 
-# Federated Index Rebuild runbook 0061
+# Federated Index Rebuild reference 0061
 
 ## Overview
 
-Runbook RB-TRO-0061 covers the Federated index rebuild procedure for the Overton Optics workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-5150; other troubleshooting faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-5150 within 210 minutes.
+This reference documents Federated index rebuild as implemented by the search index builder in Atlas Metrics. It is written for an administrator whose identity is held by an external provider. The controlling setting is `atlas.troubleshooting.index-rebuild.federated` and the associated failure is ATL-5150. See RB-TRO-0061 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5150 with the message "Federated index rebuild blocked for workspace overton-optics". The `atlas_troubleshooting_index_rebuild_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 330 calls per minute against overton-optics amplify the failure, and the operation aborts once it has waited 240 seconds.
+the search index builder performs Federated index rebuild whenever the workspace configuration changes. Because the external provider must confirm the identity before the change, the operation is ordered rather than concurrent. A correct run ends when index and storage agree on record existence. An incorrect run is visible as queries return records that no longer exist.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Overton Optics, then collect 3 approval(s) before editing `atlas.troubleshooting.index-rebuild.federated`. Changes to `atlas.troubleshooting.index-rebuild.federated` are irreversible after 49 days because the prior value leaves cold storage on that schedule. Record RB-TRO-0061 and ATL-5150 in the case notes.
+`atlas.troubleshooting.index-rebuild.federated` accepts the batch size, currently 450, and the retry backoff, currently 4650 milliseconds. Editing it requires 3 approval(s). The prior value is retained 49 days in cold storage. Apply changes with `atlas troubleshooting index-rebuild --mode federated --workspace overton-optics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas troubleshooting index-rebuild --mode federated --workspace overton-optics --dry-run` and compare the reported value of `atlas.troubleshooting.index-rebuild.federated` with the expected baseline. If `atlas_troubleshooting_index_rebuild_total` exceeds 85 percent of its ceiling for the overton-optics workspace, the Federated index rebuild path is saturated rather than misconfigured, and error ATL-5150 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Overton Optics may issue 330 federated-index-rebuild calls per minute. A single invocation accepts at most 3850 rows and aborts after 240 seconds. Atlas warns 3 days before the 49 day window closes.
+
+## Errors
+
+ATL-5150 is raised when queries return records that no longer exist. The documented cause is that deletions are applied to storage but not propagated to the index. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_troubleshooting_index_rebuild_total` flat, while ATL-5150 drives it above 85 percent. It is also distinct from exceeding the 3850 row cap.
 
 ## Resolution
 
-Apply `atlas troubleshooting index-rebuild --mode federated --workspace overton-optics --commit` with a batch size of 450. The command retries with a 4650 millisecond backoff and gives up after 240 seconds. Processing more than 3850 rows in one invocation for Overton Optics is unsupported and re-raises ATL-5150. Split larger jobs into batches of 450.
-
-## Limits and Quotas
-
-The Business plan caps Overton Optics at 330 federated-index-rebuild calls per minute in eu-central-1. Results persist in cold storage for 49 days. Exports tied to RB-TRO-0061 refuse payloads above 3850 rows. Atlas warns 3 days before the 49 day window closes on overton-optics.
+The supported repair is to propagate deletions to the index and rebuild affected segments. Customer Trust owns the search index builder and acknowledges escalations against ATL-5150 within 210 minutes. Cite RB-TRO-0061 and include the current value of `atlas.troubleshooting.index-rebuild.federated`.
 
 ## Verification
 
-After the change, `atlas troubleshooting index-rebuild --mode federated --workspace overton-optics --verify` should report `atlas.troubleshooting.index-rebuild.federated` as active with no occurrences of ATL-5150 in the last 240 seconds. Ask the customer to confirm from Overton Optics directly. The `atlas_troubleshooting_index_rebuild_total` counter should settle below 85 percent within 210 minutes.
+Run `atlas troubleshooting index-rebuild --mode federated --workspace overton-optics --verify`. The command confirms index and storage agree on record existence and reports no ATL-5150 within the last 240 seconds. `atlas_troubleshooting_index_rebuild_total` should sit below 85 percent within 210 minutes.
 
-## Escalation
+## Related
 
-Escalate to Customer Trust if ATL-5150 recurs on overton-optics after two attempts, citing RB-TRO-0061. Their acknowledgement target is 210 minutes for the Business plan in eu-central-1. Include the value of `atlas.troubleshooting.index-rebuild.federated`, the observed `atlas_troubleshooting_index_rebuild_total` rate, and whether the 330 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5150 is often confused with a plain permissions fault on overton-optics, but a permissions fault leaves `atlas_troubleshooting_index_rebuild_total` flat while ATL-5150 drives it above 85 percent. A second misread is blaming the 330 per minute ceiling when the true limit reached was the 3850 row cap. Check `atlas.troubleshooting.index-rebuild.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated index rebuild action against Overton Optics writes an audit entry tagged RB-TRO-0061 and retained for 49 days in cold storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.index-rebuild.federated`, and whether ATL-5150 was observed. Never log raw credentials for overton-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5150 clears on Overton Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.index-rebuild.federated` still run. Scheduled work reading federated-index-rebuild output may lag by up to 4650 milliseconds per batch of 450. Re-check overton-optics after 3 days, before the 49 day cold retention window expires.
+Behavior of the search index builder interacts with downstream troubleshooting work that reads `atlas.troubleshooting.index-rebuild.federated`. Dependent jobs may lag 4650 milliseconds per batch of 450. Audit entries are tagged RB-TRO-0061.

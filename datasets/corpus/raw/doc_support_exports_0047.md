@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0047
-title: Legacy Archive Expiry runbook 0047
+title: Legacy Archive Expiry reference 0047
 category: exports
+doc_type: reference
 procedure: Legacy archive expiry
+component: the archive lifecycle policy
 error_code: ATL-4586
 config_key: atlas.exports.archive-expiry.legacy
 workspace: Redstone Dynamics
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0047
 source: synthetic
 ---
 
-# Legacy Archive Expiry runbook 0047
+# Legacy Archive Expiry reference 0047
 
 ## Overview
 
-Runbook RB-EXP-0047 covers the Legacy archive expiry procedure for the Redstone Dynamics workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4586; other exports faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4586 within 123 minutes.
+This reference documents Legacy archive expiry as implemented by the archive lifecycle policy in Atlas Metrics. It is written for a workspace still on the previous configuration format. The controlling setting is `atlas.exports.archive-expiry.legacy` and the associated failure is ATL-4586. See RB-EXP-0047 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4586 with the message "Legacy archive expiry blocked for workspace redstone-dynamics". The `atlas_exports_archive_expiry_total` counter rises while the affected exports operation stalls. Requests exceeding 706 calls per minute against redstone-dynamics amplify the failure, and the operation aborts once it has waited 282 seconds.
+the archive lifecycle policy performs Legacy archive expiry whenever the workspace configuration changes. Because the change must be translated into the older format first, the operation is ordered rather than concurrent. A correct run ends when archives persist for their full stated retention. An incorrect run is visible as archived exports disappear before their stated retention.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Redstone Dynamics, then collect 3 approval(s) before editing `atlas.exports.archive-expiry.legacy`. Changes to `atlas.exports.archive-expiry.legacy` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-EXP-0047 and ATL-4586 in the case notes.
+`atlas.exports.archive-expiry.legacy` accepts the batch size, currently 778, and the retry backoff, currently 3382 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas exports archive-expiry --mode legacy --workspace redstone-dynamics --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas exports archive-expiry --mode legacy --workspace redstone-dynamics --dry-run` and compare the reported value of `atlas.exports.archive-expiry.legacy` with the expected baseline. If `atlas_exports_archive_expiry_total` exceeds 82 percent of its ceiling for the redstone-dynamics workspace, the Legacy archive expiry path is saturated rather than misconfigured, and error ATL-4586 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Redstone Dynamics may issue 706 legacy-archive-expiry calls per minute. A single invocation accepts at most 48142 rows and aborts after 282 seconds. Atlas warns 14 days before the 37 day window closes.
+
+## Errors
+
+ATL-4586 is raised when archived exports disappear before their stated retention. The documented cause is that the policy measures age from creation rather than from archival. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_exports_archive_expiry_total` flat, while ATL-4586 drives it above 82 percent. It is also distinct from exceeding the 48142 row cap.
 
 ## Resolution
 
-Apply `atlas exports archive-expiry --mode legacy --workspace redstone-dynamics --commit` with a batch size of 778. The command retries with a 3382 millisecond backoff and gives up after 282 seconds. Processing more than 48142 rows in one invocation for Redstone Dynamics is unsupported and re-raises ATL-4586. Split larger jobs into batches of 778.
-
-## Limits and Quotas
-
-The Business plan caps Redstone Dynamics at 706 legacy-archive-expiry calls per minute in sa-east-1. Results persist in cold storage for 37 days. Exports tied to RB-EXP-0047 refuse payloads above 48142 rows. Atlas warns 14 days before the 37 day window closes on redstone-dynamics.
+The supported repair is to measure retention from the archival timestamp. Revenue Engineering owns the archive lifecycle policy and acknowledges escalations against ATL-4586 within 123 minutes. Cite RB-EXP-0047 and include the current value of `atlas.exports.archive-expiry.legacy`.
 
 ## Verification
 
-After the change, `atlas exports archive-expiry --mode legacy --workspace redstone-dynamics --verify` should report `atlas.exports.archive-expiry.legacy` as active with no occurrences of ATL-4586 in the last 282 seconds. Ask the customer to confirm from Redstone Dynamics directly. The `atlas_exports_archive_expiry_total` counter should settle below 82 percent within 123 minutes.
+Run `atlas exports archive-expiry --mode legacy --workspace redstone-dynamics --verify`. The command confirms archives persist for their full stated retention and reports no ATL-4586 within the last 282 seconds. `atlas_exports_archive_expiry_total` should sit below 82 percent within 123 minutes.
 
-## Escalation
+## Related
 
-Escalate to Revenue Engineering if ATL-4586 recurs on redstone-dynamics after two attempts, citing RB-EXP-0047. Their acknowledgement target is 123 minutes for the Business plan in sa-east-1. Include the value of `atlas.exports.archive-expiry.legacy`, the observed `atlas_exports_archive_expiry_total` rate, and whether the 706 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4586 is often confused with a plain permissions fault on redstone-dynamics, but a permissions fault leaves `atlas_exports_archive_expiry_total` flat while ATL-4586 drives it above 82 percent. A second misread is blaming the 706 per minute ceiling when the true limit reached was the 48142 row cap. Check `atlas.exports.archive-expiry.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy archive expiry action against Redstone Dynamics writes an audit entry tagged RB-EXP-0047 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.exports.archive-expiry.legacy`, and whether ATL-4586 was observed. Never log raw credentials for redstone-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4586 clears on Redstone Dynamics, confirm downstream exports jobs that read `atlas.exports.archive-expiry.legacy` still run. Scheduled work reading legacy-archive-expiry output may lag by up to 3382 milliseconds per batch of 778. Re-check redstone-dynamics after 14 days, before the 37 day cold retention window expires.
+Behavior of the archive lifecycle policy interacts with downstream exports work that reads `atlas.exports.archive-expiry.legacy`. Dependent jobs may lag 3382 milliseconds per batch of 778. Audit entries are tagged RB-EXP-0047.

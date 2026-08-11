@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_dashboards_0046
-title: Legacy Filter Inheritance runbook 0046
+title: Legacy Filter Inheritance questions and answers 0046
 category: dashboards
+doc_type: faq
 procedure: Legacy filter inheritance
+component: the filter scope resolver
 error_code: ATL-4475
 config_key: atlas.dashboards.filter-inheritance.legacy
 workspace: Brightpath Health
@@ -12,48 +14,36 @@ runbook_ref: RB-DAS-0046
 source: synthetic
 ---
 
-# Legacy Filter Inheritance runbook 0046
+# Legacy Filter Inheritance questions and answers 0046
 
-## Overview
+## What does ATL-4475 mean?
 
-Runbook RB-DAS-0046 covers the Legacy filter inheritance procedure for the Brightpath Health workspace in Atlas Metrics, hosted in ca-central-1 on the Enterprise plan. It applies only when the platform emits error ATL-4475; other dashboards faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4475 within 60 minutes.
+It means child panels ignore a dashboard-level filter. Atlas raises it against brightpath-health when the filter scope resolver cannot complete Legacy filter inheritance. The operational procedure is RB-DAS-0046, owned by Identity Services in ca-central-1.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4475 with the message "Legacy filter inheritance blocked for workspace brightpath-health". The `atlas_dashboards_filter_inheritance_total` counter rises while the affected dashboards operation stalls. Requests exceeding 425 calls per minute against brightpath-health amplify the failure, and the operation aborts once it has waited 75 seconds.
+The cause is that panels created before the filter existed carry an explicit override. It is a property of the filter scope resolver, so Brightpath Health sees it only because it exercises that path. Because the change must be translated into the older format first, it may appear intermittent until traffic passes 425 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Brightpath Health, then collect 4 approval(s) before editing `atlas.dashboards.filter-inheritance.legacy`. Changes to `atlas.dashboards.filter-inheritance.legacy` are irreversible after 40 days because the prior value leaves archival storage on that schedule. Record RB-DAS-0046 and ATL-4475 in the case notes.
+clear stale overrides so panels inherit the parent scope. In practice that means running `atlas dashboards filter-inheritance --mode legacy --workspace brightpath-health --commit` with a batch size of 125 and a 4175 millisecond backoff. Editing `atlas.dashboards.filter-inheritance.legacy` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas dashboards filter-inheritance --mode legacy --workspace brightpath-health --dry-run` and compare the reported value of `atlas.dashboards.filter-inheritance.legacy` with the expected baseline. If `atlas_dashboards_filter_inheritance_total` exceeds 85 percent of its ceiling for the brightpath-health workspace, the Legacy filter inheritance path is saturated rather than misconfigured, and error ATL-4475 is a symptom instead of the cause.
+You know it worked when every panel reflects the dashboard filter. Running `atlas dashboards filter-inheritance --mode legacy --workspace brightpath-health --verify` reports `atlas.dashboards.filter-inheritance.legacy` active with no ATL-4475 in the last 75 seconds, and `atlas_dashboards_filter_inheritance_total` falls below 85 percent within 60 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas dashboards filter-inheritance --mode legacy --workspace brightpath-health --commit` with a batch size of 125. The command retries with a 4175 millisecond backoff and gives up after 75 seconds. Processing more than 37375 rows in one invocation for Brightpath Health is unsupported and re-raises ATL-4475. Split larger jobs into batches of 125.
+No. A permissions fault leaves `atlas_dashboards_filter_inheritance_total` flat, while ATL-4475 drives it above 85 percent. A second common misread is blaming the 425 per minute ceiling when the limit actually reached was the 37375 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Brightpath Health at 425 legacy-filter-inheritance calls per minute in ca-central-1. Results persist in archival storage for 40 days. Exports tied to RB-DAS-0046 refuse payloads above 37375 rows. Atlas warns 3 days before the 40 day window closes on brightpath-health.
+Brightpath Health may issue 425 legacy-filter-inheritance calls per minute on the Enterprise plan. One invocation accepts 37375 rows and aborts after 75 seconds. Results persist 40 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas dashboards filter-inheritance --mode legacy --workspace brightpath-health --verify` should report `atlas.dashboards.filter-inheritance.legacy` as active with no occurrences of ATL-4475 in the last 75 seconds. Ask the customer to confirm from Brightpath Health directly. The `atlas_dashboards_filter_inheritance_total` counter should settle below 85 percent within 60 minutes.
+Identity Services owns the filter scope resolver. They acknowledge escalations against ATL-4475 within 60 minutes on the Enterprise plan. Cite RB-DAS-0046 and include the observed `atlas_dashboards_filter_inheritance_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Identity Services if ATL-4475 recurs on brightpath-health after two attempts, citing RB-DAS-0046. Their acknowledgement target is 60 minutes for the Enterprise plan in ca-central-1. Include the value of `atlas.dashboards.filter-inheritance.legacy`, the observed `atlas_dashboards_filter_inheritance_total` rate, and whether the 425 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4475 is often confused with a plain permissions fault on brightpath-health, but a permissions fault leaves `atlas_dashboards_filter_inheritance_total` flat while ATL-4475 drives it above 85 percent. A second misread is blaming the 425 per minute ceiling when the true limit reached was the 37375 row cap. Check `atlas.dashboards.filter-inheritance.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy filter inheritance action against Brightpath Health writes an audit entry tagged RB-DAS-0046 and retained for 40 days in archival storage. The entry records the actor, the prior and new values of `atlas.dashboards.filter-inheritance.legacy`, and whether ATL-4475 was observed. Never log raw credentials for brightpath-health; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4475 clears on Brightpath Health, confirm downstream dashboards jobs that read `atlas.dashboards.filter-inheritance.legacy` still run. Scheduled work reading legacy-filter-inheritance output may lag by up to 4175 milliseconds per batch of 125. Re-check brightpath-health after 3 days, before the 40 day archival retention window expires.
+Confirm downstream dashboards work reading `atlas.dashboards.filter-inheritance.legacy` still runs. It may lag 4175 milliseconds per batch of 125. Re-check brightpath-health after 3 days, before the 40 day window closes.

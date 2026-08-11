@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0058
-title: Federated Identity Merge runbook 0058
+title: Federated Identity Merge incident review 0058
 category: accounts
+doc_type: postmortem
 procedure: Federated identity merge
+component: the identity graph
 error_code: ATL-4157
 config_key: atlas.accounts.identity-merge.federated
 workspace: Hollowbrook Systems
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0058
 source: synthetic
 ---
 
-# Federated Identity Merge runbook 0058
+# Federated Identity Merge incident review 0058
 
-## Overview
+## Summary
 
-Runbook RB-ACC-0058 covers the Federated identity merge procedure for the Hollowbrook Systems workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4157; other accounts faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4157 within 66 minutes.
+On the Growth plan in us-east-1, Hollowbrook Systems reported that one person appears twice with split activity history. Atlas raised ATL-4157 for 66 minutes before Revenue Engineering mitigated. The fault was in the identity graph. Review reference RB-ACC-0058.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4157 with the message "Federated identity merge blocked for workspace hollowbrook-systems". The `atlas_accounts_identity_merge_total` counter rises while the affected accounts operation stalls. Requests exceeding 687 calls per minute against hollowbrook-systems amplify the failure, and the operation aborts once it has waited 129 seconds.
+Hollowbrook Systems was unable to complete Federated identity merge while ATL-4157 persisted. Roughly 6529 rows were delayed and `atlas_accounts_identity_merge_total` held above 79 percent throughout. Because the external provider must confirm the identity before the change, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Hollowbrook Systems, then collect 2 approval(s) before editing `atlas.accounts.identity-merge.federated`. Changes to `atlas.accounts.identity-merge.federated` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-ACC-0058 and ATL-4157 in the case notes.
+Operations first saw `atlas_accounts_identity_merge_total` cross 79 percent. ATL-4157 appeared against hollowbrook-systems once traffic exceeded 687 per minute. The page reached Revenue Engineering within 66 minutes. Investigation focused on the identity graph after one person appears twice with split activity history was reproduced with `atlas accounts identity-merge --mode federated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas accounts identity-merge --mode federated --workspace hollowbrook-systems --dry-run` and compare the reported value of `atlas.accounts.identity-merge.federated` with the expected baseline. If `atlas_accounts_identity_merge_total` exceeds 79 percent of its ceiling for the hollowbrook-systems workspace, the Federated identity merge path is saturated rather than misconfigured, and error ATL-4157 is a symptom instead of the cause.
+two identity nodes were created before the email link resolved. The condition had existed in the identity graph for some time and became visible only when Hollowbrook Systems crossed 687 calls per minute. The 129 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas accounts identity-merge --mode federated --workspace hollowbrook-systems --commit` with a batch size of 411. The command retries with a 2209 millisecond backoff and gives up after 129 seconds. Processing more than 6529 rows in one invocation for Hollowbrook Systems is unsupported and re-raises ATL-4157. Split larger jobs into batches of 411.
-
-## Limits and Quotas
-
-The Growth plan caps Hollowbrook Systems at 687 federated-identity-merge calls per minute in us-east-1. Results persist in warm storage for 10 days. Exports tied to RB-ACC-0058 refuse payloads above 6529 rows. Atlas warns 10 days before the 10 day window closes on hollowbrook-systems.
+The team applied the standing fix: merge the nodes and re-parent activity edges to the survivor. This was executed with `atlas accounts identity-merge --mode federated --workspace hollowbrook-systems --commit` at a batch size of 411, backing off 2209 milliseconds between attempts, under 2 approval(s) against `atlas.accounts.identity-merge.federated`.
 
 ## Verification
 
-After the change, `atlas accounts identity-merge --mode federated --workspace hollowbrook-systems --verify` should report `atlas.accounts.identity-merge.federated` as active with no occurrences of ATL-4157 in the last 129 seconds. Ask the customer to confirm from Hollowbrook Systems directly. The `atlas_accounts_identity_merge_total` counter should settle below 79 percent within 66 minutes.
+Recovery was confirmed when the graph resolves the person to exactly one node. `atlas_accounts_identity_merge_total` returned below 79 percent and ATL-4157 stopped appearing for hollowbrook-systems. Because the external provider must confirm the identity before the change, the team also confirmed the identity graph had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Revenue Engineering if ATL-4157 recurs on hollowbrook-systems after two attempts, citing RB-ACC-0058. Their acknowledgement target is 66 minutes for the Growth plan in us-east-1. Include the value of `atlas.accounts.identity-merge.federated`, the observed `atlas_accounts_identity_merge_total` rate, and whether the 687 per minute ceiling was reached.
+To keep two identity nodes were created before the email link resolved from recurring, Revenue Engineering added monitoring on the identity graph that alerts before `atlas_accounts_identity_merge_total` reaches 79 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4157 is often confused with a plain permissions fault on hollowbrook-systems, but a permissions fault leaves `atlas_accounts_identity_merge_total` flat while ATL-4157 drives it above 79 percent. A second misread is blaming the 687 per minute ceiling when the true limit reached was the 6529 row cap. Check `atlas.accounts.identity-merge.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated identity merge action against Hollowbrook Systems writes an audit entry tagged RB-ACC-0058 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.accounts.identity-merge.federated`, and whether ATL-4157 was observed. Never log raw credentials for hollowbrook-systems; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4157 clears on Hollowbrook Systems, confirm downstream accounts jobs that read `atlas.accounts.identity-merge.federated` still run. Scheduled work reading federated-identity-merge output may lag by up to 2209 milliseconds per batch of 411. Re-check hollowbrook-systems after 10 days, before the 10 day warm retention window expires.
+Re-check hollowbrook-systems after 10 days. Confirm the 687 per minute ceiling and the 6529 row cap still suit Hollowbrook Systems on the Growth plan, and that the graph resolves the person to exactly one node remains true.

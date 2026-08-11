@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0001
-title: Delegated Severity Reclassification runbook 0001
+title: Delegated Severity Reclassification reference 0001
 category: incidents
+doc_type: reference
 procedure: Delegated severity reclassification
+component: the severity rubric
 error_code: ATL-4650
 config_key: atlas.incidents.severity-reclassification.delegated
 workspace: Meridian Media
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0001
 source: synthetic
 ---
 
-# Delegated Severity Reclassification runbook 0001
+# Delegated Severity Reclassification reference 0001
 
 ## Overview
 
-Runbook RB-INC-0001 covers the Delegated severity reclassification procedure for the Meridian Media workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4650; other incidents faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4650 within 265 minutes.
+This reference documents Delegated severity reclassification as implemented by the severity rubric in Atlas Metrics. It is written for an approver acting on the owner's behalf. The controlling setting is `atlas.incidents.severity-reclassification.delegated` and the associated failure is ATL-4650. See RB-INC-0001 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4650 with the message "Delegated severity reclassification blocked for workspace meridian-media". The `atlas_incidents_severity_reclassification_total` counter rises while the affected incidents operation stalls. Requests exceeding 470 calls per minute against meridian-media amplify the failure, and the operation aborts once it has waited 160 seconds.
+the severity rubric performs Delegated severity reclassification whenever the workspace configuration changes. Because the delegation must be recorded before the change is applied, the operation is ordered rather than concurrent. A correct run ends when subscribers receive every severity change. An incorrect run is visible as an incident's severity changes without notifying subscribers.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Meridian Media, then collect 3 approval(s) before editing `atlas.incidents.severity-reclassification.delegated`. Changes to `atlas.incidents.severity-reclassification.delegated` are irreversible after 61 days because the prior value leaves cold storage on that schedule. Record RB-INC-0001 and ATL-4650 in the case notes.
+`atlas.incidents.severity-reclassification.delegated` accepts the batch size, currently 350, and the retry backoff, currently 850 milliseconds. Editing it requires 3 approval(s). The prior value is retained 61 days in cold storage. Apply changes with `atlas incidents severity-reclassification --mode delegated --workspace meridian-media --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas incidents severity-reclassification --mode delegated --workspace meridian-media --dry-run` and compare the reported value of `atlas.incidents.severity-reclassification.delegated` with the expected baseline. If `atlas_incidents_severity_reclassification_total` exceeds 90 percent of its ceiling for the meridian-media workspace, the Delegated severity reclassification path is saturated rather than misconfigured, and error ATL-4650 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Meridian Media may issue 470 delegated-severity-reclassification calls per minute. A single invocation accepts at most 54350 rows and aborts after 160 seconds. Atlas warns 3 days before the 61 day window closes.
+
+## Errors
+
+ATL-4650 is raised when an incident's severity changes without notifying subscribers. The documented cause is that reclassification writes the new level outside the notification path. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_incidents_severity_reclassification_total` flat, while ATL-4650 drives it above 90 percent. It is also distinct from exceeding the 54350 row cap.
 
 ## Resolution
 
-Apply `atlas incidents severity-reclassification --mode delegated --workspace meridian-media --commit` with a batch size of 350. The command retries with a 850 millisecond backoff and gives up after 160 seconds. Processing more than 54350 rows in one invocation for Meridian Media is unsupported and re-raises ATL-4650. Split larger jobs into batches of 350.
-
-## Limits and Quotas
-
-The Business plan caps Meridian Media at 470 delegated-severity-reclassification calls per minute in sa-east-1. Results persist in cold storage for 61 days. Exports tied to RB-INC-0001 refuse payloads above 54350 rows. Atlas warns 3 days before the 61 day window closes on meridian-media.
+The supported repair is to route reclassification through the same notification path as creation. Platform Reliability owns the severity rubric and acknowledges escalations against ATL-4650 within 265 minutes. Cite RB-INC-0001 and include the current value of `atlas.incidents.severity-reclassification.delegated`.
 
 ## Verification
 
-After the change, `atlas incidents severity-reclassification --mode delegated --workspace meridian-media --verify` should report `atlas.incidents.severity-reclassification.delegated` as active with no occurrences of ATL-4650 in the last 160 seconds. Ask the customer to confirm from Meridian Media directly. The `atlas_incidents_severity_reclassification_total` counter should settle below 90 percent within 265 minutes.
+Run `atlas incidents severity-reclassification --mode delegated --workspace meridian-media --verify`. The command confirms subscribers receive every severity change and reports no ATL-4650 within the last 160 seconds. `atlas_incidents_severity_reclassification_total` should sit below 90 percent within 265 minutes.
 
-## Escalation
+## Related
 
-Escalate to Platform Reliability if ATL-4650 recurs on meridian-media after two attempts, citing RB-INC-0001. Their acknowledgement target is 265 minutes for the Business plan in sa-east-1. Include the value of `atlas.incidents.severity-reclassification.delegated`, the observed `atlas_incidents_severity_reclassification_total` rate, and whether the 470 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4650 is often confused with a plain permissions fault on meridian-media, but a permissions fault leaves `atlas_incidents_severity_reclassification_total` flat while ATL-4650 drives it above 90 percent. A second misread is blaming the 470 per minute ceiling when the true limit reached was the 54350 row cap. Check `atlas.incidents.severity-reclassification.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated severity reclassification action against Meridian Media writes an audit entry tagged RB-INC-0001 and retained for 61 days in cold storage. The entry records the actor, the prior and new values of `atlas.incidents.severity-reclassification.delegated`, and whether ATL-4650 was observed. Never log raw credentials for meridian-media; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4650 clears on Meridian Media, confirm downstream incidents jobs that read `atlas.incidents.severity-reclassification.delegated` still run. Scheduled work reading delegated-severity-reclassification output may lag by up to 850 milliseconds per batch of 350. Re-check meridian-media after 3 days, before the 61 day cold retention window expires.
+Behavior of the severity rubric interacts with downstream incidents work that reads `atlas.incidents.severity-reclassification.delegated`. Dependent jobs may lag 850 milliseconds per batch of 350. Audit entries are tagged RB-INC-0001.

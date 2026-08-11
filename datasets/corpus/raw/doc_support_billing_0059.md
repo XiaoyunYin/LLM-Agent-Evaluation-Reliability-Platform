@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0059
-title: Federated Seat True-Up runbook 0059
+title: Federated Seat True-Up reference 0059
 category: billing
+doc_type: reference
 procedure: Federated seat true-up
+component: the seat counter
 error_code: ATL-4378
 config_key: atlas.billing.seat-true-up.federated
 workspace: Meridian Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0059
 source: synthetic
 ---
 
-# Federated Seat True-Up runbook 0059
+# Federated Seat True-Up reference 0059
 
 ## Overview
 
-Runbook RB-BIL-0059 covers the Federated seat true-up procedure for the Meridian Digital workspace in Atlas Metrics, hosted in sa-east-1 on the Business plan. It applies only when the platform emits error ATL-4378; other billing faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4378 within 179 minutes.
+This reference documents Federated seat true-up as implemented by the seat counter in Atlas Metrics. It is written for an administrator whose identity is held by an external provider. The controlling setting is `atlas.billing.seat-true-up.federated` and the associated failure is ATL-4378. See RB-BIL-0059 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4378 with the message "Federated seat true-up blocked for workspace meridian-digital". The `atlas_billing_seat_true_up_total` counter rises while the affected billing operation stalls. Requests exceeding 298 calls per minute against meridian-digital amplify the failure, and the operation aborts once it has waited 251 seconds.
+the seat counter performs Federated seat true-up whenever the workspace configuration changes. Because the external provider must confirm the identity before the change, the operation is ordered rather than concurrent. A correct run ends when the charge matches observed peak seat count. An incorrect run is visible as the true-up charge undercounts peak seat usage.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Meridian Digital, then collect 3 approval(s) before editing `atlas.billing.seat-true-up.federated`. Changes to `atlas.billing.seat-true-up.federated` are irreversible after 85 days because the prior value leaves cold storage on that schedule. Record RB-BIL-0059 and ATL-4378 in the case notes.
+`atlas.billing.seat-true-up.federated` accepts the batch size, currently 744, and the retry backoff, currently 586 milliseconds. Editing it requires 3 approval(s). The prior value is retained 85 days in cold storage. Apply changes with `atlas billing seat-true-up --mode federated --workspace meridian-digital --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas billing seat-true-up --mode federated --workspace meridian-digital --dry-run` and compare the reported value of `atlas.billing.seat-true-up.federated` with the expected baseline. If `atlas_billing_seat_true_up_total` exceeds 56 percent of its ceiling for the meridian-digital workspace, the Federated seat true-up path is saturated rather than misconfigured, and error ATL-4378 is a symptom instead of the cause.
+On the Business plan in sa-east-1, Meridian Digital may issue 298 federated-seat-true-up calls per minute. A single invocation accepts at most 27966 rows and aborts after 251 seconds. Atlas warns 6 days before the 85 day window closes.
+
+## Errors
+
+ATL-4378 is raised when the true-up charge undercounts peak seat usage. The documented cause is that the counter samples at period end rather than tracking the peak. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_billing_seat_true_up_total` flat, while ATL-4378 drives it above 56 percent. It is also distinct from exceeding the 27966 row cap.
 
 ## Resolution
 
-Apply `atlas billing seat-true-up --mode federated --workspace meridian-digital --commit` with a batch size of 744. The command retries with a 586 millisecond backoff and gives up after 251 seconds. Processing more than 27966 rows in one invocation for Meridian Digital is unsupported and re-raises ATL-4378. Split larger jobs into batches of 744.
-
-## Limits and Quotas
-
-The Business plan caps Meridian Digital at 298 federated-seat-true-up calls per minute in sa-east-1. Results persist in cold storage for 85 days. Exports tied to RB-BIL-0059 refuse payloads above 27966 rows. Atlas warns 6 days before the 85 day window closes on meridian-digital.
+The supported repair is to track a running peak and true up against it. Data Delivery owns the seat counter and acknowledges escalations against ATL-4378 within 179 minutes. Cite RB-BIL-0059 and include the current value of `atlas.billing.seat-true-up.federated`.
 
 ## Verification
 
-After the change, `atlas billing seat-true-up --mode federated --workspace meridian-digital --verify` should report `atlas.billing.seat-true-up.federated` as active with no occurrences of ATL-4378 in the last 251 seconds. Ask the customer to confirm from Meridian Digital directly. The `atlas_billing_seat_true_up_total` counter should settle below 56 percent within 179 minutes.
+Run `atlas billing seat-true-up --mode federated --workspace meridian-digital --verify`. The command confirms the charge matches observed peak seat count and reports no ATL-4378 within the last 251 seconds. `atlas_billing_seat_true_up_total` should sit below 56 percent within 179 minutes.
 
-## Escalation
+## Related
 
-Escalate to Data Delivery if ATL-4378 recurs on meridian-digital after two attempts, citing RB-BIL-0059. Their acknowledgement target is 179 minutes for the Business plan in sa-east-1. Include the value of `atlas.billing.seat-true-up.federated`, the observed `atlas_billing_seat_true_up_total` rate, and whether the 298 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4378 is often confused with a plain permissions fault on meridian-digital, but a permissions fault leaves `atlas_billing_seat_true_up_total` flat while ATL-4378 drives it above 56 percent. A second misread is blaming the 298 per minute ceiling when the true limit reached was the 27966 row cap. Check `atlas.billing.seat-true-up.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated seat true-up action against Meridian Digital writes an audit entry tagged RB-BIL-0059 and retained for 85 days in cold storage. The entry records the actor, the prior and new values of `atlas.billing.seat-true-up.federated`, and whether ATL-4378 was observed. Never log raw credentials for meridian-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4378 clears on Meridian Digital, confirm downstream billing jobs that read `atlas.billing.seat-true-up.federated` still run. Scheduled work reading federated-seat-true-up output may lag by up to 586 milliseconds per batch of 744. Re-check meridian-digital after 6 days, before the 85 day cold retention window expires.
+Behavior of the seat counter interacts with downstream billing work that reads `atlas.billing.seat-true-up.federated`. Dependent jobs may lag 586 milliseconds per batch of 744. Audit entries are tagged RB-BIL-0059.

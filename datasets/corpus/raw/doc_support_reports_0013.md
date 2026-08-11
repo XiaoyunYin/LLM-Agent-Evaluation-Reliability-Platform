@@ -2,7 +2,9 @@
 doc_id: doc_support_reports_0013
 title: Scheduled Recipient Pruning runbook 0013
 category: reports
+doc_type: runbook
 procedure: Scheduled recipient pruning
+component: the recipient list manager
 error_code: ATL-4992
 config_key: atlas.reports.recipient-pruning.scheduled
 workspace: Perihelion Agritech
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-REP-0013 covers the Scheduled recipient pruning procedure for the Perihelion Agritech workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4992; other reports faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4992 within 226 minutes.
+RB-REP-0013 describes Scheduled recipient pruning for Perihelion Agritech, where reports continue to reach departed employees. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the recipient list manager. This document applies only when Atlas raises ATL-4992; other reports faults are covered elsewhere. Identity Services owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4992 with the message "Scheduled recipient pruning blocked for workspace perihelion-agritech". The `atlas_reports_recipient_pruning_total` counter rises while the affected reports operation stalls. Requests exceeding 472 calls per minute against perihelion-agritech amplify the failure, and the operation aborts once it has waited 274 seconds.
+Reporters describe the same thing: reports continue to reach departed employees. Atlas raises ATL-4992 against the perihelion-agritech workspace and `atlas_reports_recipient_pruning_total` climbs past 99 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the recipient list manager is under load. Requests beyond 472 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Perihelion Agritech, then collect 1 approval(s) before editing `atlas.reports.recipient-pruning.scheduled`. Changes to `atlas.reports.recipient-pruning.scheduled` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-REP-0013 and ATL-4992 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas reports recipient-pruning --mode scheduled --workspace perihelion-agritech --dry-run` and compare the reported value of `atlas.reports.recipient-pruning.scheduled` with the expected baseline. If `atlas_reports_recipient_pruning_total` exceeds 99 percent of its ceiling for the perihelion-agritech workspace, the Scheduled recipient pruning path is saturated rather than misconfigured, and error ATL-4992 is a symptom instead of the cause.
+The underlying fault is that the list stores addresses rather than references to directory entries. This is a property of the recipient list manager rather than of any single workspace, so Perihelion Agritech is affected only because it exercises that path. The 274 second abort is a consequence, not the cause; raising it hides ATL-4992 without repairing the recipient list manager.
 
 ## Resolution
 
-Apply `atlas reports recipient-pruning --mode scheduled --workspace perihelion-agritech --commit` with a batch size of 616. The command retries with a 3704 millisecond backoff and gives up after 274 seconds. Processing more than 87524 rows in one invocation for Perihelion Agritech is unsupported and re-raises ATL-4992. Split larger jobs into batches of 616.
-
-## Limits and Quotas
-
-The Starter plan caps Perihelion Agritech at 472 scheduled-recipient-pruning calls per minute in ap-southeast-1. Results persist in hot storage for 79 days. Exports tied to RB-REP-0013 refuse payloads above 87524 rows. Atlas warns 20 days before the 79 day window closes on perihelion-agritech.
+To repair the fault, store directory references and resolve at send time. Run `atlas reports recipient-pruning --mode scheduled --workspace perihelion-agritech --commit` with a batch size of 616, retrying with a 3704 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 87524 rows in one invocation. Editing `atlas.reports.recipient-pruning.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas reports recipient-pruning --mode scheduled --workspace perihelion-agritech --verify` should report `atlas.reports.recipient-pruning.scheduled` as active with no occurrences of ATL-4992 in the last 274 seconds. Ask the customer to confirm from Perihelion Agritech directly. The `atlas_reports_recipient_pruning_total` counter should settle below 99 percent within 226 minutes.
+The repair has landed when departed employees receive nothing. Confirm with `atlas reports recipient-pruning --mode scheduled --workspace perihelion-agritech --verify`, which should report `atlas.reports.recipient-pruning.scheduled` active and no ATL-4992 in the last 274 seconds. `atlas_reports_recipient_pruning_total` should settle below 99 percent within 226 minutes.
+
+## Limits
+
+Perihelion Agritech is capped at 472 scheduled-recipient-pruning calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 79 days, and Atlas warns 20 days before that window closes. Payloads above 87524 rows are refused.
 
 ## Escalation
 
-Escalate to Identity Services if ATL-4992 recurs on perihelion-agritech after two attempts, citing RB-REP-0013. Their acknowledgement target is 226 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.reports.recipient-pruning.scheduled`, the observed `atlas_reports_recipient_pruning_total` rate, and whether the 472 per minute ceiling was reached.
+Escalate to Identity Services citing RB-REP-0013 if ATL-4992 recurs after two attempts, or if reports continue to reach departed employees persists once departed employees receive nothing. Their acknowledgement target is 226 minutes. Include the value of `atlas.reports.recipient-pruning.scheduled` and the observed `atlas_reports_recipient_pruning_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4992 is often confused with a plain permissions fault on perihelion-agritech, but a permissions fault leaves `atlas_reports_recipient_pruning_total` flat while ATL-4992 drives it above 99 percent. A second misread is blaming the 472 per minute ceiling when the true limit reached was the 87524 row cap. Check `atlas.reports.recipient-pruning.scheduled` before assuming either.
+Every Scheduled recipient pruning action against Perihelion Agritech writes an entry tagged RB-REP-0013, retained 79 days in hot storage, recording the actor and both values of `atlas.reports.recipient-pruning.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the recipient list manager was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled recipient pruning action against Perihelion Agritech writes an audit entry tagged RB-REP-0013 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.reports.recipient-pruning.scheduled`, and whether ATL-4992 was observed. Never log raw credentials for perihelion-agritech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4992 clears on Perihelion Agritech, confirm downstream reports jobs that read `atlas.reports.recipient-pruning.scheduled` still run. Scheduled work reading scheduled-recipient-pruning output may lag by up to 3704 milliseconds per batch of 616. Re-check perihelion-agritech after 20 days, before the 79 day hot retention window expires.
+Once ATL-4992 clears, confirm downstream reports jobs reading `atlas.reports.recipient-pruning.scheduled` still run. Work depending on the recipient list manager may lag 3704 milliseconds per batch of 616. Re-check perihelion-agritech after 20 days.

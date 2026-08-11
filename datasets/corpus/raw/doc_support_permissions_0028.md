@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0028
-title: Bulk Least-Privilege Audit runbook 0028
+title: Bulk Least-Privilege Audit incident review 0028
 category: permissions
+doc_type: postmortem
 procedure: Bulk least-privilege audit
+component: the entitlement auditor
 error_code: ATL-4897
 config_key: atlas.permissions.least-privilege-audit.bulk
 workspace: Westmark Energy
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0028
 source: synthetic
 ---
 
-# Bulk Least-Privilege Audit runbook 0028
+# Bulk Least-Privilege Audit incident review 0028
 
-## Overview
+## Summary
 
-Runbook RB-PER-0028 covers the Bulk least-privilege audit procedure for the Westmark Energy workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4897; other permissions faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4897 within 26 minutes.
+On the Growth plan in ap-northeast-3, Westmark Energy reported that the audit reports privileges nobody actually uses as required. Atlas raised ATL-4897 for 26 minutes before Customer Trust mitigated. The fault was in the entitlement auditor. Review reference RB-PER-0028.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4897 with the message "Bulk least-privilege audit blocked for workspace westmark-energy". The `atlas_permissions_least_privilege_audit_total` counter rises while the affected permissions operation stalls. Requests exceeding 367 calls per minute against westmark-energy amplify the failure, and the operation aborts once it has waited 179 seconds.
+Westmark Energy was unable to complete Bulk least-privilege audit while ATL-4897 persisted. Roughly 78309 rows were delayed and `atlas_permissions_least_privilege_audit_total` held above 59 percent throughout. Because the batch must be splittable so a partial failure is recoverable, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Westmark Energy, then collect 2 approval(s) before editing `atlas.permissions.least-privilege-audit.bulk`. Changes to `atlas.permissions.least-privilege-audit.bulk` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-PER-0028 and ATL-4897 in the case notes.
+Operations first saw `atlas_permissions_least_privilege_audit_total` cross 59 percent. ATL-4897 appeared against westmark-energy once traffic exceeded 367 per minute. The page reached Customer Trust within 26 minutes. Investigation focused on the entitlement auditor after the audit reports privileges nobody actually uses as required was reproduced with `atlas permissions least-privilege-audit --mode bulk --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas permissions least-privilege-audit --mode bulk --workspace westmark-energy --dry-run` and compare the reported value of `atlas.permissions.least-privilege-audit.bulk` with the expected baseline. If `atlas_permissions_least_privilege_audit_total` exceeds 59 percent of its ceiling for the westmark-energy workspace, the Bulk least-privilege audit path is saturated rather than misconfigured, and error ATL-4897 is a symptom instead of the cause.
+the auditor reads granted entitlements without usage evidence. The condition had existed in the entitlement auditor for some time and became visible only when Westmark Energy crossed 367 calls per minute. The 179 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas permissions least-privilege-audit --mode bulk --workspace westmark-energy --commit` with a batch size of 331. The command retries with a 189 millisecond backoff and gives up after 179 seconds. Processing more than 78309 rows in one invocation for Westmark Energy is unsupported and re-raises ATL-4897. Split larger jobs into batches of 331.
-
-## Limits and Quotas
-
-The Growth plan caps Westmark Energy at 367 bulk-least-privilege-audit calls per minute in ap-northeast-3. Results persist in warm storage for 46 days. Exports tied to RB-PER-0028 refuse payloads above 78309 rows. Atlas warns 25 days before the 46 day window closes on westmark-energy.
+The team applied the standing fix: join granted entitlements against observed usage. This was executed with `atlas permissions least-privilege-audit --mode bulk --workspace westmark-energy --commit` at a batch size of 331, backing off 189 milliseconds between attempts, under 2 approval(s) against `atlas.permissions.least-privilege-audit.bulk`.
 
 ## Verification
 
-After the change, `atlas permissions least-privilege-audit --mode bulk --workspace westmark-energy --verify` should report `atlas.permissions.least-privilege-audit.bulk` as active with no occurrences of ATL-4897 in the last 179 seconds. Ask the customer to confirm from Westmark Energy directly. The `atlas_permissions_least_privilege_audit_total` counter should settle below 59 percent within 26 minutes.
+Recovery was confirmed when the report separates used from unused entitlements. `atlas_permissions_least_privilege_audit_total` returned below 59 percent and ATL-4897 stopped appearing for westmark-energy. Because the batch must be splittable so a partial failure is recoverable, the team also confirmed the entitlement auditor had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Customer Trust if ATL-4897 recurs on westmark-energy after two attempts, citing RB-PER-0028. Their acknowledgement target is 26 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.permissions.least-privilege-audit.bulk`, the observed `atlas_permissions_least_privilege_audit_total` rate, and whether the 367 per minute ceiling was reached.
+To keep the auditor reads granted entitlements without usage evidence from recurring, Customer Trust added monitoring on the entitlement auditor that alerts before `atlas_permissions_least_privilege_audit_total` reaches 59 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4897 is often confused with a plain permissions fault on westmark-energy, but a permissions fault leaves `atlas_permissions_least_privilege_audit_total` flat while ATL-4897 drives it above 59 percent. A second misread is blaming the 367 per minute ceiling when the true limit reached was the 78309 row cap. Check `atlas.permissions.least-privilege-audit.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk least-privilege audit action against Westmark Energy writes an audit entry tagged RB-PER-0028 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.permissions.least-privilege-audit.bulk`, and whether ATL-4897 was observed. Never log raw credentials for westmark-energy; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4897 clears on Westmark Energy, confirm downstream permissions jobs that read `atlas.permissions.least-privilege-audit.bulk` still run. Scheduled work reading bulk-least-privilege-audit output may lag by up to 189 milliseconds per batch of 331. Re-check westmark-energy after 25 days, before the 46 day warm retention window expires.
+Re-check westmark-energy after 25 days. Confirm the 367 per minute ceiling and the 78309 row cap still suit Westmark Energy on the Growth plan, and that the report separates used from unused entitlements remains true.

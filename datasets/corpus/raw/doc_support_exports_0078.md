@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0078
-title: Throttled Column Remapping runbook 0078
+title: Throttled Column Remapping incident review 0078
 category: exports
+doc_type: postmortem
 procedure: Throttled column remapping
+component: the export column mapper
 error_code: ATL-4617
 config_key: atlas.exports.column-remapping.throttled
 workspace: Oakfield Interactive
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0078
 source: synthetic
 ---
 
-# Throttled Column Remapping runbook 0078
+# Throttled Column Remapping incident review 0078
 
-## Overview
+## Summary
 
-Runbook RB-EXP-0078 covers the Throttled column remapping procedure for the Oakfield Interactive workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4617; other exports faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4617 within 181 minutes.
+On the Growth plan in ap-northeast-3, Oakfield Interactive reported that exported columns land under the wrong headers. Atlas raised ATL-4617 for 181 minutes before Platform Reliability mitigated. The fault was in the export column mapper. Review reference RB-EXP-0078.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4617 with the message "Throttled column remapping blocked for workspace oakfield-interactive". The `atlas_exports_column_remapping_total` counter rises while the affected exports operation stalls. Requests exceeding 107 calls per minute against oakfield-interactive amplify the failure, and the operation aborts once it has waited 214 seconds.
+Oakfield Interactive was unable to complete Throttled column remapping while ATL-4617 persisted. Roughly 51149 rows were delayed and `atlas_exports_column_remapping_total` held above 69 percent throughout. Because the change must yield capacity to interactive traffic, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Oakfield Interactive, then collect 2 approval(s) before editing `atlas.exports.column-remapping.throttled`. Changes to `atlas.exports.column-remapping.throttled` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-EXP-0078 and ATL-4617 in the case notes.
+Operations first saw `atlas_exports_column_remapping_total` cross 69 percent. ATL-4617 appeared against oakfield-interactive once traffic exceeded 107 per minute. The page reached Platform Reliability within 181 minutes. Investigation focused on the export column mapper after exported columns land under the wrong headers was reproduced with `atlas exports column-remapping --mode throttled --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas exports column-remapping --mode throttled --workspace oakfield-interactive --dry-run` and compare the reported value of `atlas.exports.column-remapping.throttled` with the expected baseline. If `atlas_exports_column_remapping_total` exceeds 69 percent of its ceiling for the oakfield-interactive workspace, the Throttled column remapping path is saturated rather than misconfigured, and error ATL-4617 is a symptom instead of the cause.
+the mapper matches by ordinal after an upstream column insert. The condition had existed in the export column mapper for some time and became visible only when Oakfield Interactive crossed 107 calls per minute. The 214 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas exports column-remapping --mode throttled --workspace oakfield-interactive --commit` with a batch size of 541. The command retries with a 4529 millisecond backoff and gives up after 214 seconds. Processing more than 51149 rows in one invocation for Oakfield Interactive is unsupported and re-raises ATL-4617. Split larger jobs into batches of 541.
-
-## Limits and Quotas
-
-The Growth plan caps Oakfield Interactive at 107 throttled-column-remapping calls per minute in ap-northeast-3. Results persist in warm storage for 46 days. Exports tied to RB-EXP-0078 refuse payloads above 51149 rows. Atlas warns 20 days before the 46 day window closes on oakfield-interactive.
+The team applied the standing fix: match columns by name rather than ordinal. This was executed with `atlas exports column-remapping --mode throttled --workspace oakfield-interactive --commit` at a batch size of 541, backing off 4529 milliseconds between attempts, under 2 approval(s) against `atlas.exports.column-remapping.throttled`.
 
 ## Verification
 
-After the change, `atlas exports column-remapping --mode throttled --workspace oakfield-interactive --verify` should report `atlas.exports.column-remapping.throttled` as active with no occurrences of ATL-4617 in the last 214 seconds. Ask the customer to confirm from Oakfield Interactive directly. The `atlas_exports_column_remapping_total` counter should settle below 69 percent within 181 minutes.
+Recovery was confirmed when headers and values correspond in every row. `atlas_exports_column_remapping_total` returned below 69 percent and ATL-4617 stopped appearing for oakfield-interactive. Because the change must yield capacity to interactive traffic, the team also confirmed the export column mapper had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Platform Reliability if ATL-4617 recurs on oakfield-interactive after two attempts, citing RB-EXP-0078. Their acknowledgement target is 181 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.exports.column-remapping.throttled`, the observed `atlas_exports_column_remapping_total` rate, and whether the 107 per minute ceiling was reached.
+To keep the mapper matches by ordinal after an upstream column insert from recurring, Platform Reliability added monitoring on the export column mapper that alerts before `atlas_exports_column_remapping_total` reaches 69 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4617 is often confused with a plain permissions fault on oakfield-interactive, but a permissions fault leaves `atlas_exports_column_remapping_total` flat while ATL-4617 drives it above 69 percent. A second misread is blaming the 107 per minute ceiling when the true limit reached was the 51149 row cap. Check `atlas.exports.column-remapping.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled column remapping action against Oakfield Interactive writes an audit entry tagged RB-EXP-0078 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.exports.column-remapping.throttled`, and whether ATL-4617 was observed. Never log raw credentials for oakfield-interactive; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4617 clears on Oakfield Interactive, confirm downstream exports jobs that read `atlas.exports.column-remapping.throttled` still run. Scheduled work reading throttled-column-remapping output may lag by up to 4529 milliseconds per batch of 541. Re-check oakfield-interactive after 20 days, before the 46 day warm retention window expires.
+Re-check oakfield-interactive after 20 days. Confirm the 107 per minute ceiling and the 51149 row cap still suit Oakfield Interactive on the Growth plan, and that headers and values correspond in every row remains true.

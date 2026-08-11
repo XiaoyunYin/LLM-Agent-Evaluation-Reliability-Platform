@@ -2,7 +2,9 @@
 doc_id: doc_support_exports_0001
 title: Delegated Column Remapping runbook 0001
 category: exports
+doc_type: runbook
 procedure: Delegated column remapping
+component: the export column mapper
 error_code: ATL-4540
 config_key: atlas.exports.column-remapping.delegated
 workspace: Ravenswood Robotics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-EXP-0001 covers the Delegated column remapping procedure for the Ravenswood Robotics workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4540; other exports faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4540 within 215 minutes.
+RB-EXP-0001 describes Delegated column remapping for Ravenswood Robotics, where exported columns land under the wrong headers. The work is performed by an approver acting on the owner's behalf, and the delegation must be recorded before the change is applied. The affected component is the export column mapper. This document applies only when Atlas raises ATL-4540; other exports faults are covered elsewhere. Platform Reliability owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4540 with the message "Delegated column remapping blocked for workspace ravenswood-robotics". The `atlas_exports_column_remapping_total` counter rises while the affected exports operation stalls. Requests exceeding 200 calls per minute against ravenswood-robotics amplify the failure, and the operation aborts once it has waited 245 seconds.
+Reporters describe the same thing: exported columns land under the wrong headers. Atlas raises ATL-4540 against the ravenswood-robotics workspace and `atlas_exports_column_remapping_total` climbs past 65 percent. Because the delegation must be recorded before the change is applied, the symptom can look intermittent when the export column mapper is under load. Requests beyond 200 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ravenswood Robotics, then collect 1 approval(s) before editing `atlas.exports.column-remapping.delegated`. Changes to `atlas.exports.column-remapping.delegated` are irreversible after 67 days because the prior value leaves hot storage on that schedule. Record RB-EXP-0001 and ATL-4540 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas exports column-remapping --mode delegated --workspace ravenswood-robotics --dry-run` and compare the reported value of `atlas.exports.column-remapping.delegated` with the expected baseline. If `atlas_exports_column_remapping_total` exceeds 65 percent of its ceiling for the ravenswood-robotics workspace, the Delegated column remapping path is saturated rather than misconfigured, and error ATL-4540 is a symptom instead of the cause.
+The underlying fault is that the mapper matches by ordinal after an upstream column insert. This is a property of the export column mapper rather than of any single workspace, so Ravenswood Robotics is affected only because it exercises that path. The 245 second abort is a consequence, not the cause; raising it hides ATL-4540 without repairing the export column mapper.
 
 ## Resolution
 
-Apply `atlas exports column-remapping --mode delegated --workspace ravenswood-robotics --commit` with a batch size of 670. The command retries with a 1680 millisecond backoff and gives up after 245 seconds. Processing more than 43680 rows in one invocation for Ravenswood Robotics is unsupported and re-raises ATL-4540. Split larger jobs into batches of 670.
-
-## Limits and Quotas
-
-The Starter plan caps Ravenswood Robotics at 200 delegated-column-remapping calls per minute in us-west-2. Results persist in hot storage for 67 days. Exports tied to RB-EXP-0001 refuse payloads above 43680 rows. Atlas warns 18 days before the 67 day window closes on ravenswood-robotics.
+To repair the fault, match columns by name rather than ordinal. Run `atlas exports column-remapping --mode delegated --workspace ravenswood-robotics --commit` with a batch size of 670, retrying with a 1680 millisecond backoff. Because the delegation must be recorded before the change is applied, do not exceed 43680 rows in one invocation. Editing `atlas.exports.column-remapping.delegated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas exports column-remapping --mode delegated --workspace ravenswood-robotics --verify` should report `atlas.exports.column-remapping.delegated` as active with no occurrences of ATL-4540 in the last 245 seconds. Ask the customer to confirm from Ravenswood Robotics directly. The `atlas_exports_column_remapping_total` counter should settle below 65 percent within 215 minutes.
+The repair has landed when headers and values correspond in every row. Confirm with `atlas exports column-remapping --mode delegated --workspace ravenswood-robotics --verify`, which should report `atlas.exports.column-remapping.delegated` active and no ATL-4540 in the last 245 seconds. `atlas_exports_column_remapping_total` should settle below 65 percent within 215 minutes.
+
+## Limits
+
+Ravenswood Robotics is capped at 200 delegated-column-remapping calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 67 days, and Atlas warns 18 days before that window closes. Payloads above 43680 rows are refused.
 
 ## Escalation
 
-Escalate to Platform Reliability if ATL-4540 recurs on ravenswood-robotics after two attempts, citing RB-EXP-0001. Their acknowledgement target is 215 minutes for the Starter plan in us-west-2. Include the value of `atlas.exports.column-remapping.delegated`, the observed `atlas_exports_column_remapping_total` rate, and whether the 200 per minute ceiling was reached.
+Escalate to Platform Reliability citing RB-EXP-0001 if ATL-4540 recurs after two attempts, or if exported columns land under the wrong headers persists once headers and values correspond in every row. Their acknowledgement target is 215 minutes. Include the value of `atlas.exports.column-remapping.delegated` and the observed `atlas_exports_column_remapping_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4540 is often confused with a plain permissions fault on ravenswood-robotics, but a permissions fault leaves `atlas_exports_column_remapping_total` flat while ATL-4540 drives it above 65 percent. A second misread is blaming the 200 per minute ceiling when the true limit reached was the 43680 row cap. Check `atlas.exports.column-remapping.delegated` before assuming either.
+Every Delegated column remapping action against Ravenswood Robotics writes an entry tagged RB-EXP-0001, retained 67 days in hot storage, recording the actor and both values of `atlas.exports.column-remapping.delegated`. Because the delegation must be recorded before the change is applied, the entry also records whether the export column mapper was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Delegated column remapping action against Ravenswood Robotics writes an audit entry tagged RB-EXP-0001 and retained for 67 days in hot storage. The entry records the actor, the prior and new values of `atlas.exports.column-remapping.delegated`, and whether ATL-4540 was observed. Never log raw credentials for ravenswood-robotics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4540 clears on Ravenswood Robotics, confirm downstream exports jobs that read `atlas.exports.column-remapping.delegated` still run. Scheduled work reading delegated-column-remapping output may lag by up to 1680 milliseconds per batch of 670. Re-check ravenswood-robotics after 18 days, before the 67 day hot retention window expires.
+Once ATL-4540 clears, confirm downstream exports jobs reading `atlas.exports.column-remapping.delegated` still run. Work depending on the export column mapper may lag 1680 milliseconds per batch of 670. Re-check ravenswood-robotics after 18 days.

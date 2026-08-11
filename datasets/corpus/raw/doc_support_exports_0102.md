@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0102
-title: Cascading Archive Expiry runbook 0102
+title: Cascading Archive Expiry incident review 0102
 category: exports
+doc_type: postmortem
 procedure: Cascading archive expiry
+component: the archive lifecycle policy
 error_code: ATL-4641
 config_key: atlas.exports.archive-expiry.cascading
 workspace: Pinecrest Interactive
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0102
 source: synthetic
 ---
 
-# Cascading Archive Expiry runbook 0102
+# Cascading Archive Expiry incident review 0102
 
-## Overview
+## Summary
 
-Runbook RB-EXP-0102 covers the Cascading archive expiry procedure for the Pinecrest Interactive workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4641; other exports faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4641 within 148 minutes.
+On the Growth plan in ap-northeast-3, Pinecrest Interactive reported that archived exports disappear before their stated retention. Atlas raised ATL-4641 for 148 minutes before Revenue Engineering mitigated. The fault was in the archive lifecycle policy. Review reference RB-EXP-0102.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4641 with the message "Cascading archive expiry blocked for workspace pinecrest-interactive". The `atlas_exports_archive_expiry_total` counter rises while the affected exports operation stalls. Requests exceeding 371 calls per minute against pinecrest-interactive amplify the failure, and the operation aborts once it has waited 97 seconds.
+Pinecrest Interactive was unable to complete Cascading archive expiry while ATL-4641 persisted. Roughly 53477 rows were delayed and `atlas_exports_archive_expiry_total` held above 72 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Pinecrest Interactive, then collect 2 approval(s) before editing `atlas.exports.archive-expiry.cascading`. Changes to `atlas.exports.archive-expiry.cascading` are irreversible after 34 days because the prior value leaves warm storage on that schedule. Record RB-EXP-0102 and ATL-4641 in the case notes.
+Operations first saw `atlas_exports_archive_expiry_total` cross 72 percent. ATL-4641 appeared against pinecrest-interactive once traffic exceeded 371 per minute. The page reached Revenue Engineering within 148 minutes. Investigation focused on the archive lifecycle policy after archived exports disappear before their stated retention was reproduced with `atlas exports archive-expiry --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas exports archive-expiry --mode cascading --workspace pinecrest-interactive --dry-run` and compare the reported value of `atlas.exports.archive-expiry.cascading` with the expected baseline. If `atlas_exports_archive_expiry_total` exceeds 72 percent of its ceiling for the pinecrest-interactive workspace, the Cascading archive expiry path is saturated rather than misconfigured, and error ATL-4641 is a symptom instead of the cause.
+the policy measures age from creation rather than from archival. The condition had existed in the archive lifecycle policy for some time and became visible only when Pinecrest Interactive crossed 371 calls per minute. The 97 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas exports archive-expiry --mode cascading --workspace pinecrest-interactive --commit` with a batch size of 143. The command retries with a 517 millisecond backoff and gives up after 97 seconds. Processing more than 53477 rows in one invocation for Pinecrest Interactive is unsupported and re-raises ATL-4641. Split larger jobs into batches of 143.
-
-## Limits and Quotas
-
-The Growth plan caps Pinecrest Interactive at 371 cascading-archive-expiry calls per minute in ap-northeast-3. Results persist in warm storage for 34 days. Exports tied to RB-EXP-0102 refuse payloads above 53477 rows. Atlas warns 19 days before the 34 day window closes on pinecrest-interactive.
+The team applied the standing fix: measure retention from the archival timestamp. This was executed with `atlas exports archive-expiry --mode cascading --workspace pinecrest-interactive --commit` at a batch size of 143, backing off 517 milliseconds between attempts, under 2 approval(s) against `atlas.exports.archive-expiry.cascading`.
 
 ## Verification
 
-After the change, `atlas exports archive-expiry --mode cascading --workspace pinecrest-interactive --verify` should report `atlas.exports.archive-expiry.cascading` as active with no occurrences of ATL-4641 in the last 97 seconds. Ask the customer to confirm from Pinecrest Interactive directly. The `atlas_exports_archive_expiry_total` counter should settle below 72 percent within 148 minutes.
+Recovery was confirmed when archives persist for their full stated retention. `atlas_exports_archive_expiry_total` returned below 72 percent and ATL-4641 stopped appearing for pinecrest-interactive. Because dependents must be re-evaluated after the change lands, the team also confirmed the archive lifecycle policy had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Revenue Engineering if ATL-4641 recurs on pinecrest-interactive after two attempts, citing RB-EXP-0102. Their acknowledgement target is 148 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.exports.archive-expiry.cascading`, the observed `atlas_exports_archive_expiry_total` rate, and whether the 371 per minute ceiling was reached.
+To keep the policy measures age from creation rather than from archival from recurring, Revenue Engineering added monitoring on the archive lifecycle policy that alerts before `atlas_exports_archive_expiry_total` reaches 72 percent. Retention for the diagnostic trail was set to 34 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4641 is often confused with a plain permissions fault on pinecrest-interactive, but a permissions fault leaves `atlas_exports_archive_expiry_total` flat while ATL-4641 drives it above 72 percent. A second misread is blaming the 371 per minute ceiling when the true limit reached was the 53477 row cap. Check `atlas.exports.archive-expiry.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading archive expiry action against Pinecrest Interactive writes an audit entry tagged RB-EXP-0102 and retained for 34 days in warm storage. The entry records the actor, the prior and new values of `atlas.exports.archive-expiry.cascading`, and whether ATL-4641 was observed. Never log raw credentials for pinecrest-interactive; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4641 clears on Pinecrest Interactive, confirm downstream exports jobs that read `atlas.exports.archive-expiry.cascading` still run. Scheduled work reading cascading-archive-expiry output may lag by up to 517 milliseconds per batch of 143. Re-check pinecrest-interactive after 19 days, before the 34 day warm retention window expires.
+Re-check pinecrest-interactive after 19 days. Confirm the 371 per minute ceiling and the 53477 row cap still suit Pinecrest Interactive on the Growth plan, and that archives persist for their full stated retention remains true.

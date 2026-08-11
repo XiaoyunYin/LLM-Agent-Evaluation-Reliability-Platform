@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0031
 title: Bulk Duplicate Merge runbook 0031
 category: incidents
+doc_type: runbook
 procedure: Bulk duplicate merge
+component: the incident deduplicator
 error_code: ATL-4680
 config_key: atlas.incidents.duplicate-merge.bulk
 workspace: Cobalt Capital
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0031 covers the Bulk duplicate merge procedure for the Cobalt Capital workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4680; other incidents faults use a different runbook. Ownership sits with the Observability team, who accept escalations against ATL-4680 within 310 minutes.
+RB-INC-0031 describes Bulk duplicate merge for Cobalt Capital, where one outage appears as several separate incidents. The work is performed by an operator applying the change across many records at once, and the batch must be splittable so a partial failure is recoverable. The affected component is the incident deduplicator. This document applies only when Atlas raises ATL-4680; other incidents faults are covered elsewhere. Observability owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4680 with the message "Bulk duplicate merge blocked for workspace cobalt-capital". The `atlas_incidents_duplicate_merge_total` counter rises while the affected incidents operation stalls. Requests exceeding 800 calls per minute against cobalt-capital amplify the failure, and the operation aborts once it has waited 85 seconds.
+Reporters describe the same thing: one outage appears as several separate incidents. Atlas raises ATL-4680 against the cobalt-capital workspace and `atlas_incidents_duplicate_merge_total` climbs past 60 percent. Because the batch must be splittable so a partial failure is recoverable, the symptom can look intermittent when the incident deduplicator is under load. Requests beyond 800 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Cobalt Capital, then collect 1 approval(s) before editing `atlas.incidents.duplicate-merge.bulk`. Changes to `atlas.incidents.duplicate-merge.bulk` are irreversible after 67 days because the prior value leaves hot storage on that schedule. Record RB-INC-0031 and ATL-4680 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents duplicate-merge --mode bulk --workspace cobalt-capital --dry-run` and compare the reported value of `atlas.incidents.duplicate-merge.bulk` with the expected baseline. If `atlas_incidents_duplicate_merge_total` exceeds 60 percent of its ceiling for the cobalt-capital workspace, the Bulk duplicate merge path is saturated rather than misconfigured, and error ATL-4680 is a symptom instead of the cause.
+The underlying fault is that the deduplicator matches on title text rather than on signal fingerprint. This is a property of the incident deduplicator rather than of any single workspace, so Cobalt Capital is affected only because it exercises that path. The 85 second abort is a consequence, not the cause; raising it hides ATL-4680 without repairing the incident deduplicator.
 
 ## Resolution
 
-Apply `atlas incidents duplicate-merge --mode bulk --workspace cobalt-capital --commit` with a batch size of 90. The command retries with a 1960 millisecond backoff and gives up after 85 seconds. Processing more than 57260 rows in one invocation for Cobalt Capital is unsupported and re-raises ATL-4680. Split larger jobs into batches of 90.
-
-## Limits and Quotas
-
-The Starter plan caps Cobalt Capital at 800 bulk-duplicate-merge calls per minute in ap-southeast-1. Results persist in hot storage for 67 days. Exports tied to RB-INC-0031 refuse payloads above 57260 rows. Atlas warns 8 days before the 67 day window closes on cobalt-capital.
+To repair the fault, match on the alert signal fingerprint. Run `atlas incidents duplicate-merge --mode bulk --workspace cobalt-capital --commit` with a batch size of 90, retrying with a 1960 millisecond backoff. Because the batch must be splittable so a partial failure is recoverable, do not exceed 57260 rows in one invocation. Editing `atlas.incidents.duplicate-merge.bulk` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents duplicate-merge --mode bulk --workspace cobalt-capital --verify` should report `atlas.incidents.duplicate-merge.bulk` as active with no occurrences of ATL-4680 in the last 85 seconds. Ask the customer to confirm from Cobalt Capital directly. The `atlas_incidents_duplicate_merge_total` counter should settle below 60 percent within 310 minutes.
+The repair has landed when concurrent reports of one fault collapse into one incident. Confirm with `atlas incidents duplicate-merge --mode bulk --workspace cobalt-capital --verify`, which should report `atlas.incidents.duplicate-merge.bulk` active and no ATL-4680 in the last 85 seconds. `atlas_incidents_duplicate_merge_total` should settle below 60 percent within 310 minutes.
+
+## Limits
+
+Cobalt Capital is capped at 800 bulk-duplicate-merge calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 67 days, and Atlas warns 8 days before that window closes. Payloads above 57260 rows are refused.
 
 ## Escalation
 
-Escalate to Observability if ATL-4680 recurs on cobalt-capital after two attempts, citing RB-INC-0031. Their acknowledgement target is 310 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.incidents.duplicate-merge.bulk`, the observed `atlas_incidents_duplicate_merge_total` rate, and whether the 800 per minute ceiling was reached.
+Escalate to Observability citing RB-INC-0031 if ATL-4680 recurs after two attempts, or if one outage appears as several separate incidents persists once concurrent reports of one fault collapse into one incident. Their acknowledgement target is 310 minutes. Include the value of `atlas.incidents.duplicate-merge.bulk` and the observed `atlas_incidents_duplicate_merge_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4680 is often confused with a plain permissions fault on cobalt-capital, but a permissions fault leaves `atlas_incidents_duplicate_merge_total` flat while ATL-4680 drives it above 60 percent. A second misread is blaming the 800 per minute ceiling when the true limit reached was the 57260 row cap. Check `atlas.incidents.duplicate-merge.bulk` before assuming either.
+Every Bulk duplicate merge action against Cobalt Capital writes an entry tagged RB-INC-0031, retained 67 days in hot storage, recording the actor and both values of `atlas.incidents.duplicate-merge.bulk`. Because the batch must be splittable so a partial failure is recoverable, the entry also records whether the incident deduplicator was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Bulk duplicate merge action against Cobalt Capital writes an audit entry tagged RB-INC-0031 and retained for 67 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.duplicate-merge.bulk`, and whether ATL-4680 was observed. Never log raw credentials for cobalt-capital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4680 clears on Cobalt Capital, confirm downstream incidents jobs that read `atlas.incidents.duplicate-merge.bulk` still run. Scheduled work reading bulk-duplicate-merge output may lag by up to 1960 milliseconds per batch of 90. Re-check cobalt-capital after 8 days, before the 67 day hot retention window expires.
+Once ATL-4680 clears, confirm downstream incidents jobs reading `atlas.incidents.duplicate-merge.bulk` still run. Work depending on the incident deduplicator may lag 1960 milliseconds per batch of 90. Re-check cobalt-capital after 8 days.

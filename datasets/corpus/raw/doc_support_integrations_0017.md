@@ -2,7 +2,9 @@
 doc_id: doc_support_integrations_0017
 title: Scheduled Conflict Resolution runbook 0017
 category: integrations
+doc_type: runbook
 procedure: Scheduled conflict resolution
+component: the merge policy engine
 error_code: ATL-4776
 config_key: atlas.integrations.conflict-resolution.scheduled
 workspace: Overton Grid
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INT-0017 covers the Scheduled conflict resolution procedure for the Overton Grid workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4776; other integrations faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4776 within 178 minutes.
+RB-INT-0017 describes Scheduled conflict resolution for Overton Grid, where conflicting edits silently pick the remote value. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the merge policy engine. This document applies only when Atlas raises ATL-4776; other integrations faults are covered elsewhere. Customer Trust owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4776 with the message "Scheduled conflict resolution blocked for workspace overton-grid". The `atlas_integrations_conflict_resolution_total` counter rises while the affected integrations operation stalls. Requests exceeding 916 calls per minute against overton-grid amplify the failure, and the operation aborts once it has waited 187 seconds.
+Reporters describe the same thing: conflicting edits silently pick the remote value. Atlas raises ATL-4776 against the overton-grid workspace and `atlas_integrations_conflict_resolution_total` climbs past 72 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the merge policy engine is under load. Requests beyond 916 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Overton Grid, then collect 1 approval(s) before editing `atlas.integrations.conflict-resolution.scheduled`. Changes to `atlas.integrations.conflict-resolution.scheduled` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-INT-0017 and ATL-4776 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas integrations conflict-resolution --mode scheduled --workspace overton-grid --dry-run` and compare the reported value of `atlas.integrations.conflict-resolution.scheduled` with the expected baseline. If `atlas_integrations_conflict_resolution_total` exceeds 72 percent of its ceiling for the overton-grid workspace, the Scheduled conflict resolution path is saturated rather than misconfigured, and error ATL-4776 is a symptom instead of the cause.
+The underlying fault is that the engine defaults to last-writer-wins with no conflict record. This is a property of the merge policy engine rather than of any single workspace, so Overton Grid is affected only because it exercises that path. The 187 second abort is a consequence, not the cause; raising it hides ATL-4776 without repairing the merge policy engine.
 
 ## Resolution
 
-Apply `atlas integrations conflict-resolution --mode scheduled --workspace overton-grid --commit` with a batch size of 398. The command retries with a 612 millisecond backoff and gives up after 187 seconds. Processing more than 66572 rows in one invocation for Overton Grid is unsupported and re-raises ATL-4776. Split larger jobs into batches of 398.
-
-## Limits and Quotas
-
-The Starter plan caps Overton Grid at 916 scheduled-conflict-resolution calls per minute in ap-southeast-1. Results persist in hot storage for 19 days. Exports tied to RB-INT-0017 refuse payloads above 66572 rows. Atlas warns 4 days before the 19 day window closes on overton-grid.
+To repair the fault, record the conflict and apply the configured resolution policy. Run `atlas integrations conflict-resolution --mode scheduled --workspace overton-grid --commit` with a batch size of 398, retrying with a 612 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 66572 rows in one invocation. Editing `atlas.integrations.conflict-resolution.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas integrations conflict-resolution --mode scheduled --workspace overton-grid --verify` should report `atlas.integrations.conflict-resolution.scheduled` as active with no occurrences of ATL-4776 in the last 187 seconds. Ask the customer to confirm from Overton Grid directly. The `atlas_integrations_conflict_resolution_total` counter should settle below 72 percent within 178 minutes.
+The repair has landed when every conflict leaves an auditable record. Confirm with `atlas integrations conflict-resolution --mode scheduled --workspace overton-grid --verify`, which should report `atlas.integrations.conflict-resolution.scheduled` active and no ATL-4776 in the last 187 seconds. `atlas_integrations_conflict_resolution_total` should settle below 72 percent within 178 minutes.
+
+## Limits
+
+Overton Grid is capped at 916 scheduled-conflict-resolution calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 19 days, and Atlas warns 4 days before that window closes. Payloads above 66572 rows are refused.
 
 ## Escalation
 
-Escalate to Customer Trust if ATL-4776 recurs on overton-grid after two attempts, citing RB-INT-0017. Their acknowledgement target is 178 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.integrations.conflict-resolution.scheduled`, the observed `atlas_integrations_conflict_resolution_total` rate, and whether the 916 per minute ceiling was reached.
+Escalate to Customer Trust citing RB-INT-0017 if ATL-4776 recurs after two attempts, or if conflicting edits silently pick the remote value persists once every conflict leaves an auditable record. Their acknowledgement target is 178 minutes. Include the value of `atlas.integrations.conflict-resolution.scheduled` and the observed `atlas_integrations_conflict_resolution_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4776 is often confused with a plain permissions fault on overton-grid, but a permissions fault leaves `atlas_integrations_conflict_resolution_total` flat while ATL-4776 drives it above 72 percent. A second misread is blaming the 916 per minute ceiling when the true limit reached was the 66572 row cap. Check `atlas.integrations.conflict-resolution.scheduled` before assuming either.
+Every Scheduled conflict resolution action against Overton Grid writes an entry tagged RB-INT-0017, retained 19 days in hot storage, recording the actor and both values of `atlas.integrations.conflict-resolution.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the merge policy engine was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled conflict resolution action against Overton Grid writes an audit entry tagged RB-INT-0017 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.integrations.conflict-resolution.scheduled`, and whether ATL-4776 was observed. Never log raw credentials for overton-grid; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4776 clears on Overton Grid, confirm downstream integrations jobs that read `atlas.integrations.conflict-resolution.scheduled` still run. Scheduled work reading scheduled-conflict-resolution output may lag by up to 612 milliseconds per batch of 398. Re-check overton-grid after 4 days, before the 19 day hot retention window expires.
+Once ATL-4776 clears, confirm downstream integrations jobs reading `atlas.integrations.conflict-resolution.scheduled` still run. Work depending on the merge policy engine may lag 612 milliseconds per batch of 398. Re-check overton-grid after 4 days.

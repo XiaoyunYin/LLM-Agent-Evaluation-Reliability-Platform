@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0085
-title: Throttled Deadlock Resolution runbook 0085
+title: Throttled Deadlock Resolution reference 0085
 category: troubleshooting
+doc_type: reference
 procedure: Throttled deadlock resolution
+component: the lock ordering policy
 error_code: ATL-5174
 config_key: atlas.troubleshooting.deadlock-resolution.throttled
 workspace: Eastgate Textiles
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0085
 source: synthetic
 ---
 
-# Throttled Deadlock Resolution runbook 0085
+# Throttled Deadlock Resolution reference 0085
 
 ## Overview
 
-Runbook RB-TRO-0085 covers the Throttled deadlock resolution procedure for the Eastgate Textiles workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-5174; other troubleshooting faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-5174 within 177 minutes.
+This reference documents Throttled deadlock resolution as implemented by the lock ordering policy in Atlas Metrics. It is written for a caller operating under an active rate limit. The controlling setting is `atlas.troubleshooting.deadlock-resolution.throttled` and the associated failure is ATL-5174. See RB-TRO-0085 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-5174 with the message "Throttled deadlock resolution blocked for workspace eastgate-textiles". The `atlas_troubleshooting_deadlock_resolution_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 594 calls per minute against eastgate-textiles amplify the failure, and the operation aborts once it has waited 123 seconds.
+the lock ordering policy performs Throttled deadlock resolution whenever the workspace configuration changes. Because the change must yield capacity to interactive traffic, the operation is ordered rather than concurrent. A correct run ends when no operation waits on a cycle. An incorrect run is visible as concurrent operations block one another indefinitely.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Eastgate Textiles, then collect 3 approval(s) before editing `atlas.troubleshooting.deadlock-resolution.throttled`. Changes to `atlas.troubleshooting.deadlock-resolution.throttled` are irreversible after 37 days because the prior value leaves cold storage on that schedule. Record RB-TRO-0085 and ATL-5174 in the case notes.
+`atlas.troubleshooting.deadlock-resolution.throttled` accepts the batch size, currently 52, and the retry backoff, currently 638 milliseconds. Editing it requires 3 approval(s). The prior value is retained 37 days in cold storage. Apply changes with `atlas troubleshooting deadlock-resolution --mode throttled --workspace eastgate-textiles --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas troubleshooting deadlock-resolution --mode throttled --workspace eastgate-textiles --dry-run` and compare the reported value of `atlas.troubleshooting.deadlock-resolution.throttled` with the expected baseline. If `atlas_troubleshooting_deadlock_resolution_total` exceeds 88 percent of its ceiling for the eastgate-textiles workspace, the Throttled deadlock resolution path is saturated rather than misconfigured, and error ATL-5174 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Eastgate Textiles may issue 594 throttled-deadlock-resolution calls per minute. A single invocation accepts at most 6178 rows and aborts after 123 seconds. Atlas warns 27 days before the 37 day window closes.
+
+## Errors
+
+ATL-5174 is raised when concurrent operations block one another indefinitely. The documented cause is that two paths acquire the same locks in opposite order. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_troubleshooting_deadlock_resolution_total` flat, while ATL-5174 drives it above 88 percent. It is also distinct from exceeding the 6178 row cap.
 
 ## Resolution
 
-Apply `atlas troubleshooting deadlock-resolution --mode throttled --workspace eastgate-textiles --commit` with a batch size of 52. The command retries with a 638 millisecond backoff and gives up after 123 seconds. Processing more than 6178 rows in one invocation for Eastgate Textiles is unsupported and re-raises ATL-5174. Split larger jobs into batches of 52.
-
-## Limits and Quotas
-
-The Business plan caps Eastgate Textiles at 594 throttled-deadlock-resolution calls per minute in eu-central-1. Results persist in cold storage for 37 days. Exports tied to RB-TRO-0085 refuse payloads above 6178 rows. Atlas warns 27 days before the 37 day window closes on eastgate-textiles.
+The supported repair is to impose a global lock acquisition order on both paths. Workspace Experience owns the lock ordering policy and acknowledges escalations against ATL-5174 within 177 minutes. Cite RB-TRO-0085 and include the current value of `atlas.troubleshooting.deadlock-resolution.throttled`.
 
 ## Verification
 
-After the change, `atlas troubleshooting deadlock-resolution --mode throttled --workspace eastgate-textiles --verify` should report `atlas.troubleshooting.deadlock-resolution.throttled` as active with no occurrences of ATL-5174 in the last 123 seconds. Ask the customer to confirm from Eastgate Textiles directly. The `atlas_troubleshooting_deadlock_resolution_total` counter should settle below 88 percent within 177 minutes.
+Run `atlas troubleshooting deadlock-resolution --mode throttled --workspace eastgate-textiles --verify`. The command confirms no operation waits on a cycle and reports no ATL-5174 within the last 123 seconds. `atlas_troubleshooting_deadlock_resolution_total` should sit below 88 percent within 177 minutes.
 
-## Escalation
+## Related
 
-Escalate to Workspace Experience if ATL-5174 recurs on eastgate-textiles after two attempts, citing RB-TRO-0085. Their acknowledgement target is 177 minutes for the Business plan in eu-central-1. Include the value of `atlas.troubleshooting.deadlock-resolution.throttled`, the observed `atlas_troubleshooting_deadlock_resolution_total` rate, and whether the 594 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-5174 is often confused with a plain permissions fault on eastgate-textiles, but a permissions fault leaves `atlas_troubleshooting_deadlock_resolution_total` flat while ATL-5174 drives it above 88 percent. A second misread is blaming the 594 per minute ceiling when the true limit reached was the 6178 row cap. Check `atlas.troubleshooting.deadlock-resolution.throttled` before assuming either.
-
-## Audit and Logging
-
-Every Throttled deadlock resolution action against Eastgate Textiles writes an audit entry tagged RB-TRO-0085 and retained for 37 days in cold storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.deadlock-resolution.throttled`, and whether ATL-5174 was observed. Never log raw credentials for eastgate-textiles; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5174 clears on Eastgate Textiles, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.deadlock-resolution.throttled` still run. Scheduled work reading throttled-deadlock-resolution output may lag by up to 638 milliseconds per batch of 52. Re-check eastgate-textiles after 27 days, before the 37 day cold retention window expires.
+Behavior of the lock ordering policy interacts with downstream troubleshooting work that reads `atlas.troubleshooting.deadlock-resolution.throttled`. Dependent jobs may lag 638 milliseconds per batch of 52. Audit entries are tagged RB-TRO-0085.

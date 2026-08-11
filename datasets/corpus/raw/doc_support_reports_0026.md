@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_reports_0026
-title: Bulk Aggregation Repair runbook 0026
+title: Bulk Aggregation Repair incident review 0026
 category: reports
+doc_type: postmortem
 procedure: Bulk aggregation repair
+component: the aggregation planner
 error_code: ATL-5005
 config_key: atlas.reports.aggregation-repair.bulk
 workspace: Fernhill Agritech
@@ -12,48 +14,36 @@ runbook_ref: RB-REP-0026
 source: synthetic
 ---
 
-# Bulk Aggregation Repair runbook 0026
+# Bulk Aggregation Repair incident review 0026
 
-## Overview
+## Summary
 
-Runbook RB-REP-0026 covers the Bulk aggregation repair procedure for the Fernhill Agritech workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-5005; other reports faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-5005 within 50 minutes.
+On the Growth plan in us-east-1, Fernhill Agritech reported that totals do not equal the sum of their parts. Atlas raised ATL-5005 for 50 minutes before Data Delivery mitigated. The fault was in the aggregation planner. Review reference RB-REP-0026.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5005 with the message "Bulk aggregation repair blocked for workspace fernhill-agritech". The `atlas_reports_aggregation_repair_total` counter rises while the affected reports operation stalls. Requests exceeding 615 calls per minute against fernhill-agritech amplify the failure, and the operation aborts once it has waited 80 seconds.
+Fernhill Agritech was unable to complete Bulk aggregation repair while ATL-5005 persisted. Roughly 88785 rows were delayed and `atlas_reports_aggregation_repair_total` held above 95 percent throughout. Because the batch must be splittable so a partial failure is recoverable, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Fernhill Agritech, then collect 2 approval(s) before editing `atlas.reports.aggregation-repair.bulk`. Changes to `atlas.reports.aggregation-repair.bulk` are irreversible after 34 days because the prior value leaves warm storage on that schedule. Record RB-REP-0026 and ATL-5005 in the case notes.
+Operations first saw `atlas_reports_aggregation_repair_total` cross 95 percent. ATL-5005 appeared against fernhill-agritech once traffic exceeded 615 per minute. The page reached Data Delivery within 50 minutes. Investigation focused on the aggregation planner after totals do not equal the sum of their parts was reproduced with `atlas reports aggregation-repair --mode bulk --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas reports aggregation-repair --mode bulk --workspace fernhill-agritech --dry-run` and compare the reported value of `atlas.reports.aggregation-repair.bulk` with the expected baseline. If `atlas_reports_aggregation_repair_total` exceeds 95 percent of its ceiling for the fernhill-agritech workspace, the Bulk aggregation repair path is saturated rather than misconfigured, and error ATL-5005 is a symptom instead of the cause.
+the planner averages pre-aggregated averages. The condition had existed in the aggregation planner for some time and became visible only when Fernhill Agritech crossed 615 calls per minute. The 80 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas reports aggregation-repair --mode bulk --workspace fernhill-agritech --commit` with a batch size of 915. The command retries with a 4185 millisecond backoff and gives up after 80 seconds. Processing more than 88785 rows in one invocation for Fernhill Agritech is unsupported and re-raises ATL-5005. Split larger jobs into batches of 915.
-
-## Limits and Quotas
-
-The Growth plan caps Fernhill Agritech at 615 bulk-aggregation-repair calls per minute in us-east-1. Results persist in warm storage for 34 days. Exports tied to RB-REP-0026 refuse payloads above 88785 rows. Atlas warns 8 days before the 34 day window closes on fernhill-agritech.
+The team applied the standing fix: aggregate from base records rather than from partial aggregates. This was executed with `atlas reports aggregation-repair --mode bulk --workspace fernhill-agritech --commit` at a batch size of 915, backing off 4185 milliseconds between attempts, under 2 approval(s) against `atlas.reports.aggregation-repair.bulk`.
 
 ## Verification
 
-After the change, `atlas reports aggregation-repair --mode bulk --workspace fernhill-agritech --verify` should report `atlas.reports.aggregation-repair.bulk` as active with no occurrences of ATL-5005 in the last 80 seconds. Ask the customer to confirm from Fernhill Agritech directly. The `atlas_reports_aggregation_repair_total` counter should settle below 95 percent within 50 minutes.
+Recovery was confirmed when totals reconcile with their components. `atlas_reports_aggregation_repair_total` returned below 95 percent and ATL-5005 stopped appearing for fernhill-agritech. Because the batch must be splittable so a partial failure is recoverable, the team also confirmed the aggregation planner had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Data Delivery if ATL-5005 recurs on fernhill-agritech after two attempts, citing RB-REP-0026. Their acknowledgement target is 50 minutes for the Growth plan in us-east-1. Include the value of `atlas.reports.aggregation-repair.bulk`, the observed `atlas_reports_aggregation_repair_total` rate, and whether the 615 per minute ceiling was reached.
+To keep the planner averages pre-aggregated averages from recurring, Data Delivery added monitoring on the aggregation planner that alerts before `atlas_reports_aggregation_repair_total` reaches 95 percent. Retention for the diagnostic trail was set to 34 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5005 is often confused with a plain permissions fault on fernhill-agritech, but a permissions fault leaves `atlas_reports_aggregation_repair_total` flat while ATL-5005 drives it above 95 percent. A second misread is blaming the 615 per minute ceiling when the true limit reached was the 88785 row cap. Check `atlas.reports.aggregation-repair.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk aggregation repair action against Fernhill Agritech writes an audit entry tagged RB-REP-0026 and retained for 34 days in warm storage. The entry records the actor, the prior and new values of `atlas.reports.aggregation-repair.bulk`, and whether ATL-5005 was observed. Never log raw credentials for fernhill-agritech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5005 clears on Fernhill Agritech, confirm downstream reports jobs that read `atlas.reports.aggregation-repair.bulk` still run. Scheduled work reading bulk-aggregation-repair output may lag by up to 4185 milliseconds per batch of 915. Re-check fernhill-agritech after 8 days, before the 34 day warm retention window expires.
+Re-check fernhill-agritech after 8 days. Confirm the 615 per minute ceiling and the 88785 row cap still suit Fernhill Agritech on the Growth plan, and that totals reconcile with their components remains true.

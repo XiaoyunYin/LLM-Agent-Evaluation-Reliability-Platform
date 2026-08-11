@@ -2,7 +2,9 @@
 doc_id: doc_support_api_0003
 title: Delegated Schema Migration runbook 0003
 category: api
+doc_type: runbook
 procedure: Delegated schema migration
+component: the response schema registry
 error_code: ATL-4212
 config_key: atlas.api.schema-migration.delegated
 workspace: Redstone Group
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-API-0003 covers the Delegated schema migration procedure for the Redstone Group workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4212; other api faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4212 within 91 minutes.
+RB-API-0003 describes Delegated schema migration for Redstone Group, where clients break on a field that changed type. The work is performed by an approver acting on the owner's behalf, and the delegation must be recorded before the change is applied. The affected component is the response schema registry. This document applies only when Atlas raises ATL-4212; other api faults are covered elsewhere. Revenue Engineering owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4212 with the message "Delegated schema migration blocked for workspace redstone-group". The `atlas_api_schema_migration_total` counter rises while the affected api operation stalls. Requests exceeding 352 calls per minute against redstone-group amplify the failure, and the operation aborts once it has waited 229 seconds.
+Reporters describe the same thing: clients break on a field that changed type. Atlas raises ATL-4212 against the redstone-group workspace and `atlas_api_schema_migration_total` climbs past 69 percent. Because the delegation must be recorded before the change is applied, the symptom can look intermittent when the response schema registry is under load. Requests beyond 352 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Redstone Group, then collect 1 approval(s) before editing `atlas.api.schema-migration.delegated`. Changes to `atlas.api.schema-migration.delegated` are irreversible after 7 days because the prior value leaves hot storage on that schedule. Record RB-API-0003 and ATL-4212 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas api schema-migration --mode delegated --workspace redstone-group --dry-run` and compare the reported value of `atlas.api.schema-migration.delegated` with the expected baseline. If `atlas_api_schema_migration_total` exceeds 69 percent of its ceiling for the redstone-group workspace, the Delegated schema migration path is saturated rather than misconfigured, and error ATL-4212 is a symptom instead of the cause.
+The underlying fault is that the migration ships a narrowing change without a compatibility window. This is a property of the response schema registry rather than of any single workspace, so Redstone Group is affected only because it exercises that path. The 229 second abort is a consequence, not the cause; raising it hides ATL-4212 without repairing the response schema registry.
 
 ## Resolution
 
-Apply `atlas api schema-migration --mode delegated --workspace redstone-group --commit` with a batch size of 726. The command retries with a 4244 millisecond backoff and gives up after 229 seconds. Processing more than 11864 rows in one invocation for Redstone Group is unsupported and re-raises ATL-4212. Split larger jobs into batches of 726.
-
-## Limits and Quotas
-
-The Starter plan caps Redstone Group at 352 delegated-schema-migration calls per minute in us-west-2. Results persist in hot storage for 7 days. Exports tied to RB-API-0003 refuse payloads above 11864 rows. Atlas warns 15 days before the 7 day window closes on redstone-group.
+To repair the fault, serve both shapes behind a version header for the deprecation period. Run `atlas api schema-migration --mode delegated --workspace redstone-group --commit` with a batch size of 726, retrying with a 4244 millisecond backoff. Because the delegation must be recorded before the change is applied, do not exceed 11864 rows in one invocation. Editing `atlas.api.schema-migration.delegated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas api schema-migration --mode delegated --workspace redstone-group --verify` should report `atlas.api.schema-migration.delegated` as active with no occurrences of ATL-4212 in the last 229 seconds. Ask the customer to confirm from Redstone Group directly. The `atlas_api_schema_migration_total` counter should settle below 69 percent within 91 minutes.
+The repair has landed when old and new clients both parse successfully. Confirm with `atlas api schema-migration --mode delegated --workspace redstone-group --verify`, which should report `atlas.api.schema-migration.delegated` active and no ATL-4212 in the last 229 seconds. `atlas_api_schema_migration_total` should settle below 69 percent within 91 minutes.
+
+## Limits
+
+Redstone Group is capped at 352 delegated-schema-migration calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 7 days, and Atlas warns 15 days before that window closes. Payloads above 11864 rows are refused.
 
 ## Escalation
 
-Escalate to Revenue Engineering if ATL-4212 recurs on redstone-group after two attempts, citing RB-API-0003. Their acknowledgement target is 91 minutes for the Starter plan in us-west-2. Include the value of `atlas.api.schema-migration.delegated`, the observed `atlas_api_schema_migration_total` rate, and whether the 352 per minute ceiling was reached.
+Escalate to Revenue Engineering citing RB-API-0003 if ATL-4212 recurs after two attempts, or if clients break on a field that changed type persists once old and new clients both parse successfully. Their acknowledgement target is 91 minutes. Include the value of `atlas.api.schema-migration.delegated` and the observed `atlas_api_schema_migration_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4212 is often confused with a plain permissions fault on redstone-group, but a permissions fault leaves `atlas_api_schema_migration_total` flat while ATL-4212 drives it above 69 percent. A second misread is blaming the 352 per minute ceiling when the true limit reached was the 11864 row cap. Check `atlas.api.schema-migration.delegated` before assuming either.
+Every Delegated schema migration action against Redstone Group writes an entry tagged RB-API-0003, retained 7 days in hot storage, recording the actor and both values of `atlas.api.schema-migration.delegated`. Because the delegation must be recorded before the change is applied, the entry also records whether the response schema registry was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Delegated schema migration action against Redstone Group writes an audit entry tagged RB-API-0003 and retained for 7 days in hot storage. The entry records the actor, the prior and new values of `atlas.api.schema-migration.delegated`, and whether ATL-4212 was observed. Never log raw credentials for redstone-group; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4212 clears on Redstone Group, confirm downstream api jobs that read `atlas.api.schema-migration.delegated` still run. Scheduled work reading delegated-schema-migration output may lag by up to 4244 milliseconds per batch of 726. Re-check redstone-group after 15 days, before the 7 day hot retention window expires.
+Once ATL-4212 clears, confirm downstream api jobs reading `atlas.api.schema-migration.delegated` still run. Work depending on the response schema registry may lag 4244 milliseconds per batch of 726. Re-check redstone-group after 15 days.

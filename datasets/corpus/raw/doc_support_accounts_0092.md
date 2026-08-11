@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0092
-title: Audited Email Rebinding runbook 0092
+title: Audited Email Rebinding questions and answers 0092
 category: accounts
+doc_type: faq
 procedure: Audited email rebinding
+component: the primary address binding
 error_code: ATL-4191
 config_key: atlas.accounts.email-rebinding.audited
 workspace: Hollowbrook Labs
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0092
 source: synthetic
 ---
 
-# Audited Email Rebinding runbook 0092
+# Audited Email Rebinding questions and answers 0092
 
-## Overview
+## What does ATL-4191 mean?
 
-Runbook RB-ACC-0092 covers the Audited email rebinding procedure for the Hollowbrook Labs workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4191; other accounts faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4191 within 163 minutes.
+It means notifications continue to reach a decommissioned address. Atlas raises it against hollowbrook-labs when the primary address binding cannot complete Audited email rebinding. The operational procedure is RB-ACC-0092, owned by Data Delivery in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4191 with the message "Audited email rebinding blocked for workspace hollowbrook-labs". The `atlas_accounts_email_rebinding_total` counter rises while the affected accounts operation stalls. Requests exceeding 121 calls per minute against hollowbrook-labs amplify the failure, and the operation aborts once it has waited 82 seconds.
+The cause is that the binding update does not invalidate cached delivery routes. It is a property of the primary address binding, so Hollowbrook Labs sees it only because it exercises that path. Because every step must be recorded with the actor and timestamp, it may appear intermittent until traffic passes 121 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Hollowbrook Labs, then collect 4 approval(s) before editing `atlas.accounts.email-rebinding.audited`. Changes to `atlas.accounts.email-rebinding.audited` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-ACC-0092 and ATL-4191 in the case notes.
+rewrite the binding and purge the cached delivery route. In practice that means running `atlas accounts email-rebinding --mode audited --workspace hollowbrook-labs --commit` with a batch size of 243 and a 3467 millisecond backoff. Editing `atlas.accounts.email-rebinding.audited` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas accounts email-rebinding --mode audited --workspace hollowbrook-labs --dry-run` and compare the reported value of `atlas.accounts.email-rebinding.audited` with the expected baseline. If `atlas_accounts_email_rebinding_total` exceeds 72 percent of its ceiling for the hollowbrook-labs workspace, the Audited email rebinding path is saturated rather than misconfigured, and error ATL-4191 is a symptom instead of the cause.
+You know it worked when test notifications arrive only at the new address. Running `atlas accounts email-rebinding --mode audited --workspace hollowbrook-labs --verify` reports `atlas.accounts.email-rebinding.audited` active with no ATL-4191 in the last 82 seconds, and `atlas_accounts_email_rebinding_total` falls below 72 percent within 163 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas accounts email-rebinding --mode audited --workspace hollowbrook-labs --commit` with a batch size of 243. The command retries with a 3467 millisecond backoff and gives up after 82 seconds. Processing more than 9827 rows in one invocation for Hollowbrook Labs is unsupported and re-raises ATL-4191. Split larger jobs into batches of 243.
+No. A permissions fault leaves `atlas_accounts_email_rebinding_total` flat, while ATL-4191 drives it above 72 percent. A second common misread is blaming the 121 per minute ceiling when the limit actually reached was the 9827 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Hollowbrook Labs at 121 audited-email-rebinding calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-ACC-0092 refuse payloads above 9827 rows. Atlas warns 19 days before the 28 day window closes on hollowbrook-labs.
+Hollowbrook Labs may issue 121 audited-email-rebinding calls per minute on the Enterprise plan. One invocation accepts 9827 rows and aborts after 82 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas accounts email-rebinding --mode audited --workspace hollowbrook-labs --verify` should report `atlas.accounts.email-rebinding.audited` as active with no occurrences of ATL-4191 in the last 82 seconds. Ask the customer to confirm from Hollowbrook Labs directly. The `atlas_accounts_email_rebinding_total` counter should settle below 72 percent within 163 minutes.
+Data Delivery owns the primary address binding. They acknowledge escalations against ATL-4191 within 163 minutes on the Enterprise plan. Cite RB-ACC-0092 and include the observed `atlas_accounts_email_rebinding_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Data Delivery if ATL-4191 recurs on hollowbrook-labs after two attempts, citing RB-ACC-0092. Their acknowledgement target is 163 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.accounts.email-rebinding.audited`, the observed `atlas_accounts_email_rebinding_total` rate, and whether the 121 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4191 is often confused with a plain permissions fault on hollowbrook-labs, but a permissions fault leaves `atlas_accounts_email_rebinding_total` flat while ATL-4191 drives it above 72 percent. A second misread is blaming the 121 per minute ceiling when the true limit reached was the 9827 row cap. Check `atlas.accounts.email-rebinding.audited` before assuming either.
-
-## Audit and Logging
-
-Every Audited email rebinding action against Hollowbrook Labs writes an audit entry tagged RB-ACC-0092 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.accounts.email-rebinding.audited`, and whether ATL-4191 was observed. Never log raw credentials for hollowbrook-labs; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4191 clears on Hollowbrook Labs, confirm downstream accounts jobs that read `atlas.accounts.email-rebinding.audited` still run. Scheduled work reading audited-email-rebinding output may lag by up to 3467 milliseconds per batch of 243. Re-check hollowbrook-labs after 19 days, before the 28 day archival retention window expires.
+Confirm downstream accounts work reading `atlas.accounts.email-rebinding.audited` still runs. It may lag 3467 milliseconds per batch of 243. Re-check hollowbrook-labs after 19 days, before the 28 day window closes.

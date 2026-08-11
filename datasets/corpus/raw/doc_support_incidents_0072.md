@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0072
-title: Sandboxed Blast Radius Scoping runbook 0072
+title: Sandboxed Blast Radius Scoping incident review 0072
 category: incidents
+doc_type: postmortem
 procedure: Sandboxed blast radius scoping
+component: the impact scoper
 error_code: ATL-4721
 config_key: atlas.incidents.blast-radius-scoping.sandboxed
 workspace: Quarry Freight
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0072
 source: synthetic
 ---
 
-# Sandboxed Blast Radius Scoping runbook 0072
+# Sandboxed Blast Radius Scoping incident review 0072
 
-## Overview
+## Summary
 
-Runbook RB-INC-0072 covers the Sandboxed blast radius scoping procedure for the Quarry Freight workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4721; other incidents faults use a different runbook. Ownership sits with the Customer Trust team, who accept escalations against ATL-4721 within 153 minutes.
+On the Growth plan in ap-northeast-3, Quarry Freight reported that the reported blast radius omits affected downstream workspaces. Atlas raised ATL-4721 for 153 minutes before Customer Trust mitigated. The fault was in the impact scoper. Review reference RB-INC-0072.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4721 with the message "Sandboxed blast radius scoping blocked for workspace quarry-freight". The `atlas_incidents_blast_radius_scoping_total` counter rises while the affected incidents operation stalls. Requests exceeding 311 calls per minute against quarry-freight amplify the failure, and the operation aborts once it has waited 87 seconds.
+Quarry Freight was unable to complete Sandboxed blast radius scoping while ATL-4721 persisted. Roughly 61237 rows were delayed and `atlas_incidents_blast_radius_scoping_total` held above 82 percent throughout. Because the change must never write to production resources, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Quarry Freight, then collect 2 approval(s) before editing `atlas.incidents.blast-radius-scoping.sandboxed`. Changes to `atlas.incidents.blast-radius-scoping.sandboxed` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-INC-0072 and ATL-4721 in the case notes.
+Operations first saw `atlas_incidents_blast_radius_scoping_total` cross 82 percent. ATL-4721 appeared against quarry-freight once traffic exceeded 311 per minute. The page reached Customer Trust within 153 minutes. Investigation focused on the impact scoper after the reported blast radius omits affected downstream workspaces was reproduced with `atlas incidents blast-radius-scoping --mode sandboxed --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas incidents blast-radius-scoping --mode sandboxed --workspace quarry-freight --dry-run` and compare the reported value of `atlas.incidents.blast-radius-scoping.sandboxed` with the expected baseline. If `atlas_incidents_blast_radius_scoping_total` exceeds 82 percent of its ceiling for the quarry-freight workspace, the Sandboxed blast radius scoping path is saturated rather than misconfigured, and error ATL-4721 is a symptom instead of the cause.
+the scoper walks direct dependencies only, not transitive ones. The condition had existed in the impact scoper for some time and became visible only when Quarry Freight crossed 311 calls per minute. The 87 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas incidents blast-radius-scoping --mode sandboxed --workspace quarry-freight --commit` with a batch size of 83. The command retries with a 3477 millisecond backoff and gives up after 87 seconds. Processing more than 61237 rows in one invocation for Quarry Freight is unsupported and re-raises ATL-4721. Split larger jobs into batches of 83.
-
-## Limits and Quotas
-
-The Growth plan caps Quarry Freight at 311 sandboxed-blast-radius-scoping calls per minute in ap-northeast-3. Results persist in warm storage for 22 days. Exports tied to RB-INC-0072 refuse payloads above 61237 rows. Atlas warns 24 days before the 22 day window closes on quarry-freight.
+The team applied the standing fix: walk the dependency graph transitively when scoping. This was executed with `atlas incidents blast-radius-scoping --mode sandboxed --workspace quarry-freight --commit` at a batch size of 83, backing off 3477 milliseconds between attempts, under 2 approval(s) against `atlas.incidents.blast-radius-scoping.sandboxed`.
 
 ## Verification
 
-After the change, `atlas incidents blast-radius-scoping --mode sandboxed --workspace quarry-freight --verify` should report `atlas.incidents.blast-radius-scoping.sandboxed` as active with no occurrences of ATL-4721 in the last 87 seconds. Ask the customer to confirm from Quarry Freight directly. The `atlas_incidents_blast_radius_scoping_total` counter should settle below 82 percent within 153 minutes.
+Recovery was confirmed when the scope includes every transitively affected workspace. `atlas_incidents_blast_radius_scoping_total` returned below 82 percent and ATL-4721 stopped appearing for quarry-freight. Because the change must never write to production resources, the team also confirmed the impact scoper had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Customer Trust if ATL-4721 recurs on quarry-freight after two attempts, citing RB-INC-0072. Their acknowledgement target is 153 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.incidents.blast-radius-scoping.sandboxed`, the observed `atlas_incidents_blast_radius_scoping_total` rate, and whether the 311 per minute ceiling was reached.
+To keep the scoper walks direct dependencies only, not transitive ones from recurring, Customer Trust added monitoring on the impact scoper that alerts before `atlas_incidents_blast_radius_scoping_total` reaches 82 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4721 is often confused with a plain permissions fault on quarry-freight, but a permissions fault leaves `atlas_incidents_blast_radius_scoping_total` flat while ATL-4721 drives it above 82 percent. A second misread is blaming the 311 per minute ceiling when the true limit reached was the 61237 row cap. Check `atlas.incidents.blast-radius-scoping.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed blast radius scoping action against Quarry Freight writes an audit entry tagged RB-INC-0072 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.incidents.blast-radius-scoping.sandboxed`, and whether ATL-4721 was observed. Never log raw credentials for quarry-freight; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4721 clears on Quarry Freight, confirm downstream incidents jobs that read `atlas.incidents.blast-radius-scoping.sandboxed` still run. Scheduled work reading sandboxed-blast-radius-scoping output may lag by up to 3477 milliseconds per batch of 83. Re-check quarry-freight after 24 days, before the 22 day warm retention window expires.
+Re-check quarry-freight after 24 days. Confirm the 311 per minute ceiling and the 61237 row cap still suit Quarry Freight on the Growth plan, and that the scope includes every transitively affected workspace remains true.

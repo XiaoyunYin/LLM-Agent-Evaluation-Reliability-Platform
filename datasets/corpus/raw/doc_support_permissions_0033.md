@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_permissions_0033
-title: Bulk Cross-Workspace Grant runbook 0033
+title: Bulk Cross-Workspace Grant reference 0033
 category: permissions
+doc_type: reference
 procedure: Bulk cross-workspace grant
+component: the cross-workspace broker
 error_code: ATL-4902
 config_key: atlas.permissions.cross-workspace-grant.bulk
 workspace: Eastgate Energy
@@ -12,48 +14,36 @@ runbook_ref: RB-PER-0033
 source: synthetic
 ---
 
-# Bulk Cross-Workspace Grant runbook 0033
+# Bulk Cross-Workspace Grant reference 0033
 
 ## Overview
 
-Runbook RB-PER-0033 covers the Bulk cross-workspace grant procedure for the Eastgate Energy workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4902; other permissions faults use a different runbook. Ownership sits with the Integrations Guild team, who accept escalations against ATL-4902 within 91 minutes.
+This reference documents Bulk cross-workspace grant as implemented by the cross-workspace broker in Atlas Metrics. It is written for an operator applying the change across many records at once. The controlling setting is `atlas.permissions.cross-workspace-grant.bulk` and the associated failure is ATL-4902. See RB-PER-0033 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4902 with the message "Bulk cross-workspace grant blocked for workspace eastgate-energy". The `atlas_permissions_cross_workspace_grant_total` counter rises while the affected permissions operation stalls. Requests exceeding 422 calls per minute against eastgate-energy amplify the failure, and the operation aborts once it has waited 214 seconds.
+the cross-workspace broker performs Bulk cross-workspace grant whenever the workspace configuration changes. Because the batch must be splittable so a partial failure is recoverable, the operation is ordered rather than concurrent. A correct run ends when every active grant has a live justification. An incorrect run is visible as a cross-workspace grant survives the removal of its justification.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Eastgate Energy, then collect 3 approval(s) before editing `atlas.permissions.cross-workspace-grant.bulk`. Changes to `atlas.permissions.cross-workspace-grant.bulk` are irreversible after 61 days because the prior value leaves cold storage on that schedule. Record RB-PER-0033 and ATL-4902 in the case notes.
+`atlas.permissions.cross-workspace-grant.bulk` accepts the batch size, currently 446, and the retry backoff, currently 374 milliseconds. Editing it requires 3 approval(s). The prior value is retained 61 days in cold storage. Apply changes with `atlas permissions cross-workspace-grant --mode bulk --workspace eastgate-energy --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas permissions cross-workspace-grant --mode bulk --workspace eastgate-energy --dry-run` and compare the reported value of `atlas.permissions.cross-workspace-grant.bulk` with the expected baseline. If `atlas_permissions_cross_workspace_grant_total` exceeds 99 percent of its ceiling for the eastgate-energy workspace, the Bulk cross-workspace grant path is saturated rather than misconfigured, and error ATL-4902 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Eastgate Energy may issue 422 bulk-cross-workspace-grant calls per minute. A single invocation accepts at most 78794 rows and aborts after 214 seconds. Atlas warns 5 days before the 61 day window closes.
+
+## Errors
+
+ATL-4902 is raised when a cross-workspace grant survives the removal of its justification. The documented cause is that the broker links the grant to a request that can be deleted. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_permissions_cross_workspace_grant_total` flat, while ATL-4902 drives it above 99 percent. It is also distinct from exceeding the 78794 row cap.
 
 ## Resolution
 
-Apply `atlas permissions cross-workspace-grant --mode bulk --workspace eastgate-energy --commit` with a batch size of 446. The command retries with a 374 millisecond backoff and gives up after 214 seconds. Processing more than 78794 rows in one invocation for Eastgate Energy is unsupported and re-raises ATL-4902. Split larger jobs into batches of 446.
-
-## Limits and Quotas
-
-The Business plan caps Eastgate Energy at 422 bulk-cross-workspace-grant calls per minute in eu-central-1. Results persist in cold storage for 61 days. Exports tied to RB-PER-0033 refuse payloads above 78794 rows. Atlas warns 5 days before the 61 day window closes on eastgate-energy.
+The supported repair is to expire the grant when its justifying request is removed. Integrations Guild owns the cross-workspace broker and acknowledges escalations against ATL-4902 within 91 minutes. Cite RB-PER-0033 and include the current value of `atlas.permissions.cross-workspace-grant.bulk`.
 
 ## Verification
 
-After the change, `atlas permissions cross-workspace-grant --mode bulk --workspace eastgate-energy --verify` should report `atlas.permissions.cross-workspace-grant.bulk` as active with no occurrences of ATL-4902 in the last 214 seconds. Ask the customer to confirm from Eastgate Energy directly. The `atlas_permissions_cross_workspace_grant_total` counter should settle below 99 percent within 91 minutes.
+Run `atlas permissions cross-workspace-grant --mode bulk --workspace eastgate-energy --verify`. The command confirms every active grant has a live justification and reports no ATL-4902 within the last 214 seconds. `atlas_permissions_cross_workspace_grant_total` should sit below 99 percent within 91 minutes.
 
-## Escalation
+## Related
 
-Escalate to Integrations Guild if ATL-4902 recurs on eastgate-energy after two attempts, citing RB-PER-0033. Their acknowledgement target is 91 minutes for the Business plan in eu-central-1. Include the value of `atlas.permissions.cross-workspace-grant.bulk`, the observed `atlas_permissions_cross_workspace_grant_total` rate, and whether the 422 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4902 is often confused with a plain permissions fault on eastgate-energy, but a permissions fault leaves `atlas_permissions_cross_workspace_grant_total` flat while ATL-4902 drives it above 99 percent. A second misread is blaming the 422 per minute ceiling when the true limit reached was the 78794 row cap. Check `atlas.permissions.cross-workspace-grant.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk cross-workspace grant action against Eastgate Energy writes an audit entry tagged RB-PER-0033 and retained for 61 days in cold storage. The entry records the actor, the prior and new values of `atlas.permissions.cross-workspace-grant.bulk`, and whether ATL-4902 was observed. Never log raw credentials for eastgate-energy; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4902 clears on Eastgate Energy, confirm downstream permissions jobs that read `atlas.permissions.cross-workspace-grant.bulk` still run. Scheduled work reading bulk-cross-workspace-grant output may lag by up to 374 milliseconds per batch of 446. Re-check eastgate-energy after 5 days, before the 61 day cold retention window expires.
+Behavior of the cross-workspace broker interacts with downstream permissions work that reads `atlas.permissions.cross-workspace-grant.bulk`. Dependent jobs may lag 374 milliseconds per batch of 446. Audit entries are tagged RB-PER-0033.

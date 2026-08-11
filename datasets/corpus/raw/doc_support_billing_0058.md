@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_billing_0058
-title: Federated Tax Profile Update runbook 0058
+title: Federated Tax Profile Update incident review 0058
 category: billing
+doc_type: postmortem
 procedure: Federated tax profile update
+component: the tax jurisdiction resolver
 error_code: ATL-4377
 config_key: atlas.billing.tax-profile-update.federated
 workspace: Lumen Digital
@@ -12,48 +14,36 @@ runbook_ref: RB-BIL-0058
 source: synthetic
 ---
 
-# Federated Tax Profile Update runbook 0058
+# Federated Tax Profile Update incident review 0058
 
-## Overview
+## Summary
 
-Runbook RB-BIL-0058 covers the Federated tax profile update procedure for the Lumen Digital workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4377; other billing faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4377 within 166 minutes.
+On the Growth plan in ap-northeast-3, Lumen Digital reported that invoices apply the wrong jurisdiction after an address change. Atlas raised ATL-4377 for 166 minutes before Revenue Engineering mitigated. The fault was in the tax jurisdiction resolver. Review reference RB-BIL-0058.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4377 with the message "Federated tax profile update blocked for workspace lumen-digital". The `atlas_billing_tax_profile_update_total` counter rises while the affected billing operation stalls. Requests exceeding 287 calls per minute against lumen-digital amplify the failure, and the operation aborts once it has waited 244 seconds.
+Lumen Digital was unable to complete Federated tax profile update while ATL-4377 persisted. Roughly 27869 rows were delayed and `atlas_billing_tax_profile_update_total` held above 84 percent throughout. Because the external provider must confirm the identity before the change, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Lumen Digital, then collect 2 approval(s) before editing `atlas.billing.tax-profile-update.federated`. Changes to `atlas.billing.tax-profile-update.federated` are irreversible after 82 days because the prior value leaves warm storage on that schedule. Record RB-BIL-0058 and ATL-4377 in the case notes.
+Operations first saw `atlas_billing_tax_profile_update_total` cross 84 percent. ATL-4377 appeared against lumen-digital once traffic exceeded 287 per minute. The page reached Revenue Engineering within 166 minutes. Investigation focused on the tax jurisdiction resolver after invoices apply the wrong jurisdiction after an address change was reproduced with `atlas billing tax-profile-update --mode federated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas billing tax-profile-update --mode federated --workspace lumen-digital --dry-run` and compare the reported value of `atlas.billing.tax-profile-update.federated` with the expected baseline. If `atlas_billing_tax_profile_update_total` exceeds 84 percent of its ceiling for the lumen-digital workspace, the Federated tax profile update path is saturated rather than misconfigured, and error ATL-4377 is a symptom instead of the cause.
+the resolver caches jurisdiction per customer, not per address version. The condition had existed in the tax jurisdiction resolver for some time and became visible only when Lumen Digital crossed 287 calls per minute. The 244 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas billing tax-profile-update --mode federated --workspace lumen-digital --commit` with a batch size of 721. The command retries with a 549 millisecond backoff and gives up after 244 seconds. Processing more than 27869 rows in one invocation for Lumen Digital is unsupported and re-raises ATL-4377. Split larger jobs into batches of 721.
-
-## Limits and Quotas
-
-The Growth plan caps Lumen Digital at 287 federated-tax-profile-update calls per minute in ap-northeast-3. Results persist in warm storage for 82 days. Exports tied to RB-BIL-0058 refuse payloads above 27869 rows. Atlas warns 5 days before the 82 day window closes on lumen-digital.
+The team applied the standing fix: key the jurisdiction cache on the address version. This was executed with `atlas billing tax-profile-update --mode federated --workspace lumen-digital --commit` at a batch size of 721, backing off 549 milliseconds between attempts, under 2 approval(s) against `atlas.billing.tax-profile-update.federated`.
 
 ## Verification
 
-After the change, `atlas billing tax-profile-update --mode federated --workspace lumen-digital --verify` should report `atlas.billing.tax-profile-update.federated` as active with no occurrences of ATL-4377 in the last 244 seconds. Ask the customer to confirm from Lumen Digital directly. The `atlas_billing_tax_profile_update_total` counter should settle below 84 percent within 166 minutes.
+Recovery was confirmed when invoices reflect the jurisdiction current at issue time. `atlas_billing_tax_profile_update_total` returned below 84 percent and ATL-4377 stopped appearing for lumen-digital. Because the external provider must confirm the identity before the change, the team also confirmed the tax jurisdiction resolver had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Revenue Engineering if ATL-4377 recurs on lumen-digital after two attempts, citing RB-BIL-0058. Their acknowledgement target is 166 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.billing.tax-profile-update.federated`, the observed `atlas_billing_tax_profile_update_total` rate, and whether the 287 per minute ceiling was reached.
+To keep the resolver caches jurisdiction per customer, not per address version from recurring, Revenue Engineering added monitoring on the tax jurisdiction resolver that alerts before `atlas_billing_tax_profile_update_total` reaches 84 percent. Retention for the diagnostic trail was set to 82 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4377 is often confused with a plain permissions fault on lumen-digital, but a permissions fault leaves `atlas_billing_tax_profile_update_total` flat while ATL-4377 drives it above 84 percent. A second misread is blaming the 287 per minute ceiling when the true limit reached was the 27869 row cap. Check `atlas.billing.tax-profile-update.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated tax profile update action against Lumen Digital writes an audit entry tagged RB-BIL-0058 and retained for 82 days in warm storage. The entry records the actor, the prior and new values of `atlas.billing.tax-profile-update.federated`, and whether ATL-4377 was observed. Never log raw credentials for lumen-digital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4377 clears on Lumen Digital, confirm downstream billing jobs that read `atlas.billing.tax-profile-update.federated` still run. Scheduled work reading federated-tax-profile-update output may lag by up to 549 milliseconds per batch of 721. Re-check lumen-digital after 5 days, before the 82 day warm retention window expires.
+Re-check lumen-digital after 5 days. Confirm the 287 per minute ceiling and the 27869 row cap still suit Lumen Digital on the Growth plan, and that invoices reflect the jurisdiction current at issue time remains true.

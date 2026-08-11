@@ -2,7 +2,9 @@
 doc_id: doc_support_dashboards_0031
 title: Bulk Threshold Recoloring runbook 0031
 category: dashboards
+doc_type: runbook
 procedure: Bulk threshold recoloring
+component: the threshold palette
 error_code: ATL-4460
 config_key: atlas.dashboards.threshold-recoloring.bulk
 workspace: Eastgate Logistics
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-DAS-0031 covers the Bulk threshold recoloring procedure for the Eastgate Logistics workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4460; other dashboards faults use a different runbook. Ownership sits with the Observability team, who accept escalations against ATL-4460 within 210 minutes.
+RB-DAS-0031 describes Bulk threshold recoloring for Eastgate Logistics, where threshold colors invert on dark backgrounds. The work is performed by an operator applying the change across many records at once, and the batch must be splittable so a partial failure is recoverable. The affected component is the threshold palette. This document applies only when Atlas raises ATL-4460; other dashboards faults are covered elsewhere. Observability owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4460 with the message "Bulk threshold recoloring blocked for workspace eastgate-logistics". The `atlas_dashboards_threshold_recoloring_total` counter rises while the affected dashboards operation stalls. Requests exceeding 260 calls per minute against eastgate-logistics amplify the failure, and the operation aborts once it has waited 255 seconds.
+Reporters describe the same thing: threshold colors invert on dark backgrounds. Atlas raises ATL-4460 against the eastgate-logistics workspace and `atlas_dashboards_threshold_recoloring_total` climbs past 55 percent. Because the batch must be splittable so a partial failure is recoverable, the symptom can look intermittent when the threshold palette is under load. Requests beyond 260 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Eastgate Logistics, then collect 1 approval(s) before editing `atlas.dashboards.threshold-recoloring.bulk`. Changes to `atlas.dashboards.threshold-recoloring.bulk` are irreversible after 79 days because the prior value leaves hot storage on that schedule. Record RB-DAS-0031 and ATL-4460 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas dashboards threshold-recoloring --mode bulk --workspace eastgate-logistics --dry-run` and compare the reported value of `atlas.dashboards.threshold-recoloring.bulk` with the expected baseline. If `atlas_dashboards_threshold_recoloring_total` exceeds 55 percent of its ceiling for the eastgate-logistics workspace, the Bulk threshold recoloring path is saturated rather than misconfigured, and error ATL-4460 is a symptom instead of the cause.
+The underlying fault is that the palette resolves at build time and ignores the active theme. This is a property of the threshold palette rather than of any single workspace, so Eastgate Logistics is affected only because it exercises that path. The 255 second abort is a consequence, not the cause; raising it hides ATL-4460 without repairing the threshold palette.
 
 ## Resolution
 
-Apply `atlas dashboards threshold-recoloring --mode bulk --workspace eastgate-logistics --commit` with a batch size of 730. The command retries with a 3620 millisecond backoff and gives up after 255 seconds. Processing more than 35920 rows in one invocation for Eastgate Logistics is unsupported and re-raises ATL-4460. Split larger jobs into batches of 730.
-
-## Limits and Quotas
-
-The Starter plan caps Eastgate Logistics at 260 bulk-threshold-recoloring calls per minute in us-west-2. Results persist in hot storage for 79 days. Exports tied to RB-DAS-0031 refuse payloads above 35920 rows. Atlas warns 13 days before the 79 day window closes on eastgate-logistics.
+To repair the fault, resolve threshold colors against the active theme at render time. Run `atlas dashboards threshold-recoloring --mode bulk --workspace eastgate-logistics --commit` with a batch size of 730, retrying with a 3620 millisecond backoff. Because the batch must be splittable so a partial failure is recoverable, do not exceed 35920 rows in one invocation. Editing `atlas.dashboards.threshold-recoloring.bulk` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas dashboards threshold-recoloring --mode bulk --workspace eastgate-logistics --verify` should report `atlas.dashboards.threshold-recoloring.bulk` as active with no occurrences of ATL-4460 in the last 255 seconds. Ask the customer to confirm from Eastgate Logistics directly. The `atlas_dashboards_threshold_recoloring_total` counter should settle below 55 percent within 210 minutes.
+The repair has landed when threshold colors keep their meaning in both themes. Confirm with `atlas dashboards threshold-recoloring --mode bulk --workspace eastgate-logistics --verify`, which should report `atlas.dashboards.threshold-recoloring.bulk` active and no ATL-4460 in the last 255 seconds. `atlas_dashboards_threshold_recoloring_total` should settle below 55 percent within 210 minutes.
+
+## Limits
+
+Eastgate Logistics is capped at 260 bulk-threshold-recoloring calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 79 days, and Atlas warns 13 days before that window closes. Payloads above 35920 rows are refused.
 
 ## Escalation
 
-Escalate to Observability if ATL-4460 recurs on eastgate-logistics after two attempts, citing RB-DAS-0031. Their acknowledgement target is 210 minutes for the Starter plan in us-west-2. Include the value of `atlas.dashboards.threshold-recoloring.bulk`, the observed `atlas_dashboards_threshold_recoloring_total` rate, and whether the 260 per minute ceiling was reached.
+Escalate to Observability citing RB-DAS-0031 if ATL-4460 recurs after two attempts, or if threshold colors invert on dark backgrounds persists once threshold colors keep their meaning in both themes. Their acknowledgement target is 210 minutes. Include the value of `atlas.dashboards.threshold-recoloring.bulk` and the observed `atlas_dashboards_threshold_recoloring_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4460 is often confused with a plain permissions fault on eastgate-logistics, but a permissions fault leaves `atlas_dashboards_threshold_recoloring_total` flat while ATL-4460 drives it above 55 percent. A second misread is blaming the 260 per minute ceiling when the true limit reached was the 35920 row cap. Check `atlas.dashboards.threshold-recoloring.bulk` before assuming either.
+Every Bulk threshold recoloring action against Eastgate Logistics writes an entry tagged RB-DAS-0031, retained 79 days in hot storage, recording the actor and both values of `atlas.dashboards.threshold-recoloring.bulk`. Because the batch must be splittable so a partial failure is recoverable, the entry also records whether the threshold palette was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Bulk threshold recoloring action against Eastgate Logistics writes an audit entry tagged RB-DAS-0031 and retained for 79 days in hot storage. The entry records the actor, the prior and new values of `atlas.dashboards.threshold-recoloring.bulk`, and whether ATL-4460 was observed. Never log raw credentials for eastgate-logistics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4460 clears on Eastgate Logistics, confirm downstream dashboards jobs that read `atlas.dashboards.threshold-recoloring.bulk` still run. Scheduled work reading bulk-threshold-recoloring output may lag by up to 3620 milliseconds per batch of 730. Re-check eastgate-logistics after 13 days, before the 79 day hot retention window expires.
+Once ATL-4460 clears, confirm downstream dashboards jobs reading `atlas.dashboards.threshold-recoloring.bulk` still run. Work depending on the threshold palette may lag 3620 milliseconds per batch of 730. Re-check eastgate-logistics after 13 days.

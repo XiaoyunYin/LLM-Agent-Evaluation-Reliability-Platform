@@ -2,7 +2,9 @@
 doc_id: doc_support_exports_0109
 title: Cascading Header Normalization runbook 0109
 category: exports
+doc_type: runbook
 procedure: Cascading header normalization
+component: the header formatter
 error_code: ATL-4648
 config_key: atlas.exports.header-normalization.cascading
 workspace: Kestrel Media
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-EXP-0109 covers the Cascading header normalization procedure for the Kestrel Media workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4648; other exports faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-4648 within 239 minutes.
+RB-EXP-0109 describes Cascading header normalization for Kestrel Media, where downstream parsers reject the header row. The work is performed by an operator whose change propagates to dependent resources, and dependents must be re-evaluated after the change lands. The affected component is the header formatter. This document applies only when Atlas raises ATL-4648; other exports faults are covered elsewhere. Billing Infrastructure owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4648 with the message "Cascading header normalization blocked for workspace kestrel-media". The `atlas_exports_header_normalization_total` counter rises while the affected exports operation stalls. Requests exceeding 448 calls per minute against kestrel-media amplify the failure, and the operation aborts once it has waited 146 seconds.
+Reporters describe the same thing: downstream parsers reject the header row. Atlas raises ATL-4648 against the kestrel-media workspace and `atlas_exports_header_normalization_total` climbs past 56 percent. Because dependents must be re-evaluated after the change lands, the symptom can look intermittent when the header formatter is under load. Requests beyond 448 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Kestrel Media, then collect 1 approval(s) before editing `atlas.exports.header-normalization.cascading`. Changes to `atlas.exports.header-normalization.cascading` are irreversible after 55 days because the prior value leaves hot storage on that schedule. Record RB-EXP-0109 and ATL-4648 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas exports header-normalization --mode cascading --workspace kestrel-media --dry-run` and compare the reported value of `atlas.exports.header-normalization.cascading` with the expected baseline. If `atlas_exports_header_normalization_total` exceeds 56 percent of its ceiling for the kestrel-media workspace, the Cascading header normalization path is saturated rather than misconfigured, and error ATL-4648 is a symptom instead of the cause.
+The underlying fault is that the formatter emits display names containing separator characters. This is a property of the header formatter rather than of any single workspace, so Kestrel Media is affected only because it exercises that path. The 146 second abort is a consequence, not the cause; raising it hides ATL-4648 without repairing the header formatter.
 
 ## Resolution
 
-Apply `atlas exports header-normalization --mode cascading --workspace kestrel-media --commit` with a batch size of 304. The command retries with a 776 millisecond backoff and gives up after 146 seconds. Processing more than 54156 rows in one invocation for Kestrel Media is unsupported and re-raises ATL-4648. Split larger jobs into batches of 304.
-
-## Limits and Quotas
-
-The Starter plan caps Kestrel Media at 448 cascading-header-normalization calls per minute in ap-southeast-1. Results persist in hot storage for 55 days. Exports tied to RB-EXP-0109 refuse payloads above 54156 rows. Atlas warns 26 days before the 55 day window closes on kestrel-media.
+To repair the fault, emit machine-safe header names and keep display names in metadata. Run `atlas exports header-normalization --mode cascading --workspace kestrel-media --commit` with a batch size of 304, retrying with a 776 millisecond backoff. Because dependents must be re-evaluated after the change lands, do not exceed 54156 rows in one invocation. Editing `atlas.exports.header-normalization.cascading` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas exports header-normalization --mode cascading --workspace kestrel-media --verify` should report `atlas.exports.header-normalization.cascading` as active with no occurrences of ATL-4648 in the last 146 seconds. Ask the customer to confirm from Kestrel Media directly. The `atlas_exports_header_normalization_total` counter should settle below 56 percent within 239 minutes.
+The repair has landed when parsers read the header row without escaping. Confirm with `atlas exports header-normalization --mode cascading --workspace kestrel-media --verify`, which should report `atlas.exports.header-normalization.cascading` active and no ATL-4648 in the last 146 seconds. `atlas_exports_header_normalization_total` should settle below 56 percent within 239 minutes.
+
+## Limits
+
+Kestrel Media is capped at 448 cascading-header-normalization calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 55 days, and Atlas warns 26 days before that window closes. Payloads above 54156 rows are refused.
 
 ## Escalation
 
-Escalate to Billing Infrastructure if ATL-4648 recurs on kestrel-media after two attempts, citing RB-EXP-0109. Their acknowledgement target is 239 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.exports.header-normalization.cascading`, the observed `atlas_exports_header_normalization_total` rate, and whether the 448 per minute ceiling was reached.
+Escalate to Billing Infrastructure citing RB-EXP-0109 if ATL-4648 recurs after two attempts, or if downstream parsers reject the header row persists once parsers read the header row without escaping. Their acknowledgement target is 239 minutes. Include the value of `atlas.exports.header-normalization.cascading` and the observed `atlas_exports_header_normalization_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4648 is often confused with a plain permissions fault on kestrel-media, but a permissions fault leaves `atlas_exports_header_normalization_total` flat while ATL-4648 drives it above 56 percent. A second misread is blaming the 448 per minute ceiling when the true limit reached was the 54156 row cap. Check `atlas.exports.header-normalization.cascading` before assuming either.
+Every Cascading header normalization action against Kestrel Media writes an entry tagged RB-EXP-0109, retained 55 days in hot storage, recording the actor and both values of `atlas.exports.header-normalization.cascading`. Because dependents must be re-evaluated after the change lands, the entry also records whether the header formatter was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Cascading header normalization action against Kestrel Media writes an audit entry tagged RB-EXP-0109 and retained for 55 days in hot storage. The entry records the actor, the prior and new values of `atlas.exports.header-normalization.cascading`, and whether ATL-4648 was observed. Never log raw credentials for kestrel-media; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4648 clears on Kestrel Media, confirm downstream exports jobs that read `atlas.exports.header-normalization.cascading` still run. Scheduled work reading cascading-header-normalization output may lag by up to 776 milliseconds per batch of 304. Re-check kestrel-media after 26 days, before the 55 day hot retention window expires.
+Once ATL-4648 clears, confirm downstream exports jobs reading `atlas.exports.header-normalization.cascading` still run. Work depending on the header formatter may lag 776 milliseconds per batch of 304. Re-check kestrel-media after 26 days.

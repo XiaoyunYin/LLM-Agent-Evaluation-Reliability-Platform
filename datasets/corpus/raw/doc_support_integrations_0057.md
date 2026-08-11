@@ -2,7 +2,9 @@
 doc_id: doc_support_integrations_0057
 title: Federated Field Mapping Repair runbook 0057
 category: integrations
+doc_type: runbook
 procedure: Federated field mapping repair
+component: the field mapping table
 error_code: ATL-4816
 config_key: atlas.integrations.field-mapping-repair.federated
 workspace: Cobalt Studios
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INT-0057 covers the Federated field mapping repair procedure for the Cobalt Studios workspace in Atlas Metrics, hosted in ap-southeast-1 on the Starter plan. It applies only when the platform emits error ATL-4816; other integrations faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4816 within 353 minutes.
+RB-INT-0057 describes Federated field mapping repair for Cobalt Studios, where synced records land with fields transposed. The work is performed by an administrator whose identity is held by an external provider, and the external provider must confirm the identity before the change. The affected component is the field mapping table. This document applies only when Atlas raises ATL-4816; other integrations faults are covered elsewhere. Identity Services owns the procedure in ap-southeast-1.
 
 ## Symptoms
 
-The customer sees error ATL-4816 with the message "Federated field mapping repair blocked for workspace cobalt-studios". The `atlas_integrations_field_mapping_repair_total` counter rises while the affected integrations operation stalls. Requests exceeding 416 calls per minute against cobalt-studios amplify the failure, and the operation aborts once it has waited 182 seconds.
+Reporters describe the same thing: synced records land with fields transposed. Atlas raises ATL-4816 against the cobalt-studios workspace and `atlas_integrations_field_mapping_repair_total` climbs past 77 percent. Because the external provider must confirm the identity before the change, the symptom can look intermittent when the field mapping table is under load. Requests beyond 416 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Cobalt Studios, then collect 1 approval(s) before editing `atlas.integrations.field-mapping-repair.federated`. Changes to `atlas.integrations.field-mapping-repair.federated` are irreversible after 55 days because the prior value leaves hot storage on that schedule. Record RB-INT-0057 and ATL-4816 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas integrations field-mapping-repair --mode federated --workspace cobalt-studios --dry-run` and compare the reported value of `atlas.integrations.field-mapping-repair.federated` with the expected baseline. If `atlas_integrations_field_mapping_repair_total` exceeds 77 percent of its ceiling for the cobalt-studios workspace, the Federated field mapping repair path is saturated rather than misconfigured, and error ATL-4816 is a symptom instead of the cause.
+The underlying fault is that the mapping is keyed on remote label, which the remote system renamed. This is a property of the field mapping table rather than of any single workspace, so Cobalt Studios is affected only because it exercises that path. The 182 second abort is a consequence, not the cause; raising it hides ATL-4816 without repairing the field mapping table.
 
 ## Resolution
 
-Apply `atlas integrations field-mapping-repair --mode federated --workspace cobalt-studios --commit` with a batch size of 368. The command retries with a 2092 millisecond backoff and gives up after 182 seconds. Processing more than 70452 rows in one invocation for Cobalt Studios is unsupported and re-raises ATL-4816. Split larger jobs into batches of 368.
-
-## Limits and Quotas
-
-The Starter plan caps Cobalt Studios at 416 federated-field-mapping-repair calls per minute in ap-southeast-1. Results persist in hot storage for 55 days. Exports tied to RB-INT-0057 refuse payloads above 70452 rows. Atlas warns 19 days before the 55 day window closes on cobalt-studios.
+To repair the fault, key the mapping on the remote field identifier. Run `atlas integrations field-mapping-repair --mode federated --workspace cobalt-studios --commit` with a batch size of 368, retrying with a 2092 millisecond backoff. Because the external provider must confirm the identity before the change, do not exceed 70452 rows in one invocation. Editing `atlas.integrations.field-mapping-repair.federated` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas integrations field-mapping-repair --mode federated --workspace cobalt-studios --verify` should report `atlas.integrations.field-mapping-repair.federated` as active with no occurrences of ATL-4816 in the last 182 seconds. Ask the customer to confirm from Cobalt Studios directly. The `atlas_integrations_field_mapping_repair_total` counter should settle below 77 percent within 353 minutes.
+The repair has landed when renames upstream no longer transpose fields. Confirm with `atlas integrations field-mapping-repair --mode federated --workspace cobalt-studios --verify`, which should report `atlas.integrations.field-mapping-repair.federated` active and no ATL-4816 in the last 182 seconds. `atlas_integrations_field_mapping_repair_total` should settle below 77 percent within 353 minutes.
+
+## Limits
+
+Cobalt Studios is capped at 416 federated-field-mapping-repair calls per minute on the Starter plan in ap-southeast-1. Results persist in hot storage for 55 days, and Atlas warns 19 days before that window closes. Payloads above 70452 rows are refused.
 
 ## Escalation
 
-Escalate to Identity Services if ATL-4816 recurs on cobalt-studios after two attempts, citing RB-INT-0057. Their acknowledgement target is 353 minutes for the Starter plan in ap-southeast-1. Include the value of `atlas.integrations.field-mapping-repair.federated`, the observed `atlas_integrations_field_mapping_repair_total` rate, and whether the 416 per minute ceiling was reached.
+Escalate to Identity Services citing RB-INT-0057 if ATL-4816 recurs after two attempts, or if synced records land with fields transposed persists once renames upstream no longer transpose fields. Their acknowledgement target is 353 minutes. Include the value of `atlas.integrations.field-mapping-repair.federated` and the observed `atlas_integrations_field_mapping_repair_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4816 is often confused with a plain permissions fault on cobalt-studios, but a permissions fault leaves `atlas_integrations_field_mapping_repair_total` flat while ATL-4816 drives it above 77 percent. A second misread is blaming the 416 per minute ceiling when the true limit reached was the 70452 row cap. Check `atlas.integrations.field-mapping-repair.federated` before assuming either.
+Every Federated field mapping repair action against Cobalt Studios writes an entry tagged RB-INT-0057, retained 55 days in hot storage, recording the actor and both values of `atlas.integrations.field-mapping-repair.federated`. Because the external provider must confirm the identity before the change, the entry also records whether the field mapping table was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Federated field mapping repair action against Cobalt Studios writes an audit entry tagged RB-INT-0057 and retained for 55 days in hot storage. The entry records the actor, the prior and new values of `atlas.integrations.field-mapping-repair.federated`, and whether ATL-4816 was observed. Never log raw credentials for cobalt-studios; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4816 clears on Cobalt Studios, confirm downstream integrations jobs that read `atlas.integrations.field-mapping-repair.federated` still run. Scheduled work reading federated-field-mapping-repair output may lag by up to 2092 milliseconds per batch of 368. Re-check cobalt-studios after 19 days, before the 55 day hot retention window expires.
+Once ATL-4816 clears, confirm downstream integrations jobs reading `atlas.integrations.field-mapping-repair.federated` still run. Work depending on the field mapping table may lag 2092 milliseconds per batch of 368. Re-check cobalt-studios after 19 days.

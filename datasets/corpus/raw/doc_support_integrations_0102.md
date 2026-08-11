@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0102
-title: Cascading Sync Backfill runbook 0102
+title: Cascading Sync Backfill incident review 0102
 category: integrations
+doc_type: postmortem
 procedure: Cascading sync backfill
+component: the backfill coordinator
 error_code: ATL-4861
 config_key: atlas.integrations.sync-backfill.cascading
 workspace: Umbra Retail
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0102
 source: synthetic
 ---
 
-# Cascading Sync Backfill runbook 0102
+# Cascading Sync Backfill incident review 0102
 
-## Overview
+## Summary
 
-Runbook RB-INT-0102 covers the Cascading sync backfill procedure for the Umbra Retail workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4861; other integrations faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4861 within 248 minutes.
+On the Growth plan in us-east-1, Umbra Retail reported that a backfill overwrites newer local edits with older remote data. Atlas raised ATL-4861 for 248 minutes before Revenue Engineering mitigated. The fault was in the backfill coordinator. Review reference RB-INT-0102.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4861 with the message "Cascading sync backfill blocked for workspace umbra-retail". The `atlas_integrations_sync_backfill_total` counter rises while the affected integrations operation stalls. Requests exceeding 911 calls per minute against umbra-retail amplify the failure, and the operation aborts once it has waited 212 seconds.
+Umbra Retail was unable to complete Cascading sync backfill while ATL-4861 persisted. Roughly 74817 rows were delayed and `atlas_integrations_sync_backfill_total` held above 77 percent throughout. Because dependents must be re-evaluated after the change lands, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Umbra Retail, then collect 2 approval(s) before editing `atlas.integrations.sync-backfill.cascading`. Changes to `atlas.integrations.sync-backfill.cascading` are irreversible after 22 days because the prior value leaves warm storage on that schedule. Record RB-INT-0102 and ATL-4861 in the case notes.
+Operations first saw `atlas_integrations_sync_backfill_total` cross 77 percent. ATL-4861 appeared against umbra-retail once traffic exceeded 911 per minute. The page reached Revenue Engineering within 248 minutes. Investigation focused on the backfill coordinator after a backfill overwrites newer local edits with older remote data was reproduced with `atlas integrations sync-backfill --mode cascading --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas integrations sync-backfill --mode cascading --workspace umbra-retail --dry-run` and compare the reported value of `atlas.integrations.sync-backfill.cascading` with the expected baseline. If `atlas_integrations_sync_backfill_total` exceeds 77 percent of its ceiling for the umbra-retail workspace, the Cascading sync backfill path is saturated rather than misconfigured, and error ATL-4861 is a symptom instead of the cause.
+the coordinator applies remote records without comparing versions. The condition had existed in the backfill coordinator for some time and became visible only when Umbra Retail crossed 911 calls per minute. The 212 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas integrations sync-backfill --mode cascading --workspace umbra-retail --commit` with a batch size of 453. The command retries with a 3757 millisecond backoff and gives up after 212 seconds. Processing more than 74817 rows in one invocation for Umbra Retail is unsupported and re-raises ATL-4861. Split larger jobs into batches of 453.
-
-## Limits and Quotas
-
-The Growth plan caps Umbra Retail at 911 cascading-sync-backfill calls per minute in us-east-1. Results persist in warm storage for 22 days. Exports tied to RB-INT-0102 refuse payloads above 74817 rows. Atlas warns 14 days before the 22 day window closes on umbra-retail.
+The team applied the standing fix: compare record versions and skip older remote writes. This was executed with `atlas integrations sync-backfill --mode cascading --workspace umbra-retail --commit` at a batch size of 453, backing off 3757 milliseconds between attempts, under 2 approval(s) against `atlas.integrations.sync-backfill.cascading`.
 
 ## Verification
 
-After the change, `atlas integrations sync-backfill --mode cascading --workspace umbra-retail --verify` should report `atlas.integrations.sync-backfill.cascading` as active with no occurrences of ATL-4861 in the last 212 seconds. Ask the customer to confirm from Umbra Retail directly. The `atlas_integrations_sync_backfill_total` counter should settle below 77 percent within 248 minutes.
+Recovery was confirmed when local edits newer than the remote record survive. `atlas_integrations_sync_backfill_total` returned below 77 percent and ATL-4861 stopped appearing for umbra-retail. Because dependents must be re-evaluated after the change lands, the team also confirmed the backfill coordinator had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Revenue Engineering if ATL-4861 recurs on umbra-retail after two attempts, citing RB-INT-0102. Their acknowledgement target is 248 minutes for the Growth plan in us-east-1. Include the value of `atlas.integrations.sync-backfill.cascading`, the observed `atlas_integrations_sync_backfill_total` rate, and whether the 911 per minute ceiling was reached.
+To keep the coordinator applies remote records without comparing versions from recurring, Revenue Engineering added monitoring on the backfill coordinator that alerts before `atlas_integrations_sync_backfill_total` reaches 77 percent. Retention for the diagnostic trail was set to 22 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4861 is often confused with a plain permissions fault on umbra-retail, but a permissions fault leaves `atlas_integrations_sync_backfill_total` flat while ATL-4861 drives it above 77 percent. A second misread is blaming the 911 per minute ceiling when the true limit reached was the 74817 row cap. Check `atlas.integrations.sync-backfill.cascading` before assuming either.
-
-## Audit and Logging
-
-Every Cascading sync backfill action against Umbra Retail writes an audit entry tagged RB-INT-0102 and retained for 22 days in warm storage. The entry records the actor, the prior and new values of `atlas.integrations.sync-backfill.cascading`, and whether ATL-4861 was observed. Never log raw credentials for umbra-retail; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4861 clears on Umbra Retail, confirm downstream integrations jobs that read `atlas.integrations.sync-backfill.cascading` still run. Scheduled work reading cascading-sync-backfill output may lag by up to 3757 milliseconds per batch of 453. Re-check umbra-retail after 14 days, before the 22 day warm retention window expires.
+Re-check umbra-retail after 14 days. Confirm the 911 per minute ceiling and the 74817 row cap still suit Umbra Retail on the Growth plan, and that local edits newer than the remote record survive remains true.

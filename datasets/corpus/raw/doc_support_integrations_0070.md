@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0070
-title: Sandboxed Credential Rotation runbook 0070
+title: Sandboxed Credential Rotation incident review 0070
 category: integrations
+doc_type: postmortem
 procedure: Sandboxed credential rotation
+component: the integration secret store
 error_code: ATL-4829
 config_key: atlas.integrations.credential-rotation.sandboxed
 workspace: Westmark Studios
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0070
 source: synthetic
 ---
 
-# Sandboxed Credential Rotation runbook 0070
+# Sandboxed Credential Rotation incident review 0070
 
-## Overview
+## Summary
 
-Runbook RB-INT-0070 covers the Sandboxed credential rotation procedure for the Westmark Studios workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4829; other integrations faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4829 within 177 minutes.
+On the Growth plan in us-east-1, Westmark Studios reported that rotation breaks a connector that uses a cached secret. Atlas raised ATL-4829 for 177 minutes before Data Delivery mitigated. The fault was in the integration secret store. Review reference RB-INT-0070.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4829 with the message "Sandboxed credential rotation blocked for workspace westmark-studios". The `atlas_integrations_credential_rotation_total` counter rises while the affected integrations operation stalls. Requests exceeding 559 calls per minute against westmark-studios amplify the failure, and the operation aborts once it has waited 273 seconds.
+Westmark Studios was unable to complete Sandboxed credential rotation while ATL-4829 persisted. Roughly 71713 rows were delayed and `atlas_integrations_credential_rotation_total` held above 73 percent throughout. Because the change must never write to production resources, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Westmark Studios, then collect 2 approval(s) before editing `atlas.integrations.credential-rotation.sandboxed`. Changes to `atlas.integrations.credential-rotation.sandboxed` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-INT-0070 and ATL-4829 in the case notes.
+Operations first saw `atlas_integrations_credential_rotation_total` cross 73 percent. ATL-4829 appeared against westmark-studios once traffic exceeded 559 per minute. The page reached Data Delivery within 177 minutes. Investigation focused on the integration secret store after rotation breaks a connector that uses a cached secret was reproduced with `atlas integrations credential-rotation --mode sandboxed --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas integrations credential-rotation --mode sandboxed --workspace westmark-studios --dry-run` and compare the reported value of `atlas.integrations.credential-rotation.sandboxed` with the expected baseline. If `atlas_integrations_credential_rotation_total` exceeds 73 percent of its ceiling for the westmark-studios workspace, the Sandboxed credential rotation path is saturated rather than misconfigured, and error ATL-4829 is a symptom instead of the cause.
+the connector reads the secret once at process start. The condition had existed in the integration secret store for some time and became visible only when Westmark Studios crossed 559 calls per minute. The 273 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas integrations credential-rotation --mode sandboxed --workspace westmark-studios --commit` with a batch size of 667. The command retries with a 2573 millisecond backoff and gives up after 273 seconds. Processing more than 71713 rows in one invocation for Westmark Studios is unsupported and re-raises ATL-4829. Split larger jobs into batches of 667.
-
-## Limits and Quotas
-
-The Growth plan caps Westmark Studios at 559 sandboxed-credential-rotation calls per minute in us-east-1. Results persist in warm storage for 10 days. Exports tied to RB-INT-0070 refuse payloads above 71713 rows. Atlas warns 7 days before the 10 day window closes on westmark-studios.
+The team applied the standing fix: re-read the secret on each authentication attempt. This was executed with `atlas integrations credential-rotation --mode sandboxed --workspace westmark-studios --commit` at a batch size of 667, backing off 2573 milliseconds between attempts, under 2 approval(s) against `atlas.integrations.credential-rotation.sandboxed`.
 
 ## Verification
 
-After the change, `atlas integrations credential-rotation --mode sandboxed --workspace westmark-studios --verify` should report `atlas.integrations.credential-rotation.sandboxed` as active with no occurrences of ATL-4829 in the last 273 seconds. Ask the customer to confirm from Westmark Studios directly. The `atlas_integrations_credential_rotation_total` counter should settle below 73 percent within 177 minutes.
+Recovery was confirmed when rotation takes effect without a connector restart. `atlas_integrations_credential_rotation_total` returned below 73 percent and ATL-4829 stopped appearing for westmark-studios. Because the change must never write to production resources, the team also confirmed the integration secret store had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Data Delivery if ATL-4829 recurs on westmark-studios after two attempts, citing RB-INT-0070. Their acknowledgement target is 177 minutes for the Growth plan in us-east-1. Include the value of `atlas.integrations.credential-rotation.sandboxed`, the observed `atlas_integrations_credential_rotation_total` rate, and whether the 559 per minute ceiling was reached.
+To keep the connector reads the secret once at process start from recurring, Data Delivery added monitoring on the integration secret store that alerts before `atlas_integrations_credential_rotation_total` reaches 73 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4829 is often confused with a plain permissions fault on westmark-studios, but a permissions fault leaves `atlas_integrations_credential_rotation_total` flat while ATL-4829 drives it above 73 percent. A second misread is blaming the 559 per minute ceiling when the true limit reached was the 71713 row cap. Check `atlas.integrations.credential-rotation.sandboxed` before assuming either.
-
-## Audit and Logging
-
-Every Sandboxed credential rotation action against Westmark Studios writes an audit entry tagged RB-INT-0070 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.integrations.credential-rotation.sandboxed`, and whether ATL-4829 was observed. Never log raw credentials for westmark-studios; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4829 clears on Westmark Studios, confirm downstream integrations jobs that read `atlas.integrations.credential-rotation.sandboxed` still run. Scheduled work reading sandboxed-credential-rotation output may lag by up to 2573 milliseconds per batch of 667. Re-check westmark-studios after 7 days, before the 10 day warm retention window expires.
+Re-check westmark-studios after 7 days. Confirm the 559 per minute ceiling and the 71713 row cap still suit Westmark Studios on the Growth plan, and that rotation takes effect without a connector restart remains true.

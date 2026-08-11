@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_api_0048
-title: Legacy Cursor Pagination runbook 0048
+title: Legacy Cursor Pagination incident review 0048
 category: api
+doc_type: postmortem
 procedure: Legacy cursor pagination
+component: the cursor encoder
 error_code: ATL-4257
 config_key: atlas.api.cursor-pagination.legacy
 workspace: Fernhill Collective
@@ -12,48 +14,36 @@ runbook_ref: RB-API-0048
 source: synthetic
 ---
 
-# Legacy Cursor Pagination runbook 0048
+# Legacy Cursor Pagination incident review 0048
 
-## Overview
+## Summary
 
-Runbook RB-API-0048 covers the Legacy cursor pagination procedure for the Fernhill Collective workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4257; other api faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4257 within 331 minutes.
+On the Growth plan in ap-northeast-3, Fernhill Collective reported that pagination skips or repeats records under concurrent writes. Atlas raised ATL-4257 for 331 minutes before Data Delivery mitigated. The fault was in the cursor encoder. Review reference RB-API-0048.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4257 with the message "Legacy cursor pagination blocked for workspace fernhill-collective". The `atlas_api_cursor_pagination_total` counter rises while the affected api operation stalls. Requests exceeding 847 calls per minute against fernhill-collective amplify the failure, and the operation aborts once it has waited 259 seconds.
+Fernhill Collective was unable to complete Legacy cursor pagination while ATL-4257 persisted. Roughly 16229 rows were delayed and `atlas_api_cursor_pagination_total` held above 69 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Fernhill Collective, then collect 2 approval(s) before editing `atlas.api.cursor-pagination.legacy`. Changes to `atlas.api.cursor-pagination.legacy` are irreversible after 58 days because the prior value leaves warm storage on that schedule. Record RB-API-0048 and ATL-4257 in the case notes.
+Operations first saw `atlas_api_cursor_pagination_total` cross 69 percent. ATL-4257 appeared against fernhill-collective once traffic exceeded 847 per minute. The page reached Data Delivery within 331 minutes. Investigation focused on the cursor encoder after pagination skips or repeats records under concurrent writes was reproduced with `atlas api cursor-pagination --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas api cursor-pagination --mode legacy --workspace fernhill-collective --dry-run` and compare the reported value of `atlas.api.cursor-pagination.legacy` with the expected baseline. If `atlas_api_cursor_pagination_total` exceeds 69 percent of its ceiling for the fernhill-collective workspace, the Legacy cursor pagination path is saturated rather than misconfigured, and error ATL-4257 is a symptom instead of the cause.
+the cursor encodes an offset rather than a stable sort key. The condition had existed in the cursor encoder for some time and became visible only when Fernhill Collective crossed 847 calls per minute. The 259 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas api cursor-pagination --mode legacy --workspace fernhill-collective --commit` with a batch size of 811. The command retries with a 1009 millisecond backoff and gives up after 259 seconds. Processing more than 16229 rows in one invocation for Fernhill Collective is unsupported and re-raises ATL-4257. Split larger jobs into batches of 811.
-
-## Limits and Quotas
-
-The Growth plan caps Fernhill Collective at 847 legacy-cursor-pagination calls per minute in ap-northeast-3. Results persist in warm storage for 58 days. Exports tied to RB-API-0048 refuse payloads above 16229 rows. Atlas warns 10 days before the 58 day window closes on fernhill-collective.
+The team applied the standing fix: re-encode the cursor around an immutable sort key. This was executed with `atlas api cursor-pagination --mode legacy --workspace fernhill-collective --commit` at a batch size of 811, backing off 1009 milliseconds between attempts, under 2 approval(s) against `atlas.api.cursor-pagination.legacy`.
 
 ## Verification
 
-After the change, `atlas api cursor-pagination --mode legacy --workspace fernhill-collective --verify` should report `atlas.api.cursor-pagination.legacy` as active with no occurrences of ATL-4257 in the last 259 seconds. Ask the customer to confirm from Fernhill Collective directly. The `atlas_api_cursor_pagination_total` counter should settle below 69 percent within 331 minutes.
+Recovery was confirmed when a full walk returns each record exactly once. `atlas_api_cursor_pagination_total` returned below 69 percent and ATL-4257 stopped appearing for fernhill-collective. Because the change must be translated into the older format first, the team also confirmed the cursor encoder had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Data Delivery if ATL-4257 recurs on fernhill-collective after two attempts, citing RB-API-0048. Their acknowledgement target is 331 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.api.cursor-pagination.legacy`, the observed `atlas_api_cursor_pagination_total` rate, and whether the 847 per minute ceiling was reached.
+To keep the cursor encodes an offset rather than a stable sort key from recurring, Data Delivery added monitoring on the cursor encoder that alerts before `atlas_api_cursor_pagination_total` reaches 69 percent. Retention for the diagnostic trail was set to 58 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4257 is often confused with a plain permissions fault on fernhill-collective, but a permissions fault leaves `atlas_api_cursor_pagination_total` flat while ATL-4257 drives it above 69 percent. A second misread is blaming the 847 per minute ceiling when the true limit reached was the 16229 row cap. Check `atlas.api.cursor-pagination.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy cursor pagination action against Fernhill Collective writes an audit entry tagged RB-API-0048 and retained for 58 days in warm storage. The entry records the actor, the prior and new values of `atlas.api.cursor-pagination.legacy`, and whether ATL-4257 was observed. Never log raw credentials for fernhill-collective; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4257 clears on Fernhill Collective, confirm downstream api jobs that read `atlas.api.cursor-pagination.legacy` still run. Scheduled work reading legacy-cursor-pagination output may lag by up to 1009 milliseconds per batch of 811. Re-check fernhill-collective after 10 days, before the 58 day warm retention window expires.
+Re-check fernhill-collective after 10 days. Confirm the 847 per minute ceiling and the 16229 row cap still suit Fernhill Collective on the Growth plan, and that a full walk returns each record exactly once remains true.

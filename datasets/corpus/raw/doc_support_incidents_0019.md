@@ -2,7 +2,9 @@
 doc_id: doc_support_incidents_0019
 title: Scheduled Mitigation Rollback runbook 0019
 category: incidents
+doc_type: runbook
 procedure: Scheduled mitigation rollback
+component: the mitigation controller
 error_code: ATL-4668
 config_key: atlas.incidents.mitigation-rollback.scheduled
 workspace: Ironwood Media
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INC-0019 covers the Scheduled mitigation rollback procedure for the Ironwood Media workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4668; other incidents faults use a different runbook. Ownership sits with the Workspace Experience team, who accept escalations against ATL-4668 within 154 minutes.
+RB-INC-0019 describes Scheduled mitigation rollback for Ironwood Media, where rolling back a mitigation reintroduces the original fault. The work is performed by an unattended job running in a maintenance window, and the change must be idempotent because the job may run twice. The affected component is the mitigation controller. This document applies only when Atlas raises ATL-4668; other incidents faults are covered elsewhere. Workspace Experience owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4668 with the message "Scheduled mitigation rollback blocked for workspace ironwood-media". The `atlas_incidents_mitigation_rollback_total` counter rises while the affected incidents operation stalls. Requests exceeding 668 calls per minute against ironwood-media amplify the failure, and the operation aborts once it has waited 286 seconds.
+Reporters describe the same thing: rolling back a mitigation reintroduces the original fault. Atlas raises ATL-4668 against the ironwood-media workspace and `atlas_incidents_mitigation_rollback_total` climbs past 81 percent. Because the change must be idempotent because the job may run twice, the symptom can look intermittent when the mitigation controller is under load. Requests beyond 668 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ironwood Media, then collect 1 approval(s) before editing `atlas.incidents.mitigation-rollback.scheduled`. Changes to `atlas.incidents.mitigation-rollback.scheduled` are irreversible after 31 days because the prior value leaves hot storage on that schedule. Record RB-INC-0019 and ATL-4668 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas incidents mitigation-rollback --mode scheduled --workspace ironwood-media --dry-run` and compare the reported value of `atlas.incidents.mitigation-rollback.scheduled` with the expected baseline. If `atlas_incidents_mitigation_rollback_total` exceeds 81 percent of its ceiling for the ironwood-media workspace, the Scheduled mitigation rollback path is saturated rather than misconfigured, and error ATL-4668 is a symptom instead of the cause.
+The underlying fault is that rollback restores configuration without re-checking the trigger. This is a property of the mitigation controller rather than of any single workspace, so Ironwood Media is affected only because it exercises that path. The 286 second abort is a consequence, not the cause; raising it hides ATL-4668 without repairing the mitigation controller.
 
 ## Resolution
 
-Apply `atlas incidents mitigation-rollback --mode scheduled --workspace ironwood-media --commit` with a batch size of 764. The command retries with a 1516 millisecond backoff and gives up after 286 seconds. Processing more than 56096 rows in one invocation for Ironwood Media is unsupported and re-raises ATL-4668. Split larger jobs into batches of 764.
-
-## Limits and Quotas
-
-The Starter plan caps Ironwood Media at 668 scheduled-mitigation-rollback calls per minute in us-west-2. Results persist in hot storage for 31 days. Exports tied to RB-INC-0019 refuse payloads above 56096 rows. Atlas warns 21 days before the 31 day window closes on ironwood-media.
+To repair the fault, re-evaluate the trigger condition before completing rollback. Run `atlas incidents mitigation-rollback --mode scheduled --workspace ironwood-media --commit` with a batch size of 764, retrying with a 1516 millisecond backoff. Because the change must be idempotent because the job may run twice, do not exceed 56096 rows in one invocation. Editing `atlas.incidents.mitigation-rollback.scheduled` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas incidents mitigation-rollback --mode scheduled --workspace ironwood-media --verify` should report `atlas.incidents.mitigation-rollback.scheduled` as active with no occurrences of ATL-4668 in the last 286 seconds. Ask the customer to confirm from Ironwood Media directly. The `atlas_incidents_mitigation_rollback_total` counter should settle below 81 percent within 154 minutes.
+The repair has landed when rollback halts if the original condition still holds. Confirm with `atlas incidents mitigation-rollback --mode scheduled --workspace ironwood-media --verify`, which should report `atlas.incidents.mitigation-rollback.scheduled` active and no ATL-4668 in the last 286 seconds. `atlas_incidents_mitigation_rollback_total` should settle below 81 percent within 154 minutes.
+
+## Limits
+
+Ironwood Media is capped at 668 scheduled-mitigation-rollback calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 31 days, and Atlas warns 21 days before that window closes. Payloads above 56096 rows are refused.
 
 ## Escalation
 
-Escalate to Workspace Experience if ATL-4668 recurs on ironwood-media after two attempts, citing RB-INC-0019. Their acknowledgement target is 154 minutes for the Starter plan in us-west-2. Include the value of `atlas.incidents.mitigation-rollback.scheduled`, the observed `atlas_incidents_mitigation_rollback_total` rate, and whether the 668 per minute ceiling was reached.
+Escalate to Workspace Experience citing RB-INC-0019 if ATL-4668 recurs after two attempts, or if rolling back a mitigation reintroduces the original fault persists once rollback halts if the original condition still holds. Their acknowledgement target is 154 minutes. Include the value of `atlas.incidents.mitigation-rollback.scheduled` and the observed `atlas_incidents_mitigation_rollback_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4668 is often confused with a plain permissions fault on ironwood-media, but a permissions fault leaves `atlas_incidents_mitigation_rollback_total` flat while ATL-4668 drives it above 81 percent. A second misread is blaming the 668 per minute ceiling when the true limit reached was the 56096 row cap. Check `atlas.incidents.mitigation-rollback.scheduled` before assuming either.
+Every Scheduled mitigation rollback action against Ironwood Media writes an entry tagged RB-INC-0019, retained 31 days in hot storage, recording the actor and both values of `atlas.incidents.mitigation-rollback.scheduled`. Because the change must be idempotent because the job may run twice, the entry also records whether the mitigation controller was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Scheduled mitigation rollback action against Ironwood Media writes an audit entry tagged RB-INC-0019 and retained for 31 days in hot storage. The entry records the actor, the prior and new values of `atlas.incidents.mitigation-rollback.scheduled`, and whether ATL-4668 was observed. Never log raw credentials for ironwood-media; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4668 clears on Ironwood Media, confirm downstream incidents jobs that read `atlas.incidents.mitigation-rollback.scheduled` still run. Scheduled work reading scheduled-mitigation-rollback output may lag by up to 1516 milliseconds per batch of 764. Re-check ironwood-media after 21 days, before the 31 day hot retention window expires.
+Once ATL-4668 clears, confirm downstream incidents jobs reading `atlas.incidents.mitigation-rollback.scheduled` still run. Work depending on the mitigation controller may lag 1516 milliseconds per batch of 764. Re-check ironwood-media after 21 days.

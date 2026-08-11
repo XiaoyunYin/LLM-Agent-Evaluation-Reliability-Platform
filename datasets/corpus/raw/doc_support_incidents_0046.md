@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_incidents_0046
-title: Legacy Timeline Reconstruction runbook 0046
+title: Legacy Timeline Reconstruction questions and answers 0046
 category: incidents
+doc_type: faq
 procedure: Legacy timeline reconstruction
+component: the incident timeline builder
 error_code: ATL-4695
 config_key: atlas.incidents.timeline-reconstruction.legacy
 workspace: Blackpine Capital
@@ -12,48 +14,36 @@ runbook_ref: RB-INC-0046
 source: synthetic
 ---
 
-# Legacy Timeline Reconstruction runbook 0046
+# Legacy Timeline Reconstruction questions and answers 0046
 
-## Overview
+## What does ATL-4695 mean?
 
-Runbook RB-INC-0046 covers the Legacy timeline reconstruction procedure for the Blackpine Capital workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4695; other incidents faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-4695 within 160 minutes.
+It means the timeline shows events out of order across regions. Atlas raises it against blackpine-capital when the incident timeline builder cannot complete Legacy timeline reconstruction. The operational procedure is RB-INC-0046, owned by Identity Services in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4695 with the message "Legacy timeline reconstruction blocked for workspace blackpine-capital". The `atlas_incidents_timeline_reconstruction_total` counter rises while the affected incidents operation stalls. Requests exceeding 965 calls per minute against blackpine-capital amplify the failure, and the operation aborts once it has waited 190 seconds.
+The cause is that the builder sorts on local timestamps from different clocks. It is a property of the incident timeline builder, so Blackpine Capital sees it only because it exercises that path. Because the change must be translated into the older format first, it may appear intermittent until traffic passes 965 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Blackpine Capital, then collect 4 approval(s) before editing `atlas.incidents.timeline-reconstruction.legacy`. Changes to `atlas.incidents.timeline-reconstruction.legacy` are irreversible after 28 days because the prior value leaves archival storage on that schedule. Record RB-INC-0046 and ATL-4695 in the case notes.
+sort on a monotonic sequence rather than wall-clock time. In practice that means running `atlas incidents timeline-reconstruction --mode legacy --workspace blackpine-capital --commit` with a batch size of 435 and a 2515 millisecond backoff. Editing `atlas.incidents.timeline-reconstruction.legacy` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas incidents timeline-reconstruction --mode legacy --workspace blackpine-capital --dry-run` and compare the reported value of `atlas.incidents.timeline-reconstruction.legacy` with the expected baseline. If `atlas_incidents_timeline_reconstruction_total` exceeds 90 percent of its ceiling for the blackpine-capital workspace, the Legacy timeline reconstruction path is saturated rather than misconfigured, and error ATL-4695 is a symptom instead of the cause.
+You know it worked when the timeline reads in true causal order. Running `atlas incidents timeline-reconstruction --mode legacy --workspace blackpine-capital --verify` reports `atlas.incidents.timeline-reconstruction.legacy` active with no ATL-4695 in the last 190 seconds, and `atlas_incidents_timeline_reconstruction_total` falls below 90 percent within 160 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas incidents timeline-reconstruction --mode legacy --workspace blackpine-capital --commit` with a batch size of 435. The command retries with a 2515 millisecond backoff and gives up after 190 seconds. Processing more than 58715 rows in one invocation for Blackpine Capital is unsupported and re-raises ATL-4695. Split larger jobs into batches of 435.
+No. A permissions fault leaves `atlas_incidents_timeline_reconstruction_total` flat, while ATL-4695 drives it above 90 percent. A second common misread is blaming the 965 per minute ceiling when the limit actually reached was the 58715 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Blackpine Capital at 965 legacy-timeline-reconstruction calls per minute in eu-west-2. Results persist in archival storage for 28 days. Exports tied to RB-INC-0046 refuse payloads above 58715 rows. Atlas warns 23 days before the 28 day window closes on blackpine-capital.
+Blackpine Capital may issue 965 legacy-timeline-reconstruction calls per minute on the Enterprise plan. One invocation accepts 58715 rows and aborts after 190 seconds. Results persist 28 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas incidents timeline-reconstruction --mode legacy --workspace blackpine-capital --verify` should report `atlas.incidents.timeline-reconstruction.legacy` as active with no occurrences of ATL-4695 in the last 190 seconds. Ask the customer to confirm from Blackpine Capital directly. The `atlas_incidents_timeline_reconstruction_total` counter should settle below 90 percent within 160 minutes.
+Identity Services owns the incident timeline builder. They acknowledge escalations against ATL-4695 within 160 minutes on the Enterprise plan. Cite RB-INC-0046 and include the observed `atlas_incidents_timeline_reconstruction_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Identity Services if ATL-4695 recurs on blackpine-capital after two attempts, citing RB-INC-0046. Their acknowledgement target is 160 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.incidents.timeline-reconstruction.legacy`, the observed `atlas_incidents_timeline_reconstruction_total` rate, and whether the 965 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4695 is often confused with a plain permissions fault on blackpine-capital, but a permissions fault leaves `atlas_incidents_timeline_reconstruction_total` flat while ATL-4695 drives it above 90 percent. A second misread is blaming the 965 per minute ceiling when the true limit reached was the 58715 row cap. Check `atlas.incidents.timeline-reconstruction.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy timeline reconstruction action against Blackpine Capital writes an audit entry tagged RB-INC-0046 and retained for 28 days in archival storage. The entry records the actor, the prior and new values of `atlas.incidents.timeline-reconstruction.legacy`, and whether ATL-4695 was observed. Never log raw credentials for blackpine-capital; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4695 clears on Blackpine Capital, confirm downstream incidents jobs that read `atlas.incidents.timeline-reconstruction.legacy` still run. Scheduled work reading legacy-timeline-reconstruction output may lag by up to 2515 milliseconds per batch of 435. Re-check blackpine-capital after 23 days, before the 28 day archival retention window expires.
+Confirm downstream incidents work reading `atlas.incidents.timeline-reconstruction.legacy` still runs. It may lag 2515 milliseconds per batch of 435. Re-check blackpine-capital after 23 days, before the 28 day window closes.

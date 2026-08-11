@@ -2,7 +2,9 @@
 doc_id: doc_support_integrations_0045
 title: Legacy Connector Reauthorization runbook 0045
 category: integrations
+doc_type: runbook
 procedure: Legacy connector reauthorization
+component: the connector credential vault
 error_code: ATL-4804
 config_key: atlas.integrations.connector-reauthorization.legacy
 workspace: Ironwood Biotech
@@ -16,44 +18,36 @@ source: synthetic
 
 ## Overview
 
-Runbook RB-INT-0045 covers the Legacy connector reauthorization procedure for the Ironwood Biotech workspace in Atlas Metrics, hosted in us-west-2 on the Starter plan. It applies only when the platform emits error ATL-4804; other integrations faults use a different runbook. Ownership sits with the Platform Reliability team, who accept escalations against ATL-4804 within 197 minutes.
+RB-INT-0045 describes Legacy connector reauthorization for Ironwood Biotech, where a connector stops syncing without raising an error. The work is performed by a workspace still on the previous configuration format, and the change must be translated into the older format first. The affected component is the connector credential vault. This document applies only when Atlas raises ATL-4804; other integrations faults are covered elsewhere. Platform Reliability owns the procedure in us-west-2.
 
 ## Symptoms
 
-The customer sees error ATL-4804 with the message "Legacy connector reauthorization blocked for workspace ironwood-biotech". The `atlas_integrations_connector_reauthorization_total` counter rises while the affected integrations operation stalls. Requests exceeding 284 calls per minute against ironwood-biotech amplify the failure, and the operation aborts once it has waited 98 seconds.
+Reporters describe the same thing: a connector stops syncing without raising an error. Atlas raises ATL-4804 against the ironwood-biotech workspace and `atlas_integrations_connector_reauthorization_total` climbs past 98 percent. Because the change must be translated into the older format first, the symptom can look intermittent when the connector credential vault is under load. Requests beyond 284 per minute make it reproducible.
 
-## Prerequisites
+## Root Cause
 
-Confirm the requester holds an administrator grant on Ironwood Biotech, then collect 1 approval(s) before editing `atlas.integrations.connector-reauthorization.legacy`. Changes to `atlas.integrations.connector-reauthorization.legacy` are irreversible after 19 days because the prior value leaves hot storage on that schedule. Record RB-INT-0045 and ATL-4804 in the case notes.
-
-## Diagnostic Steps
-
-Run `atlas integrations connector-reauthorization --mode legacy --workspace ironwood-biotech --dry-run` and compare the reported value of `atlas.integrations.connector-reauthorization.legacy` with the expected baseline. If `atlas_integrations_connector_reauthorization_total` exceeds 98 percent of its ceiling for the ironwood-biotech workspace, the Legacy connector reauthorization path is saturated rather than misconfigured, and error ATL-4804 is a symptom instead of the cause.
+The underlying fault is that expired credentials fail silently on the refresh path. This is a property of the connector credential vault rather than of any single workspace, so Ironwood Biotech is affected only because it exercises that path. The 98 second abort is a consequence, not the cause; raising it hides ATL-4804 without repairing the connector credential vault.
 
 ## Resolution
 
-Apply `atlas integrations connector-reauthorization --mode legacy --workspace ironwood-biotech --commit` with a batch size of 92. The command retries with a 1648 millisecond backoff and gives up after 98 seconds. Processing more than 69288 rows in one invocation for Ironwood Biotech is unsupported and re-raises ATL-4804. Split larger jobs into batches of 92.
-
-## Limits and Quotas
-
-The Starter plan caps Ironwood Biotech at 284 legacy-connector-reauthorization calls per minute in us-west-2. Results persist in hot storage for 19 days. Exports tied to RB-INT-0045 refuse payloads above 69288 rows. Atlas warns 7 days before the 19 day window closes on ironwood-biotech.
+To repair the fault, surface refresh failures as connector health errors. Run `atlas integrations connector-reauthorization --mode legacy --workspace ironwood-biotech --commit` with a batch size of 92, retrying with a 1648 millisecond backoff. Because the change must be translated into the older format first, do not exceed 69288 rows in one invocation. Editing `atlas.integrations.connector-reauthorization.legacy` requires 1 approval(s).
 
 ## Verification
 
-After the change, `atlas integrations connector-reauthorization --mode legacy --workspace ironwood-biotech --verify` should report `atlas.integrations.connector-reauthorization.legacy` as active with no occurrences of ATL-4804 in the last 98 seconds. Ask the customer to confirm from Ironwood Biotech directly. The `atlas_integrations_connector_reauthorization_total` counter should settle below 98 percent within 197 minutes.
+The repair has landed when credential expiry raises a visible connector error. Confirm with `atlas integrations connector-reauthorization --mode legacy --workspace ironwood-biotech --verify`, which should report `atlas.integrations.connector-reauthorization.legacy` active and no ATL-4804 in the last 98 seconds. `atlas_integrations_connector_reauthorization_total` should settle below 98 percent within 197 minutes.
+
+## Limits
+
+Ironwood Biotech is capped at 284 legacy-connector-reauthorization calls per minute on the Starter plan in us-west-2. Results persist in hot storage for 19 days, and Atlas warns 7 days before that window closes. Payloads above 69288 rows are refused.
 
 ## Escalation
 
-Escalate to Platform Reliability if ATL-4804 recurs on ironwood-biotech after two attempts, citing RB-INT-0045. Their acknowledgement target is 197 minutes for the Starter plan in us-west-2. Include the value of `atlas.integrations.connector-reauthorization.legacy`, the observed `atlas_integrations_connector_reauthorization_total` rate, and whether the 284 per minute ceiling was reached.
+Escalate to Platform Reliability citing RB-INT-0045 if ATL-4804 recurs after two attempts, or if a connector stops syncing without raising an error persists once credential expiry raises a visible connector error. Their acknowledgement target is 197 minutes. Include the value of `atlas.integrations.connector-reauthorization.legacy` and the observed `atlas_integrations_connector_reauthorization_total` rate.
 
-## Common Misdiagnoses
+## Audit
 
-Error ATL-4804 is often confused with a plain permissions fault on ironwood-biotech, but a permissions fault leaves `atlas_integrations_connector_reauthorization_total` flat while ATL-4804 drives it above 98 percent. A second misread is blaming the 284 per minute ceiling when the true limit reached was the 69288 row cap. Check `atlas.integrations.connector-reauthorization.legacy` before assuming either.
+Every Legacy connector reauthorization action against Ironwood Biotech writes an entry tagged RB-INT-0045, retained 19 days in hot storage, recording the actor and both values of `atlas.integrations.connector-reauthorization.legacy`. Because the change must be translated into the older format first, the entry also records whether the connector credential vault was reconciled.
 
-## Audit and Logging
+## Follow-Up
 
-Every Legacy connector reauthorization action against Ironwood Biotech writes an audit entry tagged RB-INT-0045 and retained for 19 days in hot storage. The entry records the actor, the prior and new values of `atlas.integrations.connector-reauthorization.legacy`, and whether ATL-4804 was observed. Never log raw credentials for ironwood-biotech; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4804 clears on Ironwood Biotech, confirm downstream integrations jobs that read `atlas.integrations.connector-reauthorization.legacy` still run. Scheduled work reading legacy-connector-reauthorization output may lag by up to 1648 milliseconds per batch of 92. Re-check ironwood-biotech after 7 days, before the 19 day hot retention window expires.
+Once ATL-4804 clears, confirm downstream integrations jobs reading `atlas.integrations.connector-reauthorization.legacy` still run. Work depending on the connector credential vault may lag 1648 milliseconds per batch of 92. Re-check ironwood-biotech after 7 days.

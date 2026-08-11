@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_troubleshooting_0032
-title: Bulk Config Drift Reconciliation runbook 0032
+title: Bulk Config Drift Reconciliation incident review 0032
 category: troubleshooting
+doc_type: postmortem
 procedure: Bulk config drift reconciliation
+component: the configuration reconciler
 error_code: ATL-5121
 config_key: atlas.troubleshooting.config-drift-reconciliation.bulk
 workspace: Brightpath Optics
@@ -12,48 +14,36 @@ runbook_ref: RB-TRO-0032
 source: synthetic
 ---
 
-# Bulk Config Drift Reconciliation runbook 0032
+# Bulk Config Drift Reconciliation incident review 0032
 
-## Overview
+## Summary
 
-Runbook RB-TRO-0032 covers the Bulk config drift reconciliation procedure for the Brightpath Optics workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-5121; other troubleshooting faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-5121 within 178 minutes.
+On the Growth plan in ap-northeast-3, Brightpath Optics reported that hosts diverge from the declared configuration over time. Atlas raised ATL-5121 for 178 minutes before Billing Infrastructure mitigated. The fault was in the configuration reconciler. Review reference RB-TRO-0032.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5121 with the message "Bulk config drift reconciliation blocked for workspace brightpath-optics". The `atlas_troubleshooting_config_drift_reconciliation_total` counter rises while the affected troubleshooting operation stalls. Requests exceeding 951 calls per minute against brightpath-optics amplify the failure, and the operation aborts once it has waited 37 seconds.
+Brightpath Optics was unable to complete Bulk config drift reconciliation while ATL-5121 persisted. Roughly 1037 rows were delayed and `atlas_troubleshooting_config_drift_reconciliation_total` held above 87 percent throughout. Because the batch must be splittable so a partial failure is recoverable, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Brightpath Optics, then collect 2 approval(s) before editing `atlas.troubleshooting.config-drift-reconciliation.bulk`. Changes to `atlas.troubleshooting.config-drift-reconciliation.bulk` are irreversible after 46 days because the prior value leaves warm storage on that schedule. Record RB-TRO-0032 and ATL-5121 in the case notes.
+Operations first saw `atlas_troubleshooting_config_drift_reconciliation_total` cross 87 percent. ATL-5121 appeared against brightpath-optics once traffic exceeded 951 per minute. The page reached Billing Infrastructure within 178 minutes. Investigation focused on the configuration reconciler after hosts diverge from the declared configuration over time was reproduced with `atlas troubleshooting config-drift-reconciliation --mode bulk --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas troubleshooting config-drift-reconciliation --mode bulk --workspace brightpath-optics --dry-run` and compare the reported value of `atlas.troubleshooting.config-drift-reconciliation.bulk` with the expected baseline. If `atlas_troubleshooting_config_drift_reconciliation_total` exceeds 87 percent of its ceiling for the brightpath-optics workspace, the Bulk config drift reconciliation path is saturated rather than misconfigured, and error ATL-5121 is a symptom instead of the cause.
+the reconciler reports drift but never corrects it. The condition had existed in the configuration reconciler for some time and became visible only when Brightpath Optics crossed 951 calls per minute. The 37 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas troubleshooting config-drift-reconciliation --mode bulk --workspace brightpath-optics --commit` with a batch size of 733. The command retries with a 3577 millisecond backoff and gives up after 37 seconds. Processing more than 1037 rows in one invocation for Brightpath Optics is unsupported and re-raises ATL-5121. Split larger jobs into batches of 733.
-
-## Limits and Quotas
-
-The Growth plan caps Brightpath Optics at 951 bulk-config-drift-reconciliation calls per minute in ap-northeast-3. Results persist in warm storage for 46 days. Exports tied to RB-TRO-0032 refuse payloads above 1037 rows. Atlas warns 24 days before the 46 day window closes on brightpath-optics.
+The team applied the standing fix: converge hosts to the declared state on each reconcile pass. This was executed with `atlas troubleshooting config-drift-reconciliation --mode bulk --workspace brightpath-optics --commit` at a batch size of 733, backing off 3577 milliseconds between attempts, under 2 approval(s) against `atlas.troubleshooting.config-drift-reconciliation.bulk`.
 
 ## Verification
 
-After the change, `atlas troubleshooting config-drift-reconciliation --mode bulk --workspace brightpath-optics --verify` should report `atlas.troubleshooting.config-drift-reconciliation.bulk` as active with no occurrences of ATL-5121 in the last 37 seconds. Ask the customer to confirm from Brightpath Optics directly. The `atlas_troubleshooting_config_drift_reconciliation_total` counter should settle below 87 percent within 178 minutes.
+Recovery was confirmed when measured drift returns to zero after a pass. `atlas_troubleshooting_config_drift_reconciliation_total` returned below 87 percent and ATL-5121 stopped appearing for brightpath-optics. Because the batch must be splittable so a partial failure is recoverable, the team also confirmed the configuration reconciler had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Billing Infrastructure if ATL-5121 recurs on brightpath-optics after two attempts, citing RB-TRO-0032. Their acknowledgement target is 178 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.troubleshooting.config-drift-reconciliation.bulk`, the observed `atlas_troubleshooting_config_drift_reconciliation_total` rate, and whether the 951 per minute ceiling was reached.
+To keep the reconciler reports drift but never corrects it from recurring, Billing Infrastructure added monitoring on the configuration reconciler that alerts before `atlas_troubleshooting_config_drift_reconciliation_total` reaches 87 percent. Retention for the diagnostic trail was set to 46 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5121 is often confused with a plain permissions fault on brightpath-optics, but a permissions fault leaves `atlas_troubleshooting_config_drift_reconciliation_total` flat while ATL-5121 drives it above 87 percent. A second misread is blaming the 951 per minute ceiling when the true limit reached was the 1037 row cap. Check `atlas.troubleshooting.config-drift-reconciliation.bulk` before assuming either.
-
-## Audit and Logging
-
-Every Bulk config drift reconciliation action against Brightpath Optics writes an audit entry tagged RB-TRO-0032 and retained for 46 days in warm storage. The entry records the actor, the prior and new values of `atlas.troubleshooting.config-drift-reconciliation.bulk`, and whether ATL-5121 was observed. Never log raw credentials for brightpath-optics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5121 clears on Brightpath Optics, confirm downstream troubleshooting jobs that read `atlas.troubleshooting.config-drift-reconciliation.bulk` still run. Scheduled work reading bulk-config-drift-reconciliation output may lag by up to 3577 milliseconds per batch of 733. Re-check brightpath-optics after 24 days, before the 46 day warm retention window expires.
+Re-check brightpath-optics after 24 days. Confirm the 951 per minute ceiling and the 1037 row cap still suit Brightpath Optics on the Growth plan, and that measured drift returns to zero after a pass remains true.

@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0058
-title: Federated Archive Expiry runbook 0058
+title: Federated Archive Expiry incident review 0058
 category: exports
+doc_type: postmortem
 procedure: Federated archive expiry
+component: the archive lifecycle policy
 error_code: ATL-4597
 config_key: atlas.exports.archive-expiry.federated
 workspace: Fernhill Dynamics
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0058
 source: synthetic
 ---
 
-# Federated Archive Expiry runbook 0058
+# Federated Archive Expiry incident review 0058
 
-## Overview
+## Summary
 
-Runbook RB-EXP-0058 covers the Federated archive expiry procedure for the Fernhill Dynamics workspace in Atlas Metrics, hosted in us-east-1 on the Growth plan. It applies only when the platform emits error ATL-4597; other exports faults use a different runbook. Ownership sits with the Revenue Engineering team, who accept escalations against ATL-4597 within 266 minutes.
+On the Growth plan in us-east-1, Fernhill Dynamics reported that archived exports disappear before their stated retention. Atlas raised ATL-4597 for 266 minutes before Revenue Engineering mitigated. The fault was in the archive lifecycle policy. Review reference RB-EXP-0058.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4597 with the message "Federated archive expiry blocked for workspace fernhill-dynamics". The `atlas_exports_archive_expiry_total` counter rises while the affected exports operation stalls. Requests exceeding 827 calls per minute against fernhill-dynamics amplify the failure, and the operation aborts once it has waited 74 seconds.
+Fernhill Dynamics was unable to complete Federated archive expiry while ATL-4597 persisted. Roughly 49209 rows were delayed and `atlas_exports_archive_expiry_total` held above 89 percent throughout. Because the external provider must confirm the identity before the change, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Fernhill Dynamics, then collect 2 approval(s) before editing `atlas.exports.archive-expiry.federated`. Changes to `atlas.exports.archive-expiry.federated` are irreversible after 70 days because the prior value leaves warm storage on that schedule. Record RB-EXP-0058 and ATL-4597 in the case notes.
+Operations first saw `atlas_exports_archive_expiry_total` cross 89 percent. ATL-4597 appeared against fernhill-dynamics once traffic exceeded 827 per minute. The page reached Revenue Engineering within 266 minutes. Investigation focused on the archive lifecycle policy after archived exports disappear before their stated retention was reproduced with `atlas exports archive-expiry --mode federated --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas exports archive-expiry --mode federated --workspace fernhill-dynamics --dry-run` and compare the reported value of `atlas.exports.archive-expiry.federated` with the expected baseline. If `atlas_exports_archive_expiry_total` exceeds 89 percent of its ceiling for the fernhill-dynamics workspace, the Federated archive expiry path is saturated rather than misconfigured, and error ATL-4597 is a symptom instead of the cause.
+the policy measures age from creation rather than from archival. The condition had existed in the archive lifecycle policy for some time and became visible only when Fernhill Dynamics crossed 827 calls per minute. The 74 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas exports archive-expiry --mode federated --workspace fernhill-dynamics --commit` with a batch size of 81. The command retries with a 3789 millisecond backoff and gives up after 74 seconds. Processing more than 49209 rows in one invocation for Fernhill Dynamics is unsupported and re-raises ATL-4597. Split larger jobs into batches of 81.
-
-## Limits and Quotas
-
-The Growth plan caps Fernhill Dynamics at 827 federated-archive-expiry calls per minute in us-east-1. Results persist in warm storage for 70 days. Exports tied to RB-EXP-0058 refuse payloads above 49209 rows. Atlas warns 25 days before the 70 day window closes on fernhill-dynamics.
+The team applied the standing fix: measure retention from the archival timestamp. This was executed with `atlas exports archive-expiry --mode federated --workspace fernhill-dynamics --commit` at a batch size of 81, backing off 3789 milliseconds between attempts, under 2 approval(s) against `atlas.exports.archive-expiry.federated`.
 
 ## Verification
 
-After the change, `atlas exports archive-expiry --mode federated --workspace fernhill-dynamics --verify` should report `atlas.exports.archive-expiry.federated` as active with no occurrences of ATL-4597 in the last 74 seconds. Ask the customer to confirm from Fernhill Dynamics directly. The `atlas_exports_archive_expiry_total` counter should settle below 89 percent within 266 minutes.
+Recovery was confirmed when archives persist for their full stated retention. `atlas_exports_archive_expiry_total` returned below 89 percent and ATL-4597 stopped appearing for fernhill-dynamics. Because the external provider must confirm the identity before the change, the team also confirmed the archive lifecycle policy had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Revenue Engineering if ATL-4597 recurs on fernhill-dynamics after two attempts, citing RB-EXP-0058. Their acknowledgement target is 266 minutes for the Growth plan in us-east-1. Include the value of `atlas.exports.archive-expiry.federated`, the observed `atlas_exports_archive_expiry_total` rate, and whether the 827 per minute ceiling was reached.
+To keep the policy measures age from creation rather than from archival from recurring, Revenue Engineering added monitoring on the archive lifecycle policy that alerts before `atlas_exports_archive_expiry_total` reaches 89 percent. Retention for the diagnostic trail was set to 70 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4597 is often confused with a plain permissions fault on fernhill-dynamics, but a permissions fault leaves `atlas_exports_archive_expiry_total` flat while ATL-4597 drives it above 89 percent. A second misread is blaming the 827 per minute ceiling when the true limit reached was the 49209 row cap. Check `atlas.exports.archive-expiry.federated` before assuming either.
-
-## Audit and Logging
-
-Every Federated archive expiry action against Fernhill Dynamics writes an audit entry tagged RB-EXP-0058 and retained for 70 days in warm storage. The entry records the actor, the prior and new values of `atlas.exports.archive-expiry.federated`, and whether ATL-4597 was observed. Never log raw credentials for fernhill-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4597 clears on Fernhill Dynamics, confirm downstream exports jobs that read `atlas.exports.archive-expiry.federated` still run. Scheduled work reading federated-archive-expiry output may lag by up to 3789 milliseconds per batch of 81. Re-check fernhill-dynamics after 25 days, before the 70 day warm retention window expires.
+Re-check fernhill-dynamics after 25 days. Confirm the 827 per minute ceiling and the 49209 row cap still suit Fernhill Dynamics on the Growth plan, and that archives persist for their full stated retention remains true.

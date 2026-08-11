@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_reports_0046
-title: Legacy Recipient Pruning runbook 0046
+title: Legacy Recipient Pruning incident review 0046
 category: reports
+doc_type: postmortem
 procedure: Legacy recipient pruning
+component: the recipient list manager
 error_code: ATL-5025
 config_key: atlas.reports.recipient-pruning.legacy
 workspace: Oakfield Insurance
@@ -12,48 +14,36 @@ runbook_ref: RB-REP-0046
 source: synthetic
 ---
 
-# Legacy Recipient Pruning runbook 0046
+# Legacy Recipient Pruning incident review 0046
 
-## Overview
+## Summary
 
-Runbook RB-REP-0046 covers the Legacy recipient pruning procedure for the Oakfield Insurance workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-5025; other reports faults use a different runbook. Ownership sits with the Identity Services team, who accept escalations against ATL-5025 within 310 minutes.
+On the Growth plan in ap-northeast-3, Oakfield Insurance reported that reports continue to reach departed employees. Atlas raised ATL-5025 for 310 minutes before Identity Services mitigated. The fault was in the recipient list manager. Review reference RB-REP-0046.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-5025 with the message "Legacy recipient pruning blocked for workspace oakfield-insurance". The `atlas_reports_recipient_pruning_total` counter rises while the affected reports operation stalls. Requests exceeding 835 calls per minute against oakfield-insurance amplify the failure, and the operation aborts once it has waited 220 seconds.
+Oakfield Insurance was unable to complete Legacy recipient pruning while ATL-5025 persisted. Roughly 90725 rows were delayed and `atlas_reports_recipient_pruning_total` held above 75 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Oakfield Insurance, then collect 2 approval(s) before editing `atlas.reports.recipient-pruning.legacy`. Changes to `atlas.reports.recipient-pruning.legacy` are irreversible after 10 days because the prior value leaves warm storage on that schedule. Record RB-REP-0046 and ATL-5025 in the case notes.
+Operations first saw `atlas_reports_recipient_pruning_total` cross 75 percent. ATL-5025 appeared against oakfield-insurance once traffic exceeded 835 per minute. The page reached Identity Services within 310 minutes. Investigation focused on the recipient list manager after reports continue to reach departed employees was reproduced with `atlas reports recipient-pruning --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas reports recipient-pruning --mode legacy --workspace oakfield-insurance --dry-run` and compare the reported value of `atlas.reports.recipient-pruning.legacy` with the expected baseline. If `atlas_reports_recipient_pruning_total` exceeds 75 percent of its ceiling for the oakfield-insurance workspace, the Legacy recipient pruning path is saturated rather than misconfigured, and error ATL-5025 is a symptom instead of the cause.
+the list stores addresses rather than references to directory entries. The condition had existed in the recipient list manager for some time and became visible only when Oakfield Insurance crossed 835 calls per minute. The 220 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas reports recipient-pruning --mode legacy --workspace oakfield-insurance --commit` with a batch size of 425. The command retries with a 4925 millisecond backoff and gives up after 220 seconds. Processing more than 90725 rows in one invocation for Oakfield Insurance is unsupported and re-raises ATL-5025. Split larger jobs into batches of 425.
-
-## Limits and Quotas
-
-The Growth plan caps Oakfield Insurance at 835 legacy-recipient-pruning calls per minute in ap-northeast-3. Results persist in warm storage for 10 days. Exports tied to RB-REP-0046 refuse payloads above 90725 rows. Atlas warns 3 days before the 10 day window closes on oakfield-insurance.
+The team applied the standing fix: store directory references and resolve at send time. This was executed with `atlas reports recipient-pruning --mode legacy --workspace oakfield-insurance --commit` at a batch size of 425, backing off 4925 milliseconds between attempts, under 2 approval(s) against `atlas.reports.recipient-pruning.legacy`.
 
 ## Verification
 
-After the change, `atlas reports recipient-pruning --mode legacy --workspace oakfield-insurance --verify` should report `atlas.reports.recipient-pruning.legacy` as active with no occurrences of ATL-5025 in the last 220 seconds. Ask the customer to confirm from Oakfield Insurance directly. The `atlas_reports_recipient_pruning_total` counter should settle below 75 percent within 310 minutes.
+Recovery was confirmed when departed employees receive nothing. `atlas_reports_recipient_pruning_total` returned below 75 percent and ATL-5025 stopped appearing for oakfield-insurance. Because the change must be translated into the older format first, the team also confirmed the recipient list manager had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Identity Services if ATL-5025 recurs on oakfield-insurance after two attempts, citing RB-REP-0046. Their acknowledgement target is 310 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.reports.recipient-pruning.legacy`, the observed `atlas_reports_recipient_pruning_total` rate, and whether the 835 per minute ceiling was reached.
+To keep the list stores addresses rather than references to directory entries from recurring, Identity Services added monitoring on the recipient list manager that alerts before `atlas_reports_recipient_pruning_total` reaches 75 percent. Retention for the diagnostic trail was set to 10 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-5025 is often confused with a plain permissions fault on oakfield-insurance, but a permissions fault leaves `atlas_reports_recipient_pruning_total` flat while ATL-5025 drives it above 75 percent. A second misread is blaming the 835 per minute ceiling when the true limit reached was the 90725 row cap. Check `atlas.reports.recipient-pruning.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy recipient pruning action against Oakfield Insurance writes an audit entry tagged RB-REP-0046 and retained for 10 days in warm storage. The entry records the actor, the prior and new values of `atlas.reports.recipient-pruning.legacy`, and whether ATL-5025 was observed. Never log raw credentials for oakfield-insurance; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-5025 clears on Oakfield Insurance, confirm downstream reports jobs that read `atlas.reports.recipient-pruning.legacy` still run. Scheduled work reading legacy-recipient-pruning output may lag by up to 4925 milliseconds per batch of 425. Re-check oakfield-insurance after 3 days, before the 10 day warm retention window expires.
+Re-check oakfield-insurance after 3 days. Confirm the 835 per minute ceiling and the 90725 row cap still suit Oakfield Insurance on the Growth plan, and that departed employees receive nothing remains true.

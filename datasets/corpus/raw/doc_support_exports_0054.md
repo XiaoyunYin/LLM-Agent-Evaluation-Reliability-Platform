@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_exports_0054
-title: Legacy Header Normalization runbook 0054
+title: Legacy Header Normalization incident review 0054
 category: exports
+doc_type: postmortem
 procedure: Legacy header normalization
+component: the header formatter
 error_code: ATL-4593
 config_key: atlas.exports.header-normalization.legacy
 workspace: Blackpine Dynamics
@@ -12,48 +14,36 @@ runbook_ref: RB-EXP-0054
 source: synthetic
 ---
 
-# Legacy Header Normalization runbook 0054
+# Legacy Header Normalization incident review 0054
 
-## Overview
+## Summary
 
-Runbook RB-EXP-0054 covers the Legacy header normalization procedure for the Blackpine Dynamics workspace in Atlas Metrics, hosted in ap-northeast-3 on the Growth plan. It applies only when the platform emits error ATL-4593; other exports faults use a different runbook. Ownership sits with the Billing Infrastructure team, who accept escalations against ATL-4593 within 214 minutes.
+On the Growth plan in ap-northeast-3, Blackpine Dynamics reported that downstream parsers reject the header row. Atlas raised ATL-4593 for 214 minutes before Billing Infrastructure mitigated. The fault was in the header formatter. Review reference RB-EXP-0054.
 
-## Symptoms
+## Impact
 
-The customer sees error ATL-4593 with the message "Legacy header normalization blocked for workspace blackpine-dynamics". The `atlas_exports_header_normalization_total` counter rises while the affected exports operation stalls. Requests exceeding 783 calls per minute against blackpine-dynamics amplify the failure, and the operation aborts once it has waited 46 seconds.
+Blackpine Dynamics was unable to complete Legacy header normalization while ATL-4593 persisted. Roughly 48821 rows were delayed and `atlas_exports_header_normalization_total` held above 66 percent throughout. Because the change must be translated into the older format first, dependent work queued rather than failing outright, so the customer-visible symptom was latency rather than error.
 
-## Prerequisites
+## Timeline
 
-Confirm the requester holds an administrator grant on Blackpine Dynamics, then collect 2 approval(s) before editing `atlas.exports.header-normalization.legacy`. Changes to `atlas.exports.header-normalization.legacy` are irreversible after 58 days because the prior value leaves warm storage on that schedule. Record RB-EXP-0054 and ATL-4593 in the case notes.
+Operations first saw `atlas_exports_header_normalization_total` cross 66 percent. ATL-4593 appeared against blackpine-dynamics once traffic exceeded 783 per minute. The page reached Billing Infrastructure within 214 minutes. Investigation focused on the header formatter after downstream parsers reject the header row was reproduced with `atlas exports header-normalization --mode legacy --dry-run`.
 
-## Diagnostic Steps
+## Root Cause
 
-Run `atlas exports header-normalization --mode legacy --workspace blackpine-dynamics --dry-run` and compare the reported value of `atlas.exports.header-normalization.legacy` with the expected baseline. If `atlas_exports_header_normalization_total` exceeds 66 percent of its ceiling for the blackpine-dynamics workspace, the Legacy header normalization path is saturated rather than misconfigured, and error ATL-4593 is a symptom instead of the cause.
+the formatter emits display names containing separator characters. The condition had existed in the header formatter for some time and became visible only when Blackpine Dynamics crossed 783 calls per minute. The 46 second abort masked it earlier by failing requests before the fault surfaced.
 
-## Resolution
+## Remediation
 
-Apply `atlas exports header-normalization --mode legacy --workspace blackpine-dynamics --commit` with a batch size of 939. The command retries with a 3641 millisecond backoff and gives up after 46 seconds. Processing more than 48821 rows in one invocation for Blackpine Dynamics is unsupported and re-raises ATL-4593. Split larger jobs into batches of 939.
-
-## Limits and Quotas
-
-The Growth plan caps Blackpine Dynamics at 783 legacy-header-normalization calls per minute in ap-northeast-3. Results persist in warm storage for 58 days. Exports tied to RB-EXP-0054 refuse payloads above 48821 rows. Atlas warns 21 days before the 58 day window closes on blackpine-dynamics.
+The team applied the standing fix: emit machine-safe header names and keep display names in metadata. This was executed with `atlas exports header-normalization --mode legacy --workspace blackpine-dynamics --commit` at a batch size of 939, backing off 3641 milliseconds between attempts, under 2 approval(s) against `atlas.exports.header-normalization.legacy`.
 
 ## Verification
 
-After the change, `atlas exports header-normalization --mode legacy --workspace blackpine-dynamics --verify` should report `atlas.exports.header-normalization.legacy` as active with no occurrences of ATL-4593 in the last 46 seconds. Ask the customer to confirm from Blackpine Dynamics directly. The `atlas_exports_header_normalization_total` counter should settle below 66 percent within 214 minutes.
+Recovery was confirmed when parsers read the header row without escaping. `atlas_exports_header_normalization_total` returned below 66 percent and ATL-4593 stopped appearing for blackpine-dynamics. Because the change must be translated into the older format first, the team also confirmed the header formatter had reconciled before closing.
 
-## Escalation
+## Prevention
 
-Escalate to Billing Infrastructure if ATL-4593 recurs on blackpine-dynamics after two attempts, citing RB-EXP-0054. Their acknowledgement target is 214 minutes for the Growth plan in ap-northeast-3. Include the value of `atlas.exports.header-normalization.legacy`, the observed `atlas_exports_header_normalization_total` rate, and whether the 783 per minute ceiling was reached.
+To keep the formatter emits display names containing separator characters from recurring, Billing Infrastructure added monitoring on the header formatter that alerts before `atlas_exports_header_normalization_total` reaches 66 percent. Retention for the diagnostic trail was set to 58 days in warm storage.
 
-## Common Misdiagnoses
+## Follow-Up
 
-Error ATL-4593 is often confused with a plain permissions fault on blackpine-dynamics, but a permissions fault leaves `atlas_exports_header_normalization_total` flat while ATL-4593 drives it above 66 percent. A second misread is blaming the 783 per minute ceiling when the true limit reached was the 48821 row cap. Check `atlas.exports.header-normalization.legacy` before assuming either.
-
-## Audit and Logging
-
-Every Legacy header normalization action against Blackpine Dynamics writes an audit entry tagged RB-EXP-0054 and retained for 58 days in warm storage. The entry records the actor, the prior and new values of `atlas.exports.header-normalization.legacy`, and whether ATL-4593 was observed. Never log raw credentials for blackpine-dynamics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4593 clears on Blackpine Dynamics, confirm downstream exports jobs that read `atlas.exports.header-normalization.legacy` still run. Scheduled work reading legacy-header-normalization output may lag by up to 3641 milliseconds per batch of 939. Re-check blackpine-dynamics after 21 days, before the 58 day warm retention window expires.
+Re-check blackpine-dynamics after 21 days. Confirm the 783 per minute ceiling and the 48821 row cap still suit Blackpine Dynamics on the Growth plan, and that parsers read the header row without escaping remains true.

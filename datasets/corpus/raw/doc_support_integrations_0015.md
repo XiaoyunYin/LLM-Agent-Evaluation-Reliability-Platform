@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_integrations_0015
-title: Scheduled Credential Rotation runbook 0015
+title: Scheduled Credential Rotation reference 0015
 category: integrations
+doc_type: reference
 procedure: Scheduled credential rotation
+component: the integration secret store
 error_code: ATL-4774
 config_key: atlas.integrations.credential-rotation.scheduled
 workspace: Moorland Grid
@@ -12,48 +14,36 @@ runbook_ref: RB-INT-0015
 source: synthetic
 ---
 
-# Scheduled Credential Rotation runbook 0015
+# Scheduled Credential Rotation reference 0015
 
 ## Overview
 
-Runbook RB-INT-0015 covers the Scheduled credential rotation procedure for the Moorland Grid workspace in Atlas Metrics, hosted in eu-central-1 on the Business plan. It applies only when the platform emits error ATL-4774; other integrations faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4774 within 152 minutes.
+This reference documents Scheduled credential rotation as implemented by the integration secret store in Atlas Metrics. It is written for an unattended job running in a maintenance window. The controlling setting is `atlas.integrations.credential-rotation.scheduled` and the associated failure is ATL-4774. See RB-INT-0015 for the operational procedure.
 
-## Symptoms
+## Behavior
 
-The customer sees error ATL-4774 with the message "Scheduled credential rotation blocked for workspace moorland-grid". The `atlas_integrations_credential_rotation_total` counter rises while the affected integrations operation stalls. Requests exceeding 894 calls per minute against moorland-grid amplify the failure, and the operation aborts once it has waited 173 seconds.
+the integration secret store performs Scheduled credential rotation whenever the workspace configuration changes. Because the change must be idempotent because the job may run twice, the operation is ordered rather than concurrent. A correct run ends when rotation takes effect without a connector restart. An incorrect run is visible as rotation breaks a connector that uses a cached secret.
 
-## Prerequisites
+## Configuration
 
-Confirm the requester holds an administrator grant on Moorland Grid, then collect 3 approval(s) before editing `atlas.integrations.credential-rotation.scheduled`. Changes to `atlas.integrations.credential-rotation.scheduled` are irreversible after 13 days because the prior value leaves cold storage on that schedule. Record RB-INT-0015 and ATL-4774 in the case notes.
+`atlas.integrations.credential-rotation.scheduled` accepts the batch size, currently 352, and the retry backoff, currently 538 milliseconds. Editing it requires 3 approval(s). The prior value is retained 13 days in cold storage. Apply changes with `atlas integrations credential-rotation --mode scheduled --workspace moorland-grid --commit`.
 
-## Diagnostic Steps
+## Limits
 
-Run `atlas integrations credential-rotation --mode scheduled --workspace moorland-grid --dry-run` and compare the reported value of `atlas.integrations.credential-rotation.scheduled` with the expected baseline. If `atlas_integrations_credential_rotation_total` exceeds 83 percent of its ceiling for the moorland-grid workspace, the Scheduled credential rotation path is saturated rather than misconfigured, and error ATL-4774 is a symptom instead of the cause.
+On the Business plan in eu-central-1, Moorland Grid may issue 894 scheduled-credential-rotation calls per minute. A single invocation accepts at most 66378 rows and aborts after 173 seconds. Atlas warns 27 days before the 13 day window closes.
+
+## Errors
+
+ATL-4774 is raised when rotation breaks a connector that uses a cached secret. The documented cause is that the connector reads the secret once at process start. It is distinct from a plain permissions fault: a permissions fault leaves `atlas_integrations_credential_rotation_total` flat, while ATL-4774 drives it above 83 percent. It is also distinct from exceeding the 66378 row cap.
 
 ## Resolution
 
-Apply `atlas integrations credential-rotation --mode scheduled --workspace moorland-grid --commit` with a batch size of 352. The command retries with a 538 millisecond backoff and gives up after 173 seconds. Processing more than 66378 rows in one invocation for Moorland Grid is unsupported and re-raises ATL-4774. Split larger jobs into batches of 352.
-
-## Limits and Quotas
-
-The Business plan caps Moorland Grid at 894 scheduled-credential-rotation calls per minute in eu-central-1. Results persist in cold storage for 13 days. Exports tied to RB-INT-0015 refuse payloads above 66378 rows. Atlas warns 27 days before the 13 day window closes on moorland-grid.
+The supported repair is to re-read the secret on each authentication attempt. Data Delivery owns the integration secret store and acknowledges escalations against ATL-4774 within 152 minutes. Cite RB-INT-0015 and include the current value of `atlas.integrations.credential-rotation.scheduled`.
 
 ## Verification
 
-After the change, `atlas integrations credential-rotation --mode scheduled --workspace moorland-grid --verify` should report `atlas.integrations.credential-rotation.scheduled` as active with no occurrences of ATL-4774 in the last 173 seconds. Ask the customer to confirm from Moorland Grid directly. The `atlas_integrations_credential_rotation_total` counter should settle below 83 percent within 152 minutes.
+Run `atlas integrations credential-rotation --mode scheduled --workspace moorland-grid --verify`. The command confirms rotation takes effect without a connector restart and reports no ATL-4774 within the last 173 seconds. `atlas_integrations_credential_rotation_total` should sit below 83 percent within 152 minutes.
 
-## Escalation
+## Related
 
-Escalate to Data Delivery if ATL-4774 recurs on moorland-grid after two attempts, citing RB-INT-0015. Their acknowledgement target is 152 minutes for the Business plan in eu-central-1. Include the value of `atlas.integrations.credential-rotation.scheduled`, the observed `atlas_integrations_credential_rotation_total` rate, and whether the 894 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4774 is often confused with a plain permissions fault on moorland-grid, but a permissions fault leaves `atlas_integrations_credential_rotation_total` flat while ATL-4774 drives it above 83 percent. A second misread is blaming the 894 per minute ceiling when the true limit reached was the 66378 row cap. Check `atlas.integrations.credential-rotation.scheduled` before assuming either.
-
-## Audit and Logging
-
-Every Scheduled credential rotation action against Moorland Grid writes an audit entry tagged RB-INT-0015 and retained for 13 days in cold storage. The entry records the actor, the prior and new values of `atlas.integrations.credential-rotation.scheduled`, and whether ATL-4774 was observed. Never log raw credentials for moorland-grid; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4774 clears on Moorland Grid, confirm downstream integrations jobs that read `atlas.integrations.credential-rotation.scheduled` still run. Scheduled work reading scheduled-credential-rotation output may lag by up to 538 milliseconds per batch of 352. Re-check moorland-grid after 27 days, before the 13 day cold retention window expires.
+Behavior of the integration secret store interacts with downstream integrations work that reads `atlas.integrations.credential-rotation.scheduled`. Dependent jobs may lag 538 milliseconds per batch of 352. Audit entries are tagged RB-INT-0015.

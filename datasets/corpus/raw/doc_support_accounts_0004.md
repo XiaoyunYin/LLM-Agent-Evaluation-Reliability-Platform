@@ -1,8 +1,10 @@
 ---
 doc_id: doc_support_accounts_0004
-title: Delegated Email Rebinding runbook 0004
+title: Delegated Email Rebinding questions and answers 0004
 category: accounts
+doc_type: faq
 procedure: Delegated email rebinding
+component: the primary address binding
 error_code: ATL-4103
 config_key: atlas.accounts.email-rebinding.delegated
 workspace: Harborview Analytics
@@ -12,48 +14,36 @@ runbook_ref: RB-ACC-0004
 source: synthetic
 ---
 
-# Delegated Email Rebinding runbook 0004
+# Delegated Email Rebinding questions and answers 0004
 
-## Overview
+## What does ATL-4103 mean?
 
-Runbook RB-ACC-0004 covers the Delegated email rebinding procedure for the Harborview Analytics workspace in Atlas Metrics, hosted in eu-west-2 on the Enterprise plan. It applies only when the platform emits error ATL-4103; other accounts faults use a different runbook. Ownership sits with the Data Delivery team, who accept escalations against ATL-4103 within 54 minutes.
+It means notifications continue to reach a decommissioned address. Atlas raises it against harborview-analytics when the primary address binding cannot complete Delegated email rebinding. The operational procedure is RB-ACC-0004, owned by Data Delivery in eu-west-2.
 
-## Symptoms
+## Why does this happen?
 
-The customer sees error ATL-4103 with the message "Delegated email rebinding blocked for workspace harborview-analytics". The `atlas_accounts_email_rebinding_total` counter rises while the affected accounts operation stalls. Requests exceeding 93 calls per minute against harborview-analytics amplify the failure, and the operation aborts once it has waited 36 seconds.
+The cause is that the binding update does not invalidate cached delivery routes. It is a property of the primary address binding, so Harborview Analytics sees it only because it exercises that path. Because the delegation must be recorded before the change is applied, it may appear intermittent until traffic passes 93 calls per minute.
 
-## Prerequisites
+## How do I fix it?
 
-Confirm the requester holds an administrator grant on Harborview Analytics, then collect 4 approval(s) before editing `atlas.accounts.email-rebinding.delegated`. Changes to `atlas.accounts.email-rebinding.delegated` are irreversible after 16 days because the prior value leaves archival storage on that schedule. Record RB-ACC-0004 and ATL-4103 in the case notes.
+rewrite the binding and purge the cached delivery route. In practice that means running `atlas accounts email-rebinding --mode delegated --workspace harborview-analytics --commit` with a batch size of 119 and a 211 millisecond backoff. Editing `atlas.accounts.email-rebinding.delegated` first requires 4 approval(s).
 
-## Diagnostic Steps
+## How do I know the fix worked?
 
-Run `atlas accounts email-rebinding --mode delegated --workspace harborview-analytics --dry-run` and compare the reported value of `atlas.accounts.email-rebinding.delegated` with the expected baseline. If `atlas_accounts_email_rebinding_total` exceeds 61 percent of its ceiling for the harborview-analytics workspace, the Delegated email rebinding path is saturated rather than misconfigured, and error ATL-4103 is a symptom instead of the cause.
+You know it worked when test notifications arrive only at the new address. Running `atlas accounts email-rebinding --mode delegated --workspace harborview-analytics --verify` reports `atlas.accounts.email-rebinding.delegated` active with no ATL-4103 in the last 36 seconds, and `atlas_accounts_email_rebinding_total` falls below 61 percent within 54 minutes.
 
-## Resolution
+## Is this a permissions problem?
 
-Apply `atlas accounts email-rebinding --mode delegated --workspace harborview-analytics --commit` with a batch size of 119. The command retries with a 211 millisecond backoff and gives up after 36 seconds. Processing more than 1291 rows in one invocation for Harborview Analytics is unsupported and re-raises ATL-4103. Split larger jobs into batches of 119.
+No. A permissions fault leaves `atlas_accounts_email_rebinding_total` flat, while ATL-4103 drives it above 61 percent. A second common misread is blaming the 93 per minute ceiling when the limit actually reached was the 1291 row cap.
 
-## Limits and Quotas
+## What are the limits?
 
-The Enterprise plan caps Harborview Analytics at 93 delegated-email-rebinding calls per minute in eu-west-2. Results persist in archival storage for 16 days. Exports tied to RB-ACC-0004 refuse payloads above 1291 rows. Atlas warns 6 days before the 16 day window closes on harborview-analytics.
+Harborview Analytics may issue 93 delegated-email-rebinding calls per minute on the Enterprise plan. One invocation accepts 1291 rows and aborts after 36 seconds. Results persist 16 days in archival storage.
 
-## Verification
+## Who do I escalate to?
 
-After the change, `atlas accounts email-rebinding --mode delegated --workspace harborview-analytics --verify` should report `atlas.accounts.email-rebinding.delegated` as active with no occurrences of ATL-4103 in the last 36 seconds. Ask the customer to confirm from Harborview Analytics directly. The `atlas_accounts_email_rebinding_total` counter should settle below 61 percent within 54 minutes.
+Data Delivery owns the primary address binding. They acknowledge escalations against ATL-4103 within 54 minutes on the Enterprise plan. Cite RB-ACC-0004 and include the observed `atlas_accounts_email_rebinding_total` rate.
 
-## Escalation
+## What should I check afterwards?
 
-Escalate to Data Delivery if ATL-4103 recurs on harborview-analytics after two attempts, citing RB-ACC-0004. Their acknowledgement target is 54 minutes for the Enterprise plan in eu-west-2. Include the value of `atlas.accounts.email-rebinding.delegated`, the observed `atlas_accounts_email_rebinding_total` rate, and whether the 93 per minute ceiling was reached.
-
-## Common Misdiagnoses
-
-Error ATL-4103 is often confused with a plain permissions fault on harborview-analytics, but a permissions fault leaves `atlas_accounts_email_rebinding_total` flat while ATL-4103 drives it above 61 percent. A second misread is blaming the 93 per minute ceiling when the true limit reached was the 1291 row cap. Check `atlas.accounts.email-rebinding.delegated` before assuming either.
-
-## Audit and Logging
-
-Every Delegated email rebinding action against Harborview Analytics writes an audit entry tagged RB-ACC-0004 and retained for 16 days in archival storage. The entry records the actor, the prior and new values of `atlas.accounts.email-rebinding.delegated`, and whether ATL-4103 was observed. Never log raw credentials for harborview-analytics; redact them before attaching evidence to the case.
-
-## Related Follow-Up
-
-Once ATL-4103 clears on Harborview Analytics, confirm downstream accounts jobs that read `atlas.accounts.email-rebinding.delegated` still run. Scheduled work reading delegated-email-rebinding output may lag by up to 211 milliseconds per batch of 119. Re-check harborview-analytics after 6 days, before the 16 day archival retention window expires.
+Confirm downstream accounts work reading `atlas.accounts.email-rebinding.delegated` still runs. It may lag 211 milliseconds per batch of 119. Re-check harborview-analytics after 6 days, before the 16 day window closes.
