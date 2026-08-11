@@ -77,9 +77,18 @@ def main() -> int:
     parser.add_argument("--result", type=Path, required=True)
     parser.add_argument("--k-values", type=int, nargs="+", default=DEFAULT_K_VALUES)
     parser.add_argument("--depths", type=int, nargs="+", default=DEFAULT_DEPTHS)
+    parser.add_argument(
+        "--max-queries",
+        type=int,
+        default=None,
+        help="Tune on a subset. Selecting hyperparameters does not need the whole "
+             "split, and a large tuning set costs one embedding call per query.",
+    )
     args = parser.parse_args()
 
     labels = load_labels(args.labels)
+    if args.max_queries:
+        labels = labels[: args.max_queries]
     max_depth = max(args.depths)
 
     embedding_provider = OpenAIEmbeddingProvider()
