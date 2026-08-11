@@ -326,7 +326,7 @@ Because {f.constraint}, the team also confirmed {f.component} had reconciled bef
 
 To keep {f.cause} from recurring, {f.owner_team} added monitoring on {f.component} that \
 alerts before `{f.metric}` reaches {f.threshold_percent} percent. Retention for the \
-diagnostic trail is retained for {f.retention_days} days in {f.storage_class} storage.
+diagnostic trail was set to {f.retention_days} days in {f.storage_class} storage.
 
 ## Follow-Up
 

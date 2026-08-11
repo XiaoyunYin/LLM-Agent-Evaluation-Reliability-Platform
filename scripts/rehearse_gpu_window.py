@@ -105,7 +105,7 @@ def run_validation_rehearsal(args: argparse.Namespace, output_dir: Path) -> tupl
             "judge_b_is_mock_7b": True,
             "judge_a_is_rehearsal_standin": True,
             "agreement_numbers_are_final": False,
-            "mock_numbers_are_resume_metrics": False,
+            "mock_numbers_are_reportable": False,
         },
     )
     report_path = output_dir / f"{run_id}_validation_report.json"

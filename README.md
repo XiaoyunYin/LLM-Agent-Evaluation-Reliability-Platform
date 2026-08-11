@@ -5,11 +5,11 @@
 
 An end-to-end LLM evaluation and regression-testing platform for measuring RAG candidate answers, validating judge behavior, routing judge disagreements to review, and blocking regressions in CI.
 
-## Recruiter Scan
+## At a Glance
 
-Recruiters usually look for three things in the first 10 seconds: what the project is, whether the stack matches the role, and whether the numbers are real. This README puts the summary, architecture, features, and measured metrics first so the project reads quickly without overstating unfinished work.
+The summary, architecture, features, and measured metrics come first, so the project reads quickly without overstating unfinished work.
 
-Hiring managers usually inspect the deeper parts: how the dataset was controlled, whether the benchmark avoids leakage, how runs resume after failures, whether judge scores are validated, how tracing ties actions together, and whether the CI gate actually fails on regressions. The sections below are written for that second read.
+The sections after those go deeper: how the dataset was controlled, whether the benchmark avoids leakage, how runs resume after failures, how judge scores are validated, how tracing ties actions together, and whether the CI gate actually fails on regressions.
 
 ## Architecture
 
@@ -63,7 +63,7 @@ flowchart LR
 
 ## Measured Metrics
 
-Only measured results are listed here. Targets and resume claims stay out of this table until they are backed by artifacts.
+Only measured results are listed here. Targets and headline claims stay out of this table until an artifact backs them.
 
 | Metric | Measured value | Source |
 |---|---:|---|
@@ -340,7 +340,7 @@ Relevant scripts:
 
 ## Candidate Answer Run Matrix
 
-The target matrix is larger than the currently measured matrix. That distinction matters for resume honesty.
+The target matrix is larger than the currently measured matrix. Reported figures track the measured one.
 
 Measured current state:
 
@@ -460,7 +460,7 @@ The committed metric files are gate fixtures. They prove the blocking behavior; 
 - Scale targets are not yet met: the measured project has 8 production run artifacts and 960 judged answers, not 60+ runs or 8K+ judged answers.
 - Dense and hybrid retrieval quality results are pending because the saved measured artifact currently supports BM25-only quality numbers.
 - Elasticsearch holds only 3 span documents across 1 trace. The pipeline is proven, but no trace volume has been generated from real eval runs.
-- Screenshots are pending and should be committed before using the README as a portfolio landing page.
+- Dashboard screenshots are pending; the README references them but the image files are not committed yet.
 - Bulk-judging average output tokens per answer and sustained bulk-run tok/s were not captured by the bulk script.
 
 Good limitations are specific, bounded, and paired with a next measurement. They are stronger than vague claims because they show judgment: what was proven, what was not proven, and what would close the gap.
@@ -470,7 +470,7 @@ Good limitations are specific, bounded, and paired with a next measurement. They
 - Measurement integrity matters more than impressive-looking targets.
 - Candidate generation, judging, tracing, and benchmarking are separate systems with different failure modes.
 - A self-hosted judge needs both quality validation and serving throughput measurement.
-- Resume metrics need source artifacts, not optimistic extrapolation.
+- Reported metrics need source artifacts, not optimistic extrapolation.
 - Regression testing is about controlled comparisons, not generating more rows for the sake of bigger numbers.
 - Mature engineering communication means saying "pending" when something is pending, then naming the exact script or artifact that would turn it into a measured result.
 

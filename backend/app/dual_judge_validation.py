@@ -12,7 +12,7 @@ from backend.app.eval_run import CandidateAnswer, JudgeScore, ReviewCase
 DEFAULT_SCORE_DISAGREEMENT_THRESHOLD = 0.25
 MOCK_7B_WARNING = (
     "Mock 7B agreement is only a harness test. It is not final measured judge "
-    "agreement and must not be used as a resume metric."
+    "agreement and must not be reported as a measured result."
 )
 
 

@@ -227,7 +227,7 @@ export const providerCoverage: ProviderCoverage[] = [
   },
   {
     provider: 'Self-hosted',
-    model: 'optional — not required by the current resume claim',
+    model: 'optional — not required by the current headline claims',
     countsAsRealDiversity: false,
     persistedAnswers: notMeasured(
       'Optional interface. Self-hosted candidate generation is explicitly out of scope.',

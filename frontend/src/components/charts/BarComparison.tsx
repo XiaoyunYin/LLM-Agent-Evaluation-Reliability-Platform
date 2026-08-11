@@ -9,7 +9,7 @@ import { provenanceTitle } from '../ProvenanceBadge'
  * with the container the way SVG <text> does. Percentage widths make it
  * responsive for free, with no ResizeObserver.
  *
- * Three decisions worth defending in an interview:
+ * Three deliberate design decisions:
  *
  * 1. THE DOMAIN IS FIXED AT 0–1, not scaled to the data. recall@10 and nDCG@10
  *    are bounded scores. Auto-scaling to max would stretch BM25's 0.0667 to
