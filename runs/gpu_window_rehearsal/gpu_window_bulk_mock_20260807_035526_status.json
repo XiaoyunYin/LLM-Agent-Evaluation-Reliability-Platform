@@ -1,0 +1,19 @@
+{
+  "bulk_run_id": "gpu_window_bulk_mock_20260807_035526",
+  "judge_name": "self-hosted-7b-bulk-v0",
+  "judge_model_name": "mock-mistral-7b",
+  "endpoint_url": "http://in-process-mock-7b/v1/chat/completions",
+  "mock_rehearsal": true,
+  "candidate_file_count": 8,
+  "candidate_answer_rows_seen": 26,
+  "eligible_candidate_answer_count": 24,
+  "skipped_already_judged_count": 0,
+  "newly_scored_count": 24,
+  "latest_completed_judge_score_count": 24,
+  "latest_failed_judge_score_count": 0,
+  "output_path": "runs\\gpu_window_rehearsal\\gpu_window_bulk_mock_20260807_035526_judge_scores.jsonl",
+  "status_path": "runs\\gpu_window_rehearsal\\gpu_window_bulk_mock_20260807_035526_status.json",
+  "started_at": "2026-08-07T03:55:26.811110+00:00",
+  "finished_at": "2026-08-07T03:55:27.150714+00:00",
+  "status": "completed"
+}

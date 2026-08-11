@@ -1,0 +1,13 @@
+{
+  "candidate_providers": [
+    "openai",
+    "anthropic",
+    "mock"
+  ],
+  "validation_judge": "gpt-4o-mini",
+  "bulk_judge": "mistral-7b-instruct-v0.3-awq",
+  "anthropic_candidate_model": "claude-haiku-4-5-20251001",
+  "metadata": {
+    "purpose": "CI path coverage fixture for model and provider configuration changes."
+  }
+}

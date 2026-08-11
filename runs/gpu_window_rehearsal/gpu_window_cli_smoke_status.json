@@ -1,0 +1,19 @@
+{
+  "bulk_run_id": "gpu_window_cli_smoke",
+  "judge_name": "self-hosted-7b-bulk-v0",
+  "judge_model_name": "mistral-7b-instruct-v0.3-awq",
+  "endpoint_url": "http://127.0.0.1:8001/v1/chat/completions",
+  "mock_rehearsal": true,
+  "candidate_file_count": 1,
+  "candidate_answer_rows_seen": 4,
+  "eligible_candidate_answer_count": 3,
+  "skipped_already_judged_count": 0,
+  "newly_scored_count": 3,
+  "latest_completed_judge_score_count": 3,
+  "latest_failed_judge_score_count": 0,
+  "output_path": "runs\\gpu_window_rehearsal\\gpu_window_cli_smoke_judge_scores.jsonl",
+  "status_path": "runs\\gpu_window_rehearsal\\gpu_window_cli_smoke_status.json",
+  "started_at": "2026-08-07T03:55:17.814858+00:00",
+  "finished_at": "2026-08-07T03:55:17.911410+00:00",
+  "status": "completed"
+}

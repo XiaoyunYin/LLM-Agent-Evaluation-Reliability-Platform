@@ -1,0 +1,143 @@
+{
+  "matrix_id": "candidate_answer_run_matrix_v0.1",
+  "phase": "candidate_answer_generation_before_judging",
+  "judging_included": false,
+  "created_for_session": 41,
+  "resume_targets": {
+    "minimum_eval_runs": 60,
+    "minimum_judged_answers_after_judging": 8000,
+    "primary_scale_math": "120 RAG cases x 68 primary RAG runs = 8160 candidate answers before judging"
+  },
+  "guardrails": {
+    "mock_provider_runs_count_as_real_provider_diversity": false,
+    "self_hosted_candidate_generation_required": false,
+    "self_hosted_mistral_role": "judge_only_for_current_resume_scope",
+    "cost_values_are_estimates_not_measured_spend": true,
+    "candidate_answers_must_exist_before_bulk_judging": true
+  },
+  "datasets": [
+    {
+      "dataset_version": "golden_rag_v0.1",
+      "task_family": "rag",
+      "case_count": 120,
+      "source_path": "datasets/golden/golden_rag_v0.1.jsonl",
+      "counts_toward_8k_scale_math": true
+    },
+    {
+      "dataset_version": "golden_agentic_tools_v0.1",
+      "task_family": "agentic_tool_calling",
+      "case_count": 2,
+      "source_path": "datasets/golden/golden_agentic_tools_v0.1.jsonl",
+      "counts_toward_8k_scale_math": false
+    }
+  ],
+  "provider_models": [
+    {
+      "provider": "openai",
+      "model": "gpt-4o-mini",
+      "counts_as_real_provider_diversity": true,
+      "input_usd_per_million_tokens": 0.15,
+      "output_usd_per_million_tokens": 0.6,
+      "pricing_source": "OpenAI model pricing page, checked 2026-08-06"
+    },
+    {
+      "provider": "anthropic",
+      "model": "claude-haiku-4-5-20251001",
+      "counts_as_real_provider_diversity": true,
+      "input_usd_per_million_tokens": 1.0,
+      "output_usd_per_million_tokens": 5.0,
+      "pricing_source": "Anthropic Claude pricing page, checked 2026-08-07"
+    }
+  ],
+  "token_estimate_assumptions": {
+    "rag": {
+      "average_input_tokens_per_answer": 2400,
+      "average_output_tokens_per_answer": 350,
+      "note": "RAG estimate includes question, prompt, and about 2000 context tokens."
+    },
+    "agentic_tool_calling": {
+      "average_input_tokens_per_answer": 1500,
+      "average_output_tokens_per_answer": 500,
+      "note": "Agentic estimate includes tool instructions and one compact tool trace."
+    }
+  },
+  "run_blocks": [
+    {
+      "block_id": "rag_core_64",
+      "dataset_version": "golden_rag_v0.1",
+      "retrieval_modes": [
+        "dense_top50_context4",
+        "bm25_top50_context4",
+        "hybrid_rrf_k60_top10_context4",
+        "hybrid_rrf_k60_top10_compressed_context4"
+      ],
+      "prompt_versions": [
+        "rag_prompt_v1",
+        "rag_prompt_v2",
+        "rag_prompt_v3",
+        "rag_prompt_v4"
+      ],
+      "repeat_ids": [
+        "repeat_01",
+        "repeat_02"
+      ],
+      "provider_models": [
+        "openai:gpt-4o-mini",
+        "anthropic:claude-haiku-4-5-20251001"
+      ],
+      "purpose": "Balanced provider x retrieval x prompt coverage for the primary 120-case RAG slice."
+    },
+    {
+      "block_id": "rag_hybrid_calibration_4",
+      "dataset_version": "golden_rag_v0.1",
+      "retrieval_modes": [
+        "hybrid_rrf_k60_top10_context4"
+      ],
+      "prompt_versions": [
+        "rag_prompt_v1",
+        "rag_prompt_v2"
+      ],
+      "repeat_ids": [
+        "repeat_03"
+      ],
+      "provider_models": [
+        "openai:gpt-4o-mini",
+        "anthropic:claude-haiku-4-5-20251001"
+      ],
+      "purpose": "Four extra primary RAG runs lift the matrix from 64 to 68 full 120-case runs."
+    },
+    {
+      "block_id": "agentic_tool_smoke_4",
+      "dataset_version": "golden_agentic_tools_v0.1",
+      "retrieval_modes": [
+        "tool_calling_no_retrieval"
+      ],
+      "prompt_versions": [
+        "agentic_prompt_v1",
+        "agentic_prompt_v2"
+      ],
+      "repeat_ids": [
+        "repeat_01"
+      ],
+      "provider_models": [
+        "openai:gpt-4o-mini",
+        "anthropic:claude-haiku-4-5-20251001"
+      ],
+      "purpose": "Small real-provider agentic tool-calling coverage, tracked separately from the 8K RAG scale math."
+    }
+  ],
+  "expected_summary": {
+    "primary_rag_run_count": 68,
+    "agentic_tool_run_count": 4,
+    "total_run_count": 72,
+    "primary_rag_candidate_answer_count": 8160,
+    "agentic_tool_candidate_answer_count": 8,
+    "total_candidate_answer_count": 8168,
+    "candidate_answer_count_by_provider": {
+      "openai": 4084,
+      "anthropic": 4084
+    },
+    "estimated_total_generation_cost_usd": 19.28,
+    "estimated_total_generation_cost_with_20_percent_buffer_usd": 23.13
+  }
+}

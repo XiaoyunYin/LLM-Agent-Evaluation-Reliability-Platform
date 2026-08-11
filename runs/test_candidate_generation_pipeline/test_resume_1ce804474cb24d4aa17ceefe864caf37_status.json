@@ -1,0 +1,20 @@
+{
+  "run_id": "test_resume_1ce804474cb24d4aa17ceefe864caf37",
+  "dataset_version": "golden_agentic_tools_v0.1",
+  "provider_name": "openai",
+  "model_name": "fake-model",
+  "task_family": "agentic_tool_calling",
+  "retrieval_mode": "tool_calling_no_retrieval",
+  "prompt_version": "agentic_prompt_v1",
+  "repeat_id": "repeat_01",
+  "matrix_id": "test_matrix",
+  "output_path": "runs\\test_candidate_generation_pipeline\\test_resume_1ce804474cb24d4aa17ceefe864caf37_candidate_answers.jsonl",
+  "status_path": "runs\\test_candidate_generation_pipeline\\test_resume_1ce804474cb24d4aa17ceefe864caf37_status.json",
+  "total_cases": 2,
+  "already_completed_count": 2,
+  "generated_count": 0,
+  "skipped_count": 2,
+  "failed_count": 0,
+  "final_completed_count": 2,
+  "status": "completed"
+}

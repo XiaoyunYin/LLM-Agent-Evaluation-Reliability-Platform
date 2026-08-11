@@ -1,0 +1,10 @@
+{
+  "dense_top_k": 50,
+  "bm25_top_k": 50,
+  "rrf_k": 60,
+  "final_top_k": 10,
+  "metric_depth": 10,
+  "metadata": {
+    "purpose": "CI path coverage fixture for retrieval configuration changes."
+  }
+}

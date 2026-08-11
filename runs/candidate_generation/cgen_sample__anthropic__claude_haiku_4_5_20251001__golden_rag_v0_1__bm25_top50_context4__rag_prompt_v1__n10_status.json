@@ -1,0 +1,20 @@
+{
+  "run_id": "cgen_sample__anthropic__claude_haiku_4_5_20251001__golden_rag_v0_1__bm25_top50_context4__rag_prompt_v1__n10",
+  "dataset_version": "golden_rag_v0.1",
+  "provider_name": "anthropic",
+  "model_name": "claude-haiku-4-5-20251001",
+  "task_family": "rag",
+  "retrieval_mode": "bm25_top50_context4",
+  "prompt_version": "rag_prompt_v1",
+  "repeat_id": "sample_n10",
+  "matrix_id": "anthropic_credit_sample",
+  "output_path": "runs\\candidate_generation\\cgen_sample__anthropic__claude_haiku_4_5_20251001__golden_rag_v0_1__bm25_top50_context4__rag_prompt_v1__n10_candidate_answers.jsonl",
+  "status_path": "runs\\candidate_generation\\cgen_sample__anthropic__claude_haiku_4_5_20251001__golden_rag_v0_1__bm25_top50_context4__rag_prompt_v1__n10_status.json",
+  "total_cases": 10,
+  "already_completed_count": 0,
+  "generated_count": 10,
+  "skipped_count": 0,
+  "failed_count": 0,
+  "final_completed_count": 10,
+  "status": "completed"
+}

@@ -1,0 +1,27 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Node / frontend
+node_modules/
+dist/
+*.local
+
+# Local run artifacts and scratch
+runs/pytest_tmp*/
+runs/pytest_cache*/
+runs/pytest-cache-files-*/
+
+# Local editor/agent state
+.local-editor-state/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db

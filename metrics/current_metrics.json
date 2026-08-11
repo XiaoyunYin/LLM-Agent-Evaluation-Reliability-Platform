@@ -1,0 +1,10 @@
+{
+  "eval_score": 0.79,
+  "latency_ms": 1100.0,
+  "cost_usd": 1.1,
+  "metadata": {
+    "source": "Session 40 CI gate current fixture",
+    "is_resume_metric": false,
+    "note": "Current fixture kept within regression thresholds so the CI gate passes by default."
+  }
+}

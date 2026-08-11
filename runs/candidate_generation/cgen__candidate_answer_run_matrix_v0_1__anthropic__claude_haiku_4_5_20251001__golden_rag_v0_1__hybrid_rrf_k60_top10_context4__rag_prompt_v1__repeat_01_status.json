@@ -1,0 +1,20 @@
+{
+  "run_id": "cgen__candidate_answer_run_matrix_v0_1__anthropic__claude_haiku_4_5_20251001__golden_rag_v0_1__hybrid_rrf_k60_top10_context4__rag_prompt_v1__repeat_01",
+  "dataset_version": "golden_rag_v0.1",
+  "provider_name": "anthropic",
+  "model_name": "claude-haiku-4-5-20251001",
+  "task_family": "rag",
+  "retrieval_mode": "hybrid_rrf_k60_top10_context4",
+  "prompt_version": "rag_prompt_v1",
+  "repeat_id": "repeat_01",
+  "matrix_id": "candidate_answer_run_matrix_v0.1",
+  "output_path": "runs\\candidate_generation\\cgen__candidate_answer_run_matrix_v0_1__anthropic__claude_haiku_4_5_20251001__golden_rag_v0_1__hybrid_rrf_k60_top10_context4__rag_prompt_v1__repeat_01_candidate_answers.jsonl",
+  "status_path": "runs\\candidate_generation\\cgen__candidate_answer_run_matrix_v0_1__anthropic__claude_haiku_4_5_20251001__golden_rag_v0_1__hybrid_rrf_k60_top10_context4__rag_prompt_v1__repeat_01_status.json",
+  "total_cases": 120,
+  "already_completed_count": 0,
+  "generated_count": 120,
+  "skipped_count": 0,
+  "failed_count": 0,
+  "final_completed_count": 120,
+  "status": "completed"
+}
