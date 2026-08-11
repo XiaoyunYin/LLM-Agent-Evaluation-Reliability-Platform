@@ -2752,3 +2752,127 @@ Open work, in order:
 3. Re-label, re-index, then re-run the retrieval benchmark.
 4. Re-run the dual-judge slice for a non-degenerate agreement number.
 5. Run CI on GitHub so the regression gate has actually executed.
+
+## Session 48 - Fixture Repair: Corpus, Labels, Golden Set, Retrieval Routing
+
+Goal: repair the four fixture defects measured in Session 47 so retrieval and
+judging measure real behaviour.
+
+### 1. Corpus regenerated with document-specific facts
+
+Rewrote `scripts/generate_synthetic_corpus.py`. The previous version
+interpolated only `{category}` and `{number}` into a fixed template. Each
+document now carries values that appear in no other document: a unique error
+code, config key, CLI invocation, metric name, runbook reference, workspace,
+owning team, and ten numeric thresholds. Generation stays deterministic - every
+value derives from the document's global index, so re-running reproduces the
+corpus byte for byte.
+
+Measured, before and after:
+
+| | Before | After |
+|---|---:|---:|
+| Documents | 1,100 | 1,100 |
+| Chunks | 9,900 | 8,926 |
+| Distinct chunk texts | 2,262 | 8,926 |
+| Duplication factor | 4.38x | 1.00x |
+| Largest duplicate cluster | 330 | 1 |
+
+Commands:
+
+```powershell
+python scripts/generate_synthetic_corpus.py --clean
+python scripts/chunk_corpus.py
+python scripts/analyze_corpus_duplication.py
+```
+
+### 2. Retrieval labels regenerated and genuinely graded
+
+Added `scripts/generate_retrieval_labels.py`, producing
+`datasets/labels/retrieval_heldout_120_v0.2.jsonl`. Labels are derived rather
+than asserted: the script knows which fact answers each query, then searches the
+corpus for the chunk that actually contains it, and raises if the anchor is
+absent. Relevance is graded 2 for the chunk holding the answer and 1 for a
+same-document chunk sharing the topic without answering.
+
+- Labeled queries: `120`, balanced 15 per category cell across 8 cells
+- Relevant chunk references: `382`
+- Relevance 2: `202`; relevance 1: `180`; unknown chunk IDs: `0`
+- Strict validator: passed
+
+The v0.1 label file was deleted rather than kept. Its chunk IDs still existed
+after regeneration but pointed at different text, so it would have silently
+produced wrong benchmark numbers.
+
+### 3. Measured retrieval on the repaired fixture
+
+- Command: `python scripts/benchmark_bm25_retrieval.py`
+- `queries_evaluated: 120`
+- `mean_recall_at_10: 0.7417` (was `0.0667`)
+- `mean_ndcg_at_10: 0.8300` (was `0.0377`)
+
+The theoretical recall@10 ceiling rose from `0.0846` to `1.0000`, so this is the
+first BM25 measurement on this project that reflects retrieval quality rather
+than fixture duplication.
+
+Dense and hybrid remain not measured; both need `OPENAI_API_KEY` to embed 8,926
+chunks. That is the one remaining paid step and it was deliberately not run.
+
+### 4. Corpus-grounded golden RAG dataset
+
+Added `scripts/generate_golden_rag_dataset.py`, producing
+`datasets/golden/golden_rag_v0.2.jsonl`. Every answerable question targets a
+fact verified present in exactly one document; the script fails if an expected
+answer is not found in the corpus.
+
+- Cases: `120`
+- Answerable from corpus: `108`
+- Expecting abstention: `12`
+- Categories: exact_fact 27, single_hop 36, specificity 18, no_answer_abstention
+  12, distractor_robustness 9, lexical_gap 9, multi_hop 9
+
+The abstention rows are deliberate. Without questions whose answers the corpus
+does not contain, a judge cannot separate a model that retrieves well from one
+that fabricates confidently.
+
+`golden_rag_v0.1.jsonl` was left in place. Versioned datasets should be
+immutable, and its 95 non-RAG rows remain valid for the dimensions they test.
+Only its 25 `rag_qa` rows were mismatched, and v0.2 supersedes those.
+
+### 5. Retrieval routing decided per case
+
+`build_request_for_case` previously applied retrieval to every case in a run
+configured `task_family="rag"`. Added `case_requires_retrieval(case)`: only
+`rag_qa` cases receive retrieved context, and a dataset row may override with an
+explicit `requires_retrieval` metadata flag. This is what stopped support
+runbook chunks being handed to arithmetic questions.
+
+Added three tests covering the routing rule, the metadata override, and the
+guarantee that a non-retrieval case never invokes the retriever.
+
+### Validation
+
+- Full suite: `python -m pytest tests -p no:cacheprovider` -> `112 passed`
+- Frontend production build: `npm run build` -> succeeded
+- Fixed `tests/test_judge_validation_rehearsal.py`, which hardcoded a chunk ID
+  from the old label set. It now derives the expected chunk from the label file
+  so fixture regeneration cannot break it.
+
+### Metric integrity notes
+
+- `0.7417` / `0.8300` are measured BM25 results on the repaired fixture. They
+  are not dense or hybrid results and must not be reported as such.
+- The resume target of recall@10 `0.84` was arithmetically unreachable on the
+  old fixture (ceiling `0.0846`). It is now reachable in principle but has not
+  been measured for any retriever.
+- No judge run happened in this session. The recorded dual-judge slice is still
+  degenerate; re-running it needs a GPU window.
+- Elasticsearch trace documents remain `0`.
+
+### Open work
+
+1. Run dense and hybrid retrieval benchmarks (needs `OPENAI_API_KEY`).
+2. Re-run the dual-judge validation slice on `golden_rag_v0.2` for a
+   non-degenerate agreement number.
+3. Export real spans and count persisted Elasticsearch trace documents.
+4. Push to GitHub so the CI regression gate actually executes.

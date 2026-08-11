@@ -26,7 +26,7 @@ from backend.app.mock_self_hosted_judge_server import create_mock_self_hosted_ju
 from backend.app.self_hosted_judge import SelfHostedJudge, SelfHostedJudgeConfig
 
 
-DEFAULT_HELDOUT_LABELS_PATH = Path("datasets/labels/retrieval_heldout_120_v0.1.jsonl")
+DEFAULT_HELDOUT_LABELS_PATH = Path("datasets/labels/retrieval_heldout_120_v0.2.jsonl")
 DEFAULT_CHUNKS_PATH = Path("datasets/corpus/chunks.jsonl")
 DEFAULT_OUTPUT_DIR = Path("runs/judge_validation_rehearsal")
 DEFAULT_LIMIT = 120
@@ -175,7 +175,7 @@ def create_validation_slice_artifacts(
                     expected_answer=expected_answer,
                     task_type=TaskType.RAG_QA,
                     metadata={
-                        "source": "retrieval_heldout_120_v0.1",
+                        "source": "retrieval_heldout_120_v0.2",
                         "labels_created_blind_to_judge_outputs": row[
                             "labels_created_blind_to_judge_outputs"
                         ],
@@ -209,7 +209,7 @@ def create_validation_slice_artifacts(
                             "model_name": "not-a-real-candidate-model",
                             "is_mock": True,
                             "metadata": {
-                                "source": "retrieval_heldout_120_v0.1",
+                                "source": "retrieval_heldout_120_v0.2",
                                 "candidate_answer_is_final": False,
                                 "judge_validation_rehearsal_only": True,
                                 "generation_context_chunk_ids": [

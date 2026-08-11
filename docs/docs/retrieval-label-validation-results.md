@@ -5,15 +5,15 @@
 - Labeled queries measured: 120
 - Dossier input target: 120
 - Completion status: complete
-- Relevant chunk references checked: 180
+- Relevant chunk references checked: 382
 - Unknown relevant chunk IDs: 0
 - Result: The labeled query set meets the target of 120 queries.
 
 ## Label Distribution
 
 - relevance 0: 0
-- relevance 1: 0
-- relevance 2: 180
+- relevance 1: 180
+- relevance 2: 202
 
 ## Query Category Distribution
 
@@ -30,16 +30,16 @@ Match type:
 - semantic/paraphrase: 60
 
 Domain:
-- accounts: 17
-- api: 10
-- billing: 12
-- dashboards: 12
-- exports: 12
-- incidents: 12
-- integrations: 12
-- permissions: 12
-- reports: 11
-- troubleshooting: 10
+- accounts: 24
+- api: 18
+- billing: 8
+- dashboards: 8
+- exports: 8
+- incidents: 10
+- integrations: 15
+- permissions: 13
+- reports: 8
+- troubleshooting: 8
 
 Combined category cells:
 - ('easy', 'multi-hop', 'exact-term'): 15

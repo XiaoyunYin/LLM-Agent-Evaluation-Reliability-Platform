@@ -36,15 +36,21 @@ export const corpus = {
     'ls datasets/corpus/raw | wc -l',
   ),
   chunks: measured(
-    9900,
-    'Session 19 — datasets/corpus/chunks.jsonl line count',
-    '2026-08-05',
+    8926,
+    'Session 48 — datasets/corpus/chunks.jsonl line count after corpus regeneration',
+    '2026-08-11',
     'wc -l < datasets/corpus/chunks.jsonl',
   ),
+  distinctChunkTexts: measured(
+    8926,
+    'Session 48 — every chunk text is unique; duplication factor 1.00x',
+    '2026-08-11',
+    'python scripts/analyze_corpus_duplication.py',
+  ),
   chunksIndexedInElasticsearch: measured(
-    9900,
-    'Session 24 — scripts/index_chunks_to_elasticsearch.py',
-    '2026-08-02',
+    8926,
+    'Session 48 — scripts/index_chunks_to_elasticsearch.py',
+    '2026-08-11',
     'python scripts/index_chunks_to_elasticsearch.py',
   ),
   chunkSizeChars: measured(650, 'Session 19 chunking config', '2026-08-02'),
@@ -54,9 +60,9 @@ export const corpus = {
 export const datasets = {
   goldenRagCases: measured(
     120,
-    'Session 4 — dataset_loader over golden_rag_v0.1.jsonl',
+    'Session 4 — dataset_loader over golden_rag_v0.2.jsonl',
     '2026-07-30',
-    'python -m backend.app.dataset_loader datasets/golden/golden_rag_v0.1.jsonl',
+    'python -m backend.app.dataset_loader datasets/golden/golden_rag_v0.2.jsonl',
   ),
   heldOutLabeledQueries: measured(
     120,
@@ -124,14 +130,14 @@ export const retrievalStrategies: RetrievalStrategy[] = [
     colorVar: '--series-2',
     description: 'Elasticsearch lexical search over llm_eval_chunks, top 50 → 10',
     recallAt10: measured(
-      0.0667,
-      'Session 24 — 120 held-out queries, 9,900 indexed chunks',
+      0.7417,
+      'Session 48 — 120 held-out queries, 8,926 indexed chunks',
       '2026-08-02',
       'python scripts/benchmark_bm25_retrieval.py',
     ),
     ndcgAt10: measured(
-      0.0377,
-      'Session 24 — 120 held-out queries, 9,900 indexed chunks',
+      0.8300,
+      'Session 48 — 120 held-out queries, 8,926 indexed chunks',
       '2026-08-02',
       'python scripts/benchmark_bm25_retrieval.py',
     ),
@@ -248,7 +254,7 @@ export const generation = {
 export const judging = {
   validationSliceSize: measured(
     120,
-    'Session 33 — held-out slice built from retrieval_heldout_120_v0.1.jsonl',
+    'Session 33 — held-out slice built from retrieval_heldout_120_v0.2.jsonl',
     '2026-08-06',
     'python scripts/rehearse_judge_validation.py --limit 120',
   ),
