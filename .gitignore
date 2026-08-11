@@ -32,3 +32,6 @@ runs/test_judge_validation_rehearsal/
 # OS
 .DS_Store
 Thumbs.db
+
+# BEIR source archives; the converted chunks/labels are committed instead.
+datasets/beir/_download/

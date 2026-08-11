@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ DEFAULT_DATABASE_URL = (
 )
 
 RAW_DIR = Path("datasets/corpus/raw")
-CHUNKS_PATH = Path("datasets/corpus/chunks.jsonl")
+DEFAULT_CHUNKS_PATH = Path("datasets/corpus/chunks.jsonl")
 
 
 def parse_markdown_document(text: str) -> tuple[dict[str, str], str]:
@@ -54,10 +55,35 @@ def load_raw_documents() -> list[dict[str, object]]:
     return documents
 
 
-def load_chunks() -> list[dict[str, object]]:
+def documents_from_chunks(chunks: list[dict]) -> list[dict[str, object]]:
+    """Derive one document row per distinct document_id.
+
+    Corpora that arrive as chunk files (BEIR, for example) have no raw markdown
+    to parse, but the documents table still needs a row per document because
+    chunks reference it by foreign key.
+    """
+    documents: dict[str, dict[str, object]] = {}
+    for chunk in chunks:
+        document_id = chunk["document_id"]
+        if document_id in documents:
+            continue
+        metadata = chunk.get("metadata", {})
+        documents[document_id] = {
+            "id": document_id,
+            "source_uri": str(metadata.get("source_path", "unknown")),
+            "title": str(metadata.get("title", document_id)),
+            "metadata": {
+                "category": metadata.get("category", "unknown"),
+                "source": "chunk_file",
+            },
+        }
+    return list(documents.values())
+
+
+def load_chunks(path: Path) -> list[dict[str, object]]:
     chunks = []
 
-    with CHUNKS_PATH.open("r", encoding="utf-8") as file:
+    with path.open("r", encoding="utf-8") as file:
         for line in file:
             if line.strip():
                 chunks.append(json.loads(line))
@@ -66,13 +92,37 @@ def load_chunks() -> list[dict[str, object]]:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Import a corpus into Postgres for dense retrieval."
+    )
+    parser.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
+    parser.add_argument(
+        "--from-chunks-only",
+        action="store_true",
+        help="Derive documents from the chunk file instead of parsing raw "
+             "markdown. Required for corpora that ship as chunk files.",
+    )
+    parser.add_argument(
+        "--truncate",
+        action="store_true",
+        help="Clear documents and chunks first. Dense retrieval scans the whole "
+             "chunks table, so two corpora sharing it would pollute each other.",
+    )
+    args = parser.parse_args()
+
     database_url = os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
 
-    documents = load_raw_documents()
-    chunks = load_chunks()
+    chunks = load_chunks(args.chunks)
+    documents = (
+        documents_from_chunks(chunks)
+        if args.from_chunks_only
+        else load_raw_documents()
+    )
 
     with psycopg.connect(database_url) as connection:
         with connection.cursor() as cursor:
+            if args.truncate:
+                cursor.execute("TRUNCATE chunks, documents CASCADE")
             for document in documents:
                 cursor.execute(
                     """
