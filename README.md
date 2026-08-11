@@ -77,6 +77,10 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | BM25 recall@10 / nDCG@10 | **0.3505** / **0.3077** | `runs/retrieval_benchmark/hybrid_retrieval_benchmark.json` |
 | Hybrid RRF recall@10 / nDCG@10 | 0.2832 / 0.2936 | same artifact |
 | Dense recall@10 / nDCG@10 | 0.2212 / 0.2109 | same artifact |
+| BEIR SciFact documents / queries | 5,183 / 300 | `scripts/load_beir_dataset.py` |
+| SciFact dense recall@10 / nDCG@10 | 0.8536 / 0.7164 | `runs/retrieval_benchmark/beir_scifact_benchmark.json` |
+| SciFact BM25 recall@10 / nDCG@10 | 0.7843 / 0.6606 | same artifact |
+| SciFact hybrid recall@10 / nDCG@10 | 0.8496 / 0.7198 | same artifact |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |
@@ -195,6 +199,43 @@ only they share a fixture.
 This is a finding about **this synthetic corpus**, whose queries are largely
 identifier lookups - the shape that favours lexical matching. It is not a general claim that
 hybrid retrieval underperforms.
+
+### Second corpus: BEIR SciFact, with human relevance judgments
+
+The synthetic corpus has a weakness no amount of regeneration fixes: its relevance labels
+are derived from facts this repository planted, so they test whether retrieval finds a
+string the project chose. `scripts/load_beir_dataset.py` loads a BEIR dataset instead -
+5,183 documents, 300 queries, 339 **human** relevance judgments - through the same
+retrievers, the same metric functions, and the same benchmark harness.
+
+| Strategy | SciFact recall@10 | SciFact nDCG@10 | Synthetic recall@10 | Synthetic nDCG@10 |
+|---|---:|---:|---:|---:|
+| Dense only | **0.8536** | 0.7164 | 0.2212 | 0.2109 |
+| BM25 only | 0.7843 | 0.6606 | **0.3505** | **0.3077** |
+| Hybrid RRF | 0.8496 | **0.7198** | 0.2832 | 0.2936 |
+
+Two findings, and the second is the interesting one:
+
+**The dense/BM25 ordering flips between corpora.** BM25 wins on the synthetic corpus, whose
+queries are identifier lookups. Dense wins on SciFact, whose queries are natural-language
+scientific claims. Neither retriever is better in general; the query shape decides.
+
+**RRF hybrid tracks the stronger of its two inputs rather than exceeding both.** On SciFact
+it takes the top nDCG@10 by a slim margin (0.7198 against dense's 0.7164) while sitting
+marginally below dense on recall. On the synthetic corpus it lands between BM25 and dense.
+Across both, fusion behaves as a robustness mechanism - it protects against picking the
+wrong single retriever for the query mix - not as a source of large gains.
+
+That is worth stating plainly because it contradicts a claim this project once carried:
+that hybrid retrieval lifted recall@10 from 0.69 to 0.84 over a dense-only baseline. No
+run here reproduced a lift of that size. On SciFact, dense alone already reaches 0.8536
+recall@10, so the *magnitude* is realistic for this metric - but it comes from the
+embedding model, not from fusion.
+
+BEIR publishes BM25 baselines for SciFact. Comparing the 0.6606 nDCG@10 measured here
+against the published figure is the check that tells you whether this BM25 configuration
+is set up correctly, and it is the reason to prefer a public benchmark over a
+self-authored fixture.
 
 ### Known defect: the recorded dual-judge validation slice is degenerate
 

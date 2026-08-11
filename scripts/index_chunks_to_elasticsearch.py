@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 from pathlib import Path
@@ -7,7 +8,7 @@ import requests
 
 DEFAULT_ELASTICSEARCH_URL = "http://127.0.0.1:9200"
 DEFAULT_INDEX_NAME = "llm_eval_chunks"
-CHUNKS_PATH = Path("datasets/corpus/chunks.jsonl")
+DEFAULT_CHUNKS_PATH = Path("datasets/corpus/chunks.jsonl")
 BULK_BATCH_SIZE = 500
 
 
@@ -109,13 +110,34 @@ def count_indexed_chunks(elasticsearch_url: str, index_name: str) -> int:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Index a chunk file into Elasticsearch for BM25 retrieval."
+    )
+    parser.add_argument("--chunks", type=Path, default=DEFAULT_CHUNKS_PATH)
+    parser.add_argument(
+        "--index",
+        default=os.getenv("ELASTICSEARCH_INDEX", DEFAULT_INDEX_NAME),
+        help="Keep separate corpora in separate indices so one cannot pollute "
+             "the other's benchmark.",
+    )
+    parser.add_argument(
+        "--recreate",
+        action="store_true",
+        help="Delete the index first, so a smaller corpus cannot leave stale "
+             "documents behind from a previous load.",
+    )
+    args = parser.parse_args()
+
     elasticsearch_url = os.getenv(
         "ELASTICSEARCH_URL",
         DEFAULT_ELASTICSEARCH_URL,
     )
-    index_name = os.getenv("ELASTICSEARCH_INDEX", DEFAULT_INDEX_NAME)
+    index_name = args.index
 
-    chunks = load_chunks(CHUNKS_PATH)
+    if args.recreate:
+        requests.delete(f"{elasticsearch_url}/{index_name}", timeout=30)
+
+    chunks = load_chunks(args.chunks)
 
     ensure_index(elasticsearch_url, index_name)
     bulk_index_chunks(elasticsearch_url, index_name, chunks)

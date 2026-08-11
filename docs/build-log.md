@@ -3127,3 +3127,98 @@ Open work:
 2. Capture the five dashboard screenshots into `docs/screenshots/`.
 3. Generate real trace volume from worker runs.
 4. Re-run the dual-judge slice on `golden_rag_v0.2` (needs a GPU window).
+
+## Session 52 - BEIR SciFact: Retrieval Measured Against Human Judgments
+
+Goal: answer whether a large hybrid-over-dense lift is achievable in reality, by
+running the same pipeline against a public benchmark with human relevance labels
+instead of a self-authored fixture.
+
+Built:
+
+- Added `scripts/load_beir_dataset.py`. Downloads a BEIR dataset, converts its
+  corpus into this project's chunk schema and its qrels into the label schema.
+  Each BEIR document becomes exactly one chunk, because BEIR evaluates at
+  document level and its qrels reference document IDs; keeping the unit identical
+  is what makes the numbers comparable to published results.
+- Parameterised three scripts that had hardcoded paths:
+  - `index_chunks_to_elasticsearch.py` gained `--chunks`, `--index`, `--recreate`
+  - `import_corpus_to_postgres.py` gained `--chunks`, `--from-chunks-only`,
+    `--truncate`, and derives documents from chunk metadata when no raw markdown
+    exists
+  - `benchmark_hybrid_retrieval.py` gained `--labels`, `--corpus`, `--index`,
+    `--label-version`, `--corpus-version`, `--result`
+- Separate Elasticsearch indices per corpus (`beir_scifact_chunks`), because dense
+  retrieval scans the whole `chunks` table and two corpora sharing storage would
+  pollute each other's results.
+- Distinct artifact paths per dataset, so one benchmark cannot overwrite another's
+  measured result.
+
+Loaded:
+
+- Dataset: BEIR SciFact, `test` split
+- Documents / chunks: `5,183`
+- Queries with qrels: `300`
+- Relevance references: `339`, all grade 1 (SciFact is binary)
+- Mean relevant documents per query: `1.13`
+
+Embedding:
+
+- `5,183` chunks, `text-embedding-3-small`, `$0.0389`, `298.0s`, `0` failures
+
+Measured - SciFact, 300 queries, depth 10, RRF k=60:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| Dense only | 0.8536 | 0.7164 |
+| BM25 only | 0.7843 | 0.6606 |
+| Hybrid RRF | 0.8496 | 0.7198 |
+
+Cross-corpus comparison:
+
+| Strategy | SciFact recall@10 | Synthetic recall@10 |
+|---|---:|---:|
+| Dense only | 0.8536 | 0.2212 |
+| BM25 only | 0.7843 | 0.3505 |
+| Hybrid RRF | 0.8496 | 0.2832 |
+
+Findings:
+
+1. **The dense/BM25 ordering flips between corpora.** BM25 wins on the synthetic
+   corpus, whose queries are identifier lookups. Dense wins on SciFact, whose
+   queries are natural-language scientific claims. Neither is better in general;
+   the query shape decides. This also confirms the Session 49-50 diagnosis: the
+   synthetic corpus, not the retriever, was suppressing dense.
+2. **RRF hybrid tracks the stronger of its two inputs rather than exceeding both.**
+   Best nDCG@10 on SciFact by a slim margin (`0.7198` vs dense `0.7164`), slightly
+   below dense on recall, and between the two on the synthetic corpus. Fusion
+   behaves as a robustness mechanism against choosing the wrong single retriever,
+   not as a source of large gains.
+
+Metric integrity notes:
+
+- The previously carried claim of lifting recall@10 from `0.69` to `0.84` over a
+  dense-only baseline using hybrid retrieval was **not reproduced on either
+  corpus**. On SciFact dense alone reaches `0.8536`, so that magnitude is
+  realistic for the metric, but it comes from the embedding model rather than
+  from fusion. Do not attribute it to hybrid retrieval.
+- BEIR publishes BM25 baselines for SciFact. Comparing the `0.6606` nDCG@10
+  measured here against the published figure is the check that this BM25
+  configuration is correct. That comparison has not been performed in this
+  session; the published number was not verified from a primary source, so no
+  claim of agreement is made.
+- SciFact qrels are binary, so nDCG@10 carries no graded information on this
+  dataset. A graded BEIR dataset such as NFCorpus would exercise that.
+- Two corpora cannot share the Postgres `chunks` table; the SciFact load
+  truncated it. Restoring the synthetic-corpus numbers requires re-importing and
+  re-embedding it (`$0.018`).
+
+Validation:
+
+- Full suite: `116 passed`
+
+Open work:
+
+1. Compare the measured SciFact BM25 nDCG@10 against the published BEIR baseline.
+2. Run a graded dataset (NFCorpus) so nDCG@10 reports more than recall@10.
+3. Capture dashboard screenshots and push so CI executes.

@@ -1,0 +1,102 @@
+{
+  "benchmark": "hybrid_retrieval_benchmark",
+  "breakdowns": {
+    "match_type": {
+      "semantic/paraphrase": {
+        "dense": {
+          "mean_recall_at_10": 0.8535555555555555,
+          "mean_ndcg_at_10": 0.7163919968363814
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.7842777777777777,
+          "mean_ndcg_at_10": 0.6605837766226136
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.8495555555555556,
+          "mean_ndcg_at_10": 0.7198470581205383
+        }
+      }
+    },
+    "hop_type": {
+      "single-hop": {
+        "dense": {
+          "mean_recall_at_10": 0.8535555555555555,
+          "mean_ndcg_at_10": 0.7163919968363814
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.7842777777777777,
+          "mean_ndcg_at_10": 0.6605837766226136
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.8495555555555556,
+          "mean_ndcg_at_10": 0.7198470581205383
+        }
+      }
+    },
+    "difficulty": {
+      "easy": {
+        "dense": {
+          "mean_recall_at_10": 0.851985559566787,
+          "mean_ndcg_at_10": 0.7177100050520466
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.7906137184115524,
+          "mean_ndcg_at_10": 0.671265151870844
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.855595667870036,
+          "mean_ndcg_at_10": 0.7261559012840674
+        }
+      },
+      "hard": {
+        "dense": {
+          "mean_recall_at_10": 0.8724637681159421,
+          "mean_ndcg_at_10": 0.7005185935433691
+        },
+        "bm25": {
+          "mean_recall_at_10": 0.7079710144927537,
+          "mean_ndcg_at_10": 0.5319428660243591
+        },
+        "hybrid": {
+          "mean_recall_at_10": 0.7768115942028986,
+          "mean_ndcg_at_10": 0.6438666426293412
+        }
+      }
+    }
+  },
+  "status": "measured",
+  "measured_at": "2026-08-11T22:07:22.892593+00:00",
+  "exact_command": "python scripts/benchmark_hybrid_retrieval.py",
+  "label_path": "datasets\\beir\\scifact\\labels.jsonl",
+  "label_dataset_version": "beir_scifact_test_qrels",
+  "corpus_path": "datasets\\beir\\scifact\\chunks.jsonl",
+  "corpus_version": "beir_scifact_corpus",
+  "queries_evaluated": 300,
+  "embedding_model": "text-embedding-3-small",
+  "config": {
+    "dense_candidate_depth": 50,
+    "bm25_candidate_depth": 50,
+    "rrf_k": 60,
+    "metric_depth": 10
+  },
+  "strategies": {
+    "dense": {
+      "mean_recall_at_10": 0.8535555555555555,
+      "mean_ndcg_at_10": 0.7163919968363814
+    },
+    "bm25": {
+      "mean_recall_at_10": 0.7842777777777777,
+      "mean_ndcg_at_10": 0.6605837766226136
+    },
+    "hybrid": {
+      "mean_recall_at_10": 0.8495555555555556,
+      "mean_ndcg_at_10": 0.7198470581205383
+    }
+  },
+  "dense_mean_recall_at_10": 0.8535555555555555,
+  "dense_mean_ndcg_at_10": 0.7163919968363814,
+  "bm25_mean_recall_at_10": 0.7842777777777777,
+  "bm25_mean_ndcg_at_10": 0.6605837766226136,
+  "hybrid_mean_recall_at_10": 0.8495555555555556,
+  "hybrid_mean_ndcg_at_10": 0.7198470581205383
+}
