@@ -3,10 +3,13 @@ from uuid import uuid4
 
 import scripts.run_eval_worker as eval_worker
 from backend.app.candidate_generation import (
+    build_request_for_case,
+    case_requires_retrieval,
     CandidateGenerationRunConfig,
     candidate_answers_path,
     generate_candidate_answers_for_run,
 )
+from backend.app.eval_case import EvalCase
 from backend.app.eval_run import EvalRun
 from backend.app.providers import GenerationRequest, GenerationResponse
 from backend.app.queue_jobs import EvalRunJobPayload, build_run_key, save_eval_run
@@ -124,3 +127,53 @@ def test_worker_dispatches_real_provider_payload_to_candidate_generation(monkeyp
     assert stored_run["status"] == "completed"
     assert result["candidate_answer_count"] == 2
     assert result["provider_name"] == "openai"
+
+
+def _case(case_id: str, task_type: str, **metadata):
+    return EvalCase(
+        id=case_id,
+        question="q",
+        expected_answer="a",
+        task_type=task_type,
+        metadata=metadata,
+    )
+
+
+def test_only_retrieval_grounded_cases_receive_retrieved_context():
+    """Guard against the Session 44 failure mode.
+
+    A run configured as task_family="rag" used to hand retrieved context to every
+    case in the dataset. When the dataset mixed task types that fed support
+    runbook chunks to arithmetic questions, so the model refused and every judge
+    score collapsed to zero.
+    """
+    assert case_requires_retrieval(_case("a", "rag_qa")) is True
+    assert case_requires_retrieval(_case("b", "direct_qa")) is False
+    assert case_requires_retrieval(_case("c", "judge_behavior")) is False
+    assert case_requires_retrieval(_case("d", "prompt_comparison")) is False
+    assert case_requires_retrieval(_case("e", "regression_stability")) is False
+
+
+def test_dataset_row_can_override_retrieval_routing():
+    assert case_requires_retrieval(_case("a", "direct_qa", requires_retrieval=True)) is True
+    assert case_requires_retrieval(_case("b", "rag_qa", requires_retrieval=False)) is False
+
+
+def test_non_retrieval_case_gets_empty_context_even_when_retriever_present():
+    class ExplodingRetriever:
+        def retrieve(self, query):  # pragma: no cover - must never be called
+            raise AssertionError("retrieval ran for a non-retrieval case")
+
+    config = CandidateGenerationRunConfig(
+        run_id="run_routing",
+        dataset_version="golden_rag_v0.2",
+        provider_name="mock",
+        model_name="mock",
+        task_family="rag",
+    )
+    _, citations = build_request_for_case(
+        config, _case("MA-001", "direct_qa"), ExplodingRetriever()
+    )
+
+    assert citations["retrieved_chunk_ids"] == []
+    assert citations["generation_context_chunk_ids"] == []

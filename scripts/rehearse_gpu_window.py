@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", default=str(DEFAULT_DATASET_PATH))
     parser.add_argument(
         "--heldout-labels",
-        default="datasets/labels/retrieval_heldout_120_v0.1.jsonl",
+        default="datasets/labels/retrieval_heldout_120_v0.2.jsonl",
     )
     parser.add_argument("--chunks", default=str(DEFAULT_CHUNKS_PATH))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))

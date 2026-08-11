@@ -13,7 +13,7 @@ from backend.app.retrieval_metrics import ndcg_at_k, recall_at_k
 from backend.app.embeddings import EmbeddingConfigurationError
 
 
-LABEL_PATH = Path("datasets/labels/retrieval_heldout_120_v0.1.jsonl")
+LABEL_PATH = Path("datasets/labels/retrieval_heldout_120_v0.2.jsonl")
 
 
 def load_labeled_queries(path: Path) -> list[dict]:

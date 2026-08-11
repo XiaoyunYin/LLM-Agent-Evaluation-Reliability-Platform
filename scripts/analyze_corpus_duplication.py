@@ -24,7 +24,7 @@ from collections import defaultdict
 from pathlib import Path
 
 DEFAULT_CHUNKS_PATH = Path("datasets/corpus/chunks.jsonl")
-DEFAULT_LABELS_PATH = Path("datasets/labels/retrieval_heldout_120_v0.1.jsonl")
+DEFAULT_LABELS_PATH = Path("datasets/labels/retrieval_heldout_120_v0.2.jsonl")
 METRIC_DEPTH = 10
 
 

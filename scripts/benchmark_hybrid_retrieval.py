@@ -14,10 +14,10 @@ from backend.app.hybrid_retrieval import HybridRetriever, RRF_K
 from backend.app.retrieval_metrics import ndcg_at_k, recall_at_k
 
 
-LABEL_PATH = Path("datasets/labels/retrieval_heldout_120_v0.1.jsonl")
-LABEL_DATASET_VERSION = "retrieval_heldout_120_v0.1"
+LABEL_PATH = Path("datasets/labels/retrieval_heldout_120_v0.2.jsonl")
+LABEL_DATASET_VERSION = "retrieval_heldout_120_v0.2"
 CORPUS_PATH = Path("datasets/corpus/chunks.jsonl")
-CORPUS_VERSION = "synthetic_support_corpus_chunks_v0.1"
+CORPUS_VERSION = "synthetic_support_corpus_chunks_v0.2"
 
 
 def load_labeled_queries(path: Path) -> list[dict]:

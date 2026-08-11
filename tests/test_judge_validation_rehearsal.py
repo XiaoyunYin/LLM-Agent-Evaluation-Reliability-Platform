@@ -46,9 +46,15 @@ def test_rehearsal_builds_120_answer_slice_from_heldout_queries():
     assert candidate_rows[0]["is_mock"] is True
     assert candidate_rows[0]["metadata"]["candidate_answer_is_final"] is False
     assert len(contexts_by_case_id) == 120
-    assert contexts_by_case_id["RH-001"][0].startswith(
-        "[doc_support_accounts_0001_chunk_0001]"
-    )
+
+    # Derive the expected chunk from the label file rather than hardcoding an ID.
+    # A hardcoded ID couples this test to one generation of the fixture and fails
+    # whenever the corpus or labels are regenerated, which says nothing about the
+    # rehearsal code under test.
+    first_label = read_jsonl(DEFAULT_HELDOUT_LABELS_PATH)[0]
+    expected_chunk_id = first_label["relevant_chunks"][0]["chunk_id"]
+    assert first_label["id"] == "RH-001"
+    assert contexts_by_case_id["RH-001"][0].startswith(f"[{expected_chunk_id}]")
 
 
 def test_rehearsal_runs_same_slice_through_standin_gpt_and_mock_7b():

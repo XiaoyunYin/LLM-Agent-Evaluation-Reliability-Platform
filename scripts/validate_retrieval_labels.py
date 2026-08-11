@@ -22,6 +22,7 @@ VALID_RELEVANCE = {0, 1, 2}
 TARGET_TOTAL_RECORDS = 120
 TARGET_PER_CATEGORY_CELL = 15
 RESULT_NOTE_PATH = Path("docs/docs/retrieval-label-validation-results.md")
+DEFAULT_LABEL_PATH = Path("datasets/labels/retrieval_heldout_120_v0.2.jsonl")
 
 
 def load_chunk_ids(chunk_path: Path) -> set[str]:
@@ -139,8 +140,17 @@ def write_results_note(
     RESULT_NOTE_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def resolve_label_path() -> Path:
+    """Allow an explicit path so a candidate label set can be validated before
+    it replaces the current one."""
+    for index, argument in enumerate(sys.argv[1:], start=1):
+        if argument == "--labels" and index + 1 < len(sys.argv):
+            return Path(sys.argv[index + 1])
+    return DEFAULT_LABEL_PATH
+
+
 def main() -> None:
-    label_path = Path("datasets/labels/retrieval_heldout_120_v0.1.jsonl")
+    label_path = resolve_label_path()
     chunk_path = Path("datasets/corpus/chunks.jsonl")
     valid_chunk_ids = load_chunk_ids(chunk_path)
     count = 0

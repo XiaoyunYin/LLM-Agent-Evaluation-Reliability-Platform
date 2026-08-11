@@ -64,12 +64,15 @@ Only measured results are listed here. Targets and resume claims stay out of thi
 
 | Metric | Measured value | Source |
 |---|---:|---|
-| Corpus documents | 1,100 | `frontend/src/data/metricsSnapshot.ts`, Session 19 file count |
-| Corpus chunks | 9,900 | `frontend/src/data/metricsSnapshot.ts`, Session 19 line count |
-| Chunks indexed in Elasticsearch | 9,900 | Elasticsearch `llm_eval_chunks` count, Session 24/45 |
+| Corpus documents | 1,100 | `scripts/generate_synthetic_corpus.py` |
+| Corpus chunks | 8,926 | `scripts/chunk_corpus.py` |
+| Distinct chunk texts | 8,926 of 8,926 (1.00x duplication) | `scripts/analyze_corpus_duplication.py` |
+| Chunks indexed in Elasticsearch | 8,926 | `scripts/index_chunks_to_elasticsearch.py` |
 | Held-out labeled retrieval queries | 120 | `scripts/validate_retrieval_labels.py --strict` |
-| BM25 recall@10 | 0.0667 | `frontend/src/data/metricsSnapshot.ts`, Session 24 |
-| BM25 nDCG@10 | 0.0377 | `frontend/src/data/metricsSnapshot.ts`, Session 24 |
+| Graded relevance references | 382 (202 grade-2, 180 grade-1) | `scripts/validate_retrieval_labels.py --strict` |
+| BM25 recall@10 | 0.7417 | `scripts/benchmark_bm25_retrieval.py` |
+| BM25 nDCG@10 | 0.8300 | `scripts/benchmark_bm25_retrieval.py` |
+| Dense / hybrid recall@10, nDCG@10 | not measured | needs `OPENAI_API_KEY`; see open work |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |
@@ -86,8 +89,6 @@ Only measured results are listed here. Targets and resume claims stay out of thi
 | vLLM sustained output throughput at concurrency 16 | 56.18 tok/s | `docs/results/vllm-benchmark.md` |
 | vLLM total token throughput at concurrency 16 | 506.48 tok/s | `runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json` |
 | vLLM peak output throughput at concurrency 16 | 144.00 tok/s | `docs/results/vllm-benchmark.md` |
-| Distinct chunk texts in corpus | 2,262 of 9,900 | `scripts/analyze_corpus_duplication.py` |
-| Theoretical max recall@10 on current labels | 0.0846 | `scripts/analyze_corpus_duplication.py` |
 | Elasticsearch trace documents | 0 | Session 45 trace count; `otel-traces` index was absent |
 
 Important metric boundaries:
@@ -97,39 +98,71 @@ Important metric boundaries:
 - The 960-answer bulk judging run executed at **concurrency 1**, not 16. Its 23.2 judgments/min is a real sustained end-to-end measurement, but it must not be attributed to the concurrency-16 benchmark.
 - The trace count is currently 0 because the trace index was not present when counted. The code has instrumentation and tests, but the persisted Elasticsearch trace volume has not been demonstrated yet.
 
-### Known fixture defect: the retrieval benchmark is not yet meaningful
+### Repaired fixture defect: how the retrieval benchmark became meaningful
 
-`scripts/analyze_corpus_duplication.py` measures a defect that invalidates the current
-retrieval numbers, and it is documented here rather than hidden:
+The first version of this benchmark measured BM25 recall@10 at **0.0667**, which looked
+like a retrieval failure and was not. `scripts/analyze_corpus_duplication.py` was written
+to find out why, and it measured the real cause:
 
-- The corpus was generated from templates. Only **2,262 of 9,900** chunk texts are
-  distinct, and the largest duplicate cluster holds **330 byte-identical chunks**.
-- **All 180** labeled relevant chunks sit in clusters of 110-330 identical texts. A
-  retriever has no signal to prefer the one chunk ID named in the label file over its
-  identical siblings.
-- That caps recall@10 at a **theoretical maximum of 0.0846** regardless of retrieval
-  quality. The measured BM25 recall@10 of 0.0667 is 79% of that ceiling, so BM25 is
-  behaving correctly and the fixture is the limiting factor.
-- The 2,200 chunks with cluster size 1 are unique only because the document title
-  carries a document number; their body text is the same boilerplate. Relabeling
-  therefore cannot repair this. The corpus needs regenerating with genuinely
-  document-specific facts before any retrieval quality claim is meaningful.
-- Relatedly, every one of the 180 labels is grade 2, so the label set is binary in
-  substance and nDCG@10 currently carries no more information than recall@10.
+- The original corpus generator interpolated only `{category}` and `{number}` into a fixed
+  template, so **9,900 chunks held only 2,262 distinct texts**, with the largest duplicate
+  cluster at **330 byte-identical chunks**.
+- **All 180** labeled relevant chunks sat inside clusters of 110-330 identical texts. No
+  retriever can prefer the one chunk ID named in the label file over an identical sibling.
+- That capped recall@10 at a **theoretical maximum of 0.0846**. The measured 0.0667 was
+  79% of that ceiling, which proved BM25 was working and the fixture was the constraint.
+- Relabeling could not fix it: the 2,200 cluster-size-1 chunks were unique only because
+  the document title embedded a number, and their bodies were identical boilerplate.
 
-### Known defect: the dual-judge validation slice is degenerate
+The repair regenerated the corpus so every document carries facts that appear in no other
+document: a unique error code, config key, CLI invocation, owning team, workspace, and a
+set of numeric thresholds. Labels are now *derived* rather than asserted -
+`scripts/generate_retrieval_labels.py` locates the chunk that actually contains each
+answer and fails loudly if it cannot find it.
 
-Both judges marked **all 120** validation cases as failed, and the self-hosted 7B
-returned correctness 0.0 on all 120. Pass/fail agreement of 100% is therefore trivially
-high, and Cohen's kappa is undefined rather than 1.00 — chance agreement is also 100%
-when both raters use a single category.
+| | Before | After |
+|---|---:|---:|
+| Distinct chunk texts | 2,262 of 9,900 | 8,926 of 8,926 |
+| Largest duplicate cluster | 330 | 1 |
+| Theoretical max recall@10 | 0.0846 | 1.0000 |
+| Measured BM25 recall@10 | 0.0667 | **0.7417** |
+| Measured BM25 nDCG@10 | 0.0377 | **0.8300** |
 
-Root cause: `datasets/golden/golden_rag_v0.1.jsonl` is arithmetic and general-reasoning
-QA, while the corpus is synthetic support runbooks. The questions are not answerable
-from the corpus, so 115 of 120 candidate answers are correctly-refusing "the context is
-insufficient" responses and both judges correctly fail all of them. The judge harness is
-working; the evaluation fixture is mismatched. **This slice does not support a
-judge-agreement claim.**
+Relevance is also genuinely graded now (202 grade-2, 180 grade-1), so nDCG@10 reports
+something recall@10 does not. Previously all 180 labels were grade 2, making the set
+binary in substance.
+
+### Known defect: the recorded dual-judge validation slice is degenerate
+
+The judge-agreement numbers in the table above come from a run whose fixture was broken,
+and they remain unusable until the slice is re-run.
+
+Both judges marked **all 120** validation cases as failed, and the self-hosted 7B returned
+correctness 0.0 on all 120. Pass/fail agreement of 100% is therefore trivially high, and
+Cohen's kappa is undefined rather than 1.00 — chance agreement is also 100% when both
+raters use a single category. `calculate_cohens_kappa_from_pairs` used to return a
+hardcoded `1.0` in exactly that case, which is what let the problem hide; it now returns
+`None`, and every report carries `judge_a_pass_rate`, `judge_b_pass_rate`, and
+`agreement_is_degenerate` so a single-category slice is visible on sight.
+
+Root cause: `datasets/golden/golden_rag_v0.1.jsonl` was written independently of the
+corpus. Measured, **0 of its 120 questions** contained any corpus vocabulary, including
+the 25 rows explicitly typed `rag_qa`. Retrieval could not supply relevant context, so 115
+of 120 candidate answers were correctly-refusing "the context is insufficient" responses
+and both judges correctly failed all of them. The judge harness was working; the fixture
+was mismatched.
+
+Two repairs are in place, but the slice has not been re-run against them:
+
+- `datasets/golden/golden_rag_v0.2.jsonl` is corpus-grounded. Every one of its 108
+  answerable questions targets a fact verified present in exactly one document, and 12
+  further cases ask for facts the corpus deliberately lacks so abstention can be scored.
+- Retrieval routing is now decided **per case** rather than per run. `task_family="rag"`
+  previously handed retrieved context to every row in a dataset; only `rag_qa` cases (or
+  rows setting `requires_retrieval`) receive context now.
+
+**This slice still does not support a judge-agreement claim.** Re-running it needs a GPU
+window for the self-hosted judge.
 
 ## Screenshots
 

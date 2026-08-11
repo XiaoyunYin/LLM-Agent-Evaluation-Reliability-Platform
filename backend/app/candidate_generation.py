@@ -9,7 +9,7 @@ from backend.app.bm25_retrieval import ElasticsearchBm25Retriever
 from backend.app.dataset_loader import load_eval_cases
 from backend.app.dense_retrieval import PostgresDenseRetriever
 from backend.app.embeddings import OpenAIEmbeddingProvider
-from backend.app.eval_case import EvalCase
+from backend.app.eval_case import EvalCase, TaskType
 from backend.app.eval_run import CandidateAnswer
 from backend.app.generation import (
     build_rag_generation_request,
@@ -185,6 +185,27 @@ def build_retriever(retrieval_mode: str) -> Retriever:
     raise CandidateGenerationError(f"Unsupported retrieval mode: {retrieval_mode}")
 
 
+# Only retrieval-grounded tasks should receive retrieved context. The other task
+# types evaluate model ability, prompt wording, judge behaviour, and run-to-run
+# stability, none of which are answered by corpus chunks.
+RETRIEVAL_TASK_TYPES = frozenset({TaskType.RAG_QA})
+
+
+def case_requires_retrieval(case: EvalCase) -> bool:
+    """Decide per case, not per run.
+
+    A run configured as task_family="rag" previously applied retrieval to every
+    case in the dataset. When the dataset mixes task types that handed support
+    runbook chunks to arithmetic questions, which forced the model to refuse and
+    made the resulting judge scores meaningless. A dataset row may override the
+    default with an explicit metadata flag.
+    """
+    explicit = case.metadata.get("requires_retrieval")
+    if isinstance(explicit, bool):
+        return explicit
+    return case.task_type in RETRIEVAL_TASK_TYPES
+
+
 def build_request_for_case(
     config: CandidateGenerationRunConfig,
     case: EvalCase,
@@ -200,7 +221,7 @@ def build_request_for_case(
             {"retrieved_chunk_ids": [], "generation_context_chunk_ids": []},
         )
 
-    if retriever is None:
+    if retriever is None or not case_requires_retrieval(case):
         return build_rag_generation_request(
             run_id=config.run_id,
             case_id=case.id,
