@@ -80,7 +80,8 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | BEIR SciFact documents / queries | 5,183 / 300 | `scripts/load_beir_dataset.py` |
 | SciFact dense recall@10 / nDCG@10 | 0.8536 / 0.7164 | `runs/retrieval_benchmark/beir_scifact_benchmark.json` |
 | SciFact BM25 recall@10 / nDCG@10 | 0.7843 / 0.6606 | same artifact |
-| SciFact hybrid recall@10 / nDCG@10 | 0.8496 / 0.7198 | same artifact |
+| SciFact hybrid recall@10 / nDCG@10 (default k=60, depth=50) | 0.8496 / 0.7198 | same artifact |
+| SciFact hybrid, tuned on train, held-out test (k=1, depth=20) | **0.8777** / **0.7388** | `runs/retrieval_benchmark/scifact_rrf_sweep.json` |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |
@@ -236,6 +237,37 @@ BEIR publishes BM25 baselines for SciFact. Comparing the 0.6606 nDCG@10 measured
 against the published figure is the check that tells you whether this BM25 configuration
 is set up correctly, and it is the reason to prefer a public benchmark over a
 self-authored fixture.
+
+### Tuning RRF: fusion beats both retrievers, but only at shallow candidate depth
+
+The first SciFact run used the configured defaults - candidate depth 50, RRF k=60 - and
+hybrid landed *below* dense-only on recall. `scripts/sweep_rrf_parameters.py` shows that was
+a tuning problem, not a property of fusion. Reciprocal rank fusion is a pure function of two
+ranked lists, so candidates are fetched once and the whole grid is scored in memory; a
+36-cell sweep costs one pass of query embeddings.
+
+Hyperparameters were selected on the **809-query train split** and then applied unchanged to
+the **300-query test split**:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.7843 | 0.6606 |
+| Dense only | 0.8536 | 0.7164 |
+| **Hybrid RRF (k=1, depth=20)** | **0.8777** | **0.7388** |
+
+On held-out queries, fusion beats **both** inputs on **both** metrics: +2.8% recall@10 and
++3.1% nDCG@10 over dense-only, +11.9% and +11.8% over BM25-only.
+
+The dominant parameter is candidate depth, not k. At depth 10 every value of k from 1 to 500
+scores identically (0.8794 recall@10), while at depth 100 with k=500 hybrid falls to 0.8229 -
+below dense-only. Deep candidate lists let low-ranked results from the weaker retriever
+dilute the fusion, and RRF has no notion of a retriever being wrong, only of it having an
+opinion. The configured default of depth 50 / k=60 sits in the region where that dilution
+costs more than fusion gains.
+
+Two honest limits on this result. The gain is real but modest in absolute terms - about 2.4
+points of recall@10. And k=1 is an unusual setting; standard practice is k=60, so this is a
+dataset-specific tuning rather than a general recommendation.
 
 ### Known defect: the recorded dual-judge validation slice is degenerate
 
