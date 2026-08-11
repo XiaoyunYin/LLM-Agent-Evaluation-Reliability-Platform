@@ -3222,3 +3222,63 @@ Open work:
 1. Compare the measured SciFact BM25 nDCG@10 against the published BEIR baseline.
 2. Run a graded dataset (NFCorpus) so nDCG@10 reports more than recall@10.
 3. Capture dashboard screenshots and push so CI executes.
+
+## Session 53 - RRF Parameter Sweep and a Held-Out Fusion Result
+
+Goal: find out whether RRF has a configuration that beats both of its inputs, and
+whether such a configuration survives on queries it was not tuned on.
+
+Built:
+
+- Added `scripts/sweep_rrf_parameters.py`. RRF is a pure function of two ranked
+  lists, so the expensive work - embedding each query, querying pgvector, querying
+  Elasticsearch - happens once at the deepest configuration under test, and every
+  (k, depth) cell is then scored in memory. A 36-cell grid costs one pass of query
+  embeddings rather than 36 passes.
+- The artifact records every cell, not only the winner, and carries an explicit
+  caveat that a cell selected on the same queries it is scored on is an upper
+  bound rather than a held-out result.
+
+Protocol:
+
+- Tuned on the SciFact **train** split: `809` queries, `919` qrels.
+- Evaluated on the SciFact **test** split: `300` queries, `339` qrels.
+- The selected configuration was never tuned on the test queries.
+
+Selected on train by nDCG@10: `k=1`, `candidate_depth=20`
+(train nDCG@10 `0.7540`, recall@10 `0.8744`).
+
+Measured on held-out test:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.7843 | 0.6606 |
+| Dense only | 0.8536 | 0.7164 |
+| Hybrid RRF (k=1, depth=20) | 0.8777 | 0.7388 |
+
+- vs dense-only: recall `+0.0242` (+2.8%), nDCG `+0.0224` (+3.1%)
+- vs BM25-only: recall `+0.0934` (+11.9%), nDCG `+0.0782` (+11.8%)
+- Beats both retrievers on both metrics.
+
+Finding: **candidate depth dominates k.** At depth 10, every k from 1 to 500 gives
+identical recall@10 (`0.8794`). At depth 100 with k=500, hybrid falls to `0.8229`,
+below dense-only. Deep candidate lists let low-ranked results from the weaker
+retriever dilute the fusion; RRF has no notion of a retriever being wrong, only of
+it having an opinion. The configured default of depth `50` / k `60` sits in the
+dilution region, which is why the first SciFact run put hybrid below dense.
+
+Metric integrity notes:
+
+- This supersedes the Session 52 statement that RRF only tracks the stronger input.
+  That was measured at one configuration. With depth tuned, fusion beats both
+  inputs on held-out queries.
+- The gain is real but modest: about `2.4` points of recall@10 over dense-only.
+- `k=1` is not standard practice. This is a dataset-specific tuning result, not a
+  general recommendation.
+- The synthetic-corpus conclusion is unchanged and was not re-swept; those numbers
+  still come from the default configuration.
+- Sweep cost: one pass of query embeddings per split, well under `$0.01` combined.
+
+Validation:
+
+- Full suite: `116 passed`
