@@ -113,14 +113,16 @@ export const retrievalStrategies: RetrievalStrategy[] = [
     label: 'Dense only',
     colorVar: '--series-1',
     description: 'pgvector HNSW cosine over text-embedding-3-small, top 50 → 10',
-    recallAt10: notMeasured(
-      'The dense benchmark exits with status=not_run when it cannot embed the queries.',
-      'OPENAI_API_KEY was not set during the Session 25 benchmark run',
+    recallAt10: measured(
+      0.0663,
+      'Session 49 — 120 held-out queries, 8,926 embedded chunks',
+      '2026-08-11',
       'python scripts/benchmark_hybrid_retrieval.py',
     ),
-    ndcgAt10: notMeasured(
-      'The dense benchmark exits with status=not_run when it cannot embed the queries.',
-      'OPENAI_API_KEY was not set during the Session 25 benchmark run',
+    ndcgAt10: measured(
+      0.0732,
+      'Session 49 — 120 held-out queries, 8,926 embedded chunks',
+      '2026-08-11',
       'python scripts/benchmark_hybrid_retrieval.py',
     ),
   },
@@ -131,15 +133,15 @@ export const retrievalStrategies: RetrievalStrategy[] = [
     description: 'Elasticsearch lexical search over llm_eval_chunks, top 50 → 10',
     recallAt10: measured(
       0.7417,
-      'Session 48 — 120 held-out queries, 8,926 indexed chunks',
-      '2026-08-02',
-      'python scripts/benchmark_bm25_retrieval.py',
+      'Session 49 — 120 held-out queries, 8,926 indexed chunks',
+      '2026-08-11',
+      'python scripts/benchmark_hybrid_retrieval.py',
     ),
     ndcgAt10: measured(
       0.8300,
-      'Session 48 — 120 held-out queries, 8,926 indexed chunks',
-      '2026-08-02',
-      'python scripts/benchmark_bm25_retrieval.py',
+      'Session 49 — 120 held-out queries, 8,926 indexed chunks',
+      '2026-08-11',
+      'python scripts/benchmark_hybrid_retrieval.py',
     ),
   },
   {
@@ -147,14 +149,16 @@ export const retrievalStrategies: RetrievalStrategy[] = [
     label: 'Hybrid RRF',
     colorVar: '--series-3',
     description: 'Reciprocal rank fusion of dense + BM25, k=60, final top 10',
-    recallAt10: notMeasured(
-      'Hybrid fusion needs dense candidates, so it is blocked by the same gap.',
-      'dense retrieval unavailable without embeddings',
+    recallAt10: measured(
+      0.5782,
+      'Session 49 — fusing a near-uninformative dense ranking lowers BM25',
+      '2026-08-11',
       'python scripts/benchmark_hybrid_retrieval.py',
     ),
-    ndcgAt10: notMeasured(
-      'Hybrid fusion needs dense candidates, so it is blocked by the same gap.',
-      'dense retrieval unavailable without embeddings',
+    ndcgAt10: measured(
+      0.5097,
+      'Session 49 — fusing a near-uninformative dense ranking lowers BM25',
+      '2026-08-11',
       'python scripts/benchmark_hybrid_retrieval.py',
     ),
   },

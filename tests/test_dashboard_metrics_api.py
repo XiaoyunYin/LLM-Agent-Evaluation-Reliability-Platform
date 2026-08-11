@@ -21,8 +21,17 @@ def test_metrics_summary_exposes_required_dashboard_keys():
         "eval_run_count",
         "trace_count",
     }
-    assert metrics["recall_at_10"]["status"] == "not_measured"
-    assert metrics["trace_count"]["status"] == "not_measured"
+    # Assert the provenance invariant rather than a particular run state. Which
+    # metrics are measured depends on which benchmarks have been run, so pinning
+    # a status here makes the test fail the moment a benchmark succeeds, which is
+    # the opposite of what it should be guarding.
+    for metric in metrics.values():
+        if metric["status"] == "measured":
+            assert metric["value"] is not None, metric["key"]
+            assert metric["source"], metric["key"]
+        elif metric["status"] == "not_measured":
+            assert metric["value"] is None, metric["key"]
+
     assert metrics["judge_agreement_percentage"]["status"] == "non_final"
     assert "Mock rehearsal" in metrics["judge_agreement_percentage"]["note"]
 

@@ -70,9 +70,10 @@ Only measured results are listed here. Targets and resume claims stay out of thi
 | Chunks indexed in Elasticsearch | 8,926 | `scripts/index_chunks_to_elasticsearch.py` |
 | Held-out labeled retrieval queries | 120 | `scripts/validate_retrieval_labels.py --strict` |
 | Graded relevance references | 382 (202 grade-2, 180 grade-1) | `scripts/validate_retrieval_labels.py --strict` |
-| BM25 recall@10 | 0.7417 | `scripts/benchmark_bm25_retrieval.py` |
-| BM25 nDCG@10 | 0.8300 | `scripts/benchmark_bm25_retrieval.py` |
-| Dense / hybrid recall@10, nDCG@10 | not measured | needs `OPENAI_API_KEY`; see open work |
+| Chunks embedded (text-embedding-3-small, 1536d) | 8,926 | `scripts/embed_chunks.py` |
+| BM25 recall@10 / nDCG@10 | **0.7417** / **0.8300** | `runs/retrieval_benchmark/hybrid_retrieval_benchmark.json` |
+| Hybrid RRF recall@10 / nDCG@10 | 0.5782 / 0.5097 | same artifact |
+| Dense recall@10 / nDCG@10 | 0.0663 / 0.0732 | same artifact |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |
@@ -131,6 +132,41 @@ answer and fails loudly if it cannot find it.
 Relevance is also genuinely graded now (202 grade-2, 180 grade-1), so nDCG@10 reports
 something recall@10 does not. Previously all 180 labels were grade 2, making the set
 binary in substance.
+
+### Measured finding: hybrid retrieval does not help on this corpus
+
+All 8,926 chunks were embedded with `text-embedding-3-small` and all three strategies were
+scored on the same 120 held-out queries with the same metric functions:
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | **0.7417** | **0.8300** |
+| Hybrid RRF (k=60) | 0.5782 | 0.5097 |
+| Dense only | 0.0663 | 0.0732 |
+
+**BM25 alone wins, and fusing dense into it makes retrieval worse.** Recall@10 by query
+type shows why:
+
+| Query type | Dense | BM25 | Hybrid |
+|---|---:|---:|---:|
+| exact-term | 0.0250 | 0.8667 | 0.7333 |
+| semantic/paraphrase | 0.1075 | 0.6167 | 0.4231 |
+
+Dense retrieval is not broken - a query consisting of a chunk's own text returns that chunk
+at rank 1 with score 0.9555, well clear of the next result at 0.8499. The failure is a
+property of the corpus. Every document is the same runbook template describing a different
+procedure, so the "Escalation" section of all 1,100 documents reads near-identically apart
+from its embedded values. For the query *"What is the escalation acknowledgement target for
+error ATL-4100?"* the top five dense hits are all `chunk_0005` from five different
+documents, scored 0.6554 / 0.6515 / 0.6496 / 0.6493 / 0.6492 - effectively tied.
+Embeddings capture topic, and here the topic is identical; the discriminating signal is a
+rare identifier, which is exactly BM25's strength. RRF then drags BM25 down by fusing in a
+ranking that carries almost no information.
+
+This is a finding about **this synthetic corpus**, not a general result about hybrid
+retrieval. A heterogeneous corpus with real topical variety would give dense far more to
+work with. Recorded here because the honest measured direction is the opposite of what the
+project originally set out to show.
 
 ### Known defect: the recorded dual-judge validation slice is degenerate
 
