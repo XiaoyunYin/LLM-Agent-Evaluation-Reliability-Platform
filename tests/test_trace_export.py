@@ -7,8 +7,9 @@ from scripts.count_trace_documents import (
 
 
 class FakeResponse:
-    def __init__(self, body: dict) -> None:
+    def __init__(self, body: dict, status_code: int = 200) -> None:
         self.body = body
+        self.status_code = status_code
 
     def raise_for_status(self) -> None:
         return None
@@ -89,3 +90,37 @@ def test_docker_compose_includes_otel_collector_service_and_backend_endpoint():
     assert "otel/opentelemetry-collector-contrib" in compose_text
     assert "4317:4317" in compose_text
     assert "OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317" in compose_text
+
+
+class KeywordRejectingRequests(FakeRequests):
+    """Elasticsearch rejects a cardinality aggregation on a text field with 400.
+
+    Dynamic mapping stores trace_id as text, so the count script tries
+    trace_id.keyword first and falls back to the bare field.
+    """
+
+    def post(self, url: str, json: dict, timeout: int):
+        self.post_calls.append({"url": url, "json": json, "timeout": timeout})
+        field = json["aggs"]["unique_trace_count"]["cardinality"]["field"]
+        if field.endswith(".keyword"):
+            return FakeResponse({"error": "illegal_argument_exception"}, status_code=400)
+        return FakeResponse(
+            {"aggregations": {"unique_trace_count": {"value": 7}}}
+        )
+
+
+def test_count_trace_documents_falls_back_when_keyword_subfield_is_absent(monkeypatch):
+    fake_requests = KeywordRejectingRequests()
+    monkeypatch.setattr("scripts.count_trace_documents.requests", fake_requests)
+
+    counts = count_trace_documents(
+        elasticsearch_url="http://elasticsearch.test:9200",
+        trace_index="otel-traces",
+    )
+
+    assert counts["unique_trace_count"] == 7
+    tried = [
+        call["json"]["aggs"]["unique_trace_count"]["cardinality"]["field"]
+        for call in fake_requests.post_calls
+    ]
+    assert tried == ["trace_id.keyword", "trace_id"]
