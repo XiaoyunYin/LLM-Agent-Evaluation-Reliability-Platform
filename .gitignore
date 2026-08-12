@@ -37,3 +37,4 @@ Thumbs.db
 datasets/beir/_download/
 datasets/squad_v2/_download/
 runs/trace_measure/
+datasets/beir/*_train/chunks.jsonl

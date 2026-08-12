@@ -18,6 +18,7 @@ numbers comparable to published results. No chunking is applied.
 Usage:
     python scripts/load_beir_dataset.py --dataset scifact
     python scripts/load_beir_dataset.py --dataset nfcorpus --split test
+    python scripts/load_beir_dataset.py --dataset scifact --split train --labels-only
 """
 
 from __future__ import annotations
@@ -187,6 +188,12 @@ def main() -> int:
     parser.add_argument("--split", default=DEFAULT_SPLIT)
     parser.add_argument("--download-dir", type=Path, default=OUTPUT_ROOT / "_download")
     parser.add_argument("--output-dir", type=Path, default=None)
+    parser.add_argument(
+        "--labels-only",
+        action="store_true",
+        help="Skip writing chunks.jsonl. A second split of the same dataset shares "
+             "one corpus, so writing it again is a byte-identical duplicate.",
+    )
     args = parser.parse_args()
 
     output_dir = args.output_dir or OUTPUT_ROOT / args.dataset
@@ -206,7 +213,8 @@ def main() -> int:
     known_chunk_ids = {chunk["id"] for chunk in chunks}
     labels = build_labels(query_rows, qrels, known_chunk_ids, args.dataset, args.split)
 
-    write_jsonl(output_dir / "chunks.jsonl", chunks)
+    if not args.labels_only:
+        write_jsonl(output_dir / "chunks.jsonl", chunks)
     write_jsonl(output_dir / "labels.jsonl", labels)
 
     grades: dict[int, int] = defaultdict(int)
@@ -224,7 +232,8 @@ def main() -> int:
     mean_relevant = sum(len(x["relevant_chunks"]) for x in labels) / max(1, len(labels))
     print(f"mean relevant per query: {mean_relevant:.2f}")
     print()
-    print(f"wrote {output_dir / 'chunks.jsonl'}")
+    if not args.labels_only:
+        print(f"wrote {output_dir / 'chunks.jsonl'}")
     print(f"wrote {output_dir / 'labels.jsonl'}")
     return 0
 
