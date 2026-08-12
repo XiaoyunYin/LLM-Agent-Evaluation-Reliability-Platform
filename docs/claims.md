@@ -158,57 +158,62 @@ This is why BEIR treats nDCG@10 as the primary metric.
 
 ## 2. Scale — runs, candidate answers, judged answers
 
-**Status: Verified.** Re-run entirely on the SQuAD v2 fixture; the earlier synthetic-fixture
-numbers are superseded.
+**Status: Partial.** Runs and candidate answers exceed the original targets. Judged
+answers do not — a judging pass was interrupted and was not resumed.
 
 ### Claim
 
 > Built an LLM evaluation and regression-testing platform for RAG, running a versioned
-> dataset through OpenAI, Anthropic, and a self-hosted vLLM Mistral-7B across 11
-> configurations of retrieval mode and prompt version, generating 1,320 candidate answers
-> and judging all 1,320 with the self-hosted judge at zero failures.
+> dataset through OpenAI, Anthropic, and a self-hosted vLLM Mistral-7B across
+> 79 runs spanning 9 distinct retrieval/prompt configurations plus
+> temperature-varied repeats, generating 9,480 candidate answers with
+> zero failures.
 
 ### Evidence
 
-| Measure | Value |
-|---|---:|
-| Distinct run configurations | 11 |
-| Candidate answers, all completed | **1,320** |
-| Self-hosted `mistral-7b-instruct-v0.3-awq` | 1,080 |
-| OpenAI `gpt-4o-mini` | 120 |
-| Anthropic `claude-haiku-4-5` | 120 |
-| Generation failures | 0 |
-| Judged answers | **1,320** |
-| Judge failures | **0** |
+| Measure | Value | Original target |
+|---|---:|---:|
+| Runs | **79** | 60+ ✅ |
+| Candidate answers | **9,480** | 8K+ ✅ |
+| — self-hosted `mistral-7b-instruct-v0.3-awq` | 9,240 | |
+| — OpenAI `gpt-4o-mini` | 120 | |
+| — Anthropic `claude-haiku-4-5` | 120 | |
+| Generation failures | 0 | |
+| **Answers judged** | **3,757** | 8K+ ❌ |
 
-The 9 self-hosted configurations vary **retrieval mode** (BM25 / dense / hybrid RRF) x
-**prompt version** (v1 baseline / v2 hardened abstention / v3 length-constrained). Both axes
-genuinely change behaviour.
+Artifacts: `runs/candidate_generation/cgen__night_v1__*`, `cgen__scale_v1__*`,
+`cgen__dual_judge_slice_v1__*`, `runs/self_hosted_bulk_judging/*`
 
-Artifacts: `runs/candidate_generation/cgen__scale_v1__*`,
-`runs/candidate_generation/cgen__dual_judge_slice_v1__*`,
-`runs/self_hosted_bulk_judging/scale_bulk_*`
+### What "79 runs" actually means
+
+9 distinct configurations — 3 retrieval modes x 3 prompt versions — repeated at
+`temperature=0.7`. The repeats are **not** duplicates: measured, 95 of 120 answers differ
+between a temperature-0 baseline and a temperature-0.7 repeat of the same configuration.
+That makes them genuine regression-stability samples, which is what repeated runs are for
+in an eval platform.
+
+Describe it as configurations plus stability repeats, not as 79 independent
+experiments. The distinction is the first thing a reviewer will probe, and it is
+defensible when stated plainly.
+
+Both axes had to be made real before this run. `prompt_version` was previously a label
+that never reached the prompt, and every provider posted `temperature=0`, so repeats
+would have been byte-identical. Three genuinely distinct prompt variants and a
+`temperature` parameter were added first; without them these 79 runs would have
+been padding.
 
 ### Scope
 
-All three providers produced real, persisted answers on the same 120-question fixture, so
-provider coverage is earned rather than inherited from a superseded run.
+All three providers produced real, persisted answers on the same 120-question SQuAD v2
+fixture. Judging stopped at 3,757 of 9,480 when the driving
+process was terminated; it is checkpoint-resumable and would need roughly 2.7 GPU-hours
+(~$1.45) to complete.
 
 ### Must not say
 
-- No "60+ runs" — 11 configurations.
-- No "8K+ judged answers" — 1,320.
-- Do not count the older synthetic-fixture runs toward this. Their questions were not
-  answerable from their corpus.
-
-### A defect this run exposed
-
-`SelfHostedProvider` had never worked against real vLLM. It posted a bespoke
-`{"prompt": ...}` body and expected `{"answer_text": ...}` back, while vLLM serves the
-OpenAI chat-completions schema. The only test covering it asserted that same invented
-contract, so it passed while the provider could not talk to any real endpoint. Fail-fast
-caught it after 108 wasted calls instead of 1,080. The test now asserts the request shape,
-which is the part that would have caught it originally.
+- No "8K+ judged answers" — 3,757 distinct answers carry a judge score. The
+  generation target is met; the judging target is not, and they are different claims.
+- Do not present 79 runs as 79 distinct experiments.
 
 ---
 
@@ -397,7 +402,7 @@ Latency and cost, from the baseline run (percentiles read from trace span durati
 |---|---|
 | Six instrumented layers | gateway, retrieval, provider, judge, tool, storage — verified in `backend/app/tracing.py` |
 | Trace export path | Verified end to end into the `otel-traces` data stream |
-| Trace volume | **4,899 span documents across 2,629 traces** |
+| Trace volume | **32,412 span documents across 13,950 traces** |
 | Dashboard | Builds; provenance union makes an unmeasured metric a compile error |
 | CI gate logic | 8 tests pass; exit 0 on committed fixtures, exit 1 on a fake regression |
 | CI execution | **Never run** — `git remote` is empty, nothing pushed |
@@ -410,7 +415,7 @@ fixed, and `scripts/setup_trace_index.py` makes the data stream reproducible.
 
 ### Must not say
 
-- No "10K+ traces in Elasticsearch" — measured **4,899 span documents across 2,629 traces**, emitted as a byproduct of generating 1,320 answers and judging 1,320.
+- "10K+ traces" is now supported: **32,412 span documents across 13,950 traces**, emitted as a byproduct of real generation and judging. State which of the two figures is meant.
 - Distinguish **span documents** from **traces**. Each judgement is currently its own
   root span, so the two counts are near 1:1. Nesting per-case spans under a run-level
   parent would give few traces and many spans, and a claim phrased as "10K traces"

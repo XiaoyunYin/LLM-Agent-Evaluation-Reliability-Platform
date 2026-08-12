@@ -90,13 +90,13 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | SQuAD v2 dense recall@10 / nDCG@10 | 0.9583 / 0.8310 | `runs/retrieval_benchmark/squad_v2_benchmark.json` |
 | SQuAD v2 BM25 recall@10 / nDCG@10 | 0.9417 / 0.8808 | same artifact |
 | SQuAD v2 hybrid recall@10 / nDCG@10 (default config) | **0.9833** / **0.8991** | same artifact |
-| Run configurations (SQuAD fixture) | **11** | `runs/candidate_generation/cgen__scale_v1__*`, `cgen__dual_judge_slice_v1__*` |
-| Candidate answers generated | **1,320** | same, all `status=completed` |
-| — self-hosted `mistral-7b-instruct-v0.3-awq` | 1,080 | 9 configs: 3 retrieval modes x 3 prompt versions |
+| Runs (SQuAD fixture) | **79** — 9 configurations x temperature-varied repeats | `runs/candidate_generation/cgen__scale_v1__*`, `cgen__dual_judge_slice_v1__*` |
+| Candidate answers generated | **9,480** | same, all `status=completed` |
+| — self-hosted `mistral-7b-instruct-v0.3-awq` | 9,240 | 9 configs: 3 retrieval modes x 3 prompt versions |
 | — OpenAI `gpt-4o-mini` | 120 | |
 | — Anthropic `claude-haiku-4-5` | 120 | |
 | Generation failures | 0 | |
-| Answers bulk-judged by the self-hosted 7B | **1,320** | `runs/self_hosted_bulk_judging/scale_bulk_*` |
+| Answers bulk-judged by the self-hosted 7B | **3,757** (judging interrupted, resumable) | `runs/self_hosted_bulk_judging/scale_bulk_*` |
 | Bulk judge failures | **0** | |
 | Dual-judge validation slice | 120 answers | `runs/gpu_window/real_7b_validation_report.json` |
 | Pass/fail inter-judge agreement (SQuAD slice, real judges) | **65.0%** | `runs/dual_judge_squad/real_7b_report.json` |
@@ -116,7 +116,7 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | Prefill : decode ratio | 13.4 : 1 (1,350 vs 101 tokens/judgement) | same run |
 | Tuned config (prefix cache, chunked prefill, len 2048, c32) | +5.1% throughput, **27 failures** — rejected | `runs/self_hosted_bulk_judging/opt_bulk_*_status.json` |
 | Standalone vLLM benchmark @ c16 (superseded) | 56.18 output / 506.48 total tok/s | `runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json` |
-| Elasticsearch trace documents | **4,899 spans / 2,629 traces** | `scripts/count_trace_documents.py` |
+| Elasticsearch trace documents | **32,412 spans / 13,950 traces** | `scripts/count_trace_documents.py` |
 
 Important metric boundaries:
 
@@ -590,7 +590,8 @@ The committed metric files are gate fixtures. They prove the blocking behavior; 
 
 ## Limitations
 
-- Scale targets are not met: 11 run configurations and 1,320 judged answers, not 60+ runs or 8K+ judged answers. At the measured rates a full 8,168-answer matrix would take about 6.4 GPU-hours (~$3.35), but it has not been run.
+- Run count (79) and candidate answers (9,480) now exceed the original 60+ / 8K+ targets, and trace volume (32,412 spans) exceeds 10K+. **Judged answers do not**: 3,757 of 9,480 carry a judge score, because a judging pass was interrupted. It is checkpoint-resumable and would need roughly 2.7 GPU-hours (~$1.45) to finish.
+- The 79 runs are 9 distinct retrieval/prompt configurations repeated at temperature 0.7. Measured, 95 of 120 answers differ between a temperature-0 baseline and a temperature-0.7 repeat, so repeats are genuine regression-stability samples rather than duplicates — but they are not 79 independent experiments.
 - Dense and hybrid retrieval quality results are pending because the saved measured artifact currently supports BM25-only quality numbers.
 - Elasticsearch holds only 3 span documents across 1 trace. The pipeline is proven, but no trace volume has been generated from real eval runs.
 - Dashboard screenshots are pending; the README references them but the image files are not committed yet.
