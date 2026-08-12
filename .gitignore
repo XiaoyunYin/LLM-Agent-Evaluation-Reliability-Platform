@@ -27,7 +27,7 @@ runs/test_dual_judge_validation_artifacts/
 runs/test_judge_validation_rehearsal/
 
 # Local editor/agent state
-.local-editor-state/settings.local.json
+.local-editor-state/
 
 # OS
 .DS_Store
