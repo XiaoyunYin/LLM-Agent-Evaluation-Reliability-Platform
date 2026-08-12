@@ -367,7 +367,7 @@ throughput is high: the workload is prefill-dominated.
 |---|---|
 | Six instrumented layers | gateway, retrieval, provider, judge, tool, storage — verified in `backend/app/tracing.py` |
 | Trace export path | Verified end to end into the `otel-traces` data stream |
-| Trace volume | **3 span documents, 1 unique trace** (smoke test) |
+| Trace volume | **123 span documents, 121 traces** (120 from one instrumented judging run) |
 | Dashboard | Builds; provenance union makes an unmeasured metric a compile error |
 | CI gate logic | 8 tests pass; exit 0 on committed fixtures, exit 1 on a fake regression |
 | CI execution | **Never run** — `git remote` is empty, nothing pushed |
@@ -380,7 +380,34 @@ fixed, and `scripts/setup_trace_index.py` makes the data stream reproducible.
 
 ### Must not say
 
-- No "10K+ traces in Elasticsearch" — 3 span documents exist.
+- No "10K+ traces in Elasticsearch" — measured 123 span documents over 121 traces.
+- Distinguish **span documents** from **traces**. Each judgement is currently its own
+  root span, so the two counts are near 1:1. Nesting per-case spans under a run-level
+  parent would give few traces and many spans, and a claim phrased as "10K traces"
+  would then be far harder to reach than "10K span documents". State which one is meant.
+
+### What 10K+ would actually require
+
+The blocker was never volume, it was instrumentation coverage. `candidate_generation.py`
+and `bulk_judging.py` — the modules doing the real work — emitted **zero** spans; only
+the API layer and the Redis worker were instrumented, and the worker emits 10 spans per
+*job* rather than per case. Reaching 10K at that granularity would have meant 1,000
+worker jobs, which is span farming rather than evaluation.
+
+Both modules are now instrumented per case. Measured emission rate:
+
+| Path | Spans |
+|---|---:|
+| Generation, per case | 3 (provider parent, retrieval child, storage child) |
+| Judging, per answer | 1 (measured: 120 answers produced exactly 120 spans) |
+| **Full cycle, per case** | **4** |
+
+So 10,000 span documents needs **2,500 cases processed end to end** — about 21 cycles of
+the 120-case set. That is real evaluation work, and it is the same work claim 2 needs:
+generating and judging 8,168 answers would emit roughly 32,700 spans as a byproduct.
+
+Traces must come from real evaluation runs. Looping a smoke script to reach a round
+number is the same failure as any other inflated metric.
 - Do not state "gated CI" as operating — the workflow has never executed. It becomes true
   after a push; CI was verified to pass with no data services running (116 tests).
 

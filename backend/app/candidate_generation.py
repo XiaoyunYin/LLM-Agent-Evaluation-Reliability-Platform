@@ -17,6 +17,14 @@ from backend.app.generation import (
     retrieve_context_and_build_rag_request,
 )
 from backend.app.hybrid_retrieval import HybridRetriever, RRF_K
+from backend.app.tracing import (
+    SERVICE_LAYER_PROVIDER,
+    SERVICE_LAYER_RETRIEVAL,
+    SERVICE_LAYER_STORAGE,
+    current_trace_id,
+    get_tracer,
+    set_common_span_attributes,
+)
 from backend.app.providers import (
     SelfHostedProvider,
     AnthropicProvider,
@@ -314,6 +322,7 @@ def generate_candidate_answers_for_run(
     if retriever is None and config.task_family == "rag":
         retriever = build_retriever(config.retrieval_mode)
 
+    tracer = get_tracer()
     generated_count = 0
     failed_count = 0
 
@@ -322,18 +331,63 @@ def generate_candidate_answers_for_run(
             continue
 
         try:
-            request, citation_fields = build_request_for_case(
-                config=config,
-                case=case,
-                retriever=retriever,
-            )
-            response = generate_answer(provider=provider, request=request)
-            row = generation_response_to_row(
-                config=config,
-                case=case,
-                response=response,
-                citation_fields=citation_fields,
-            )
+            # Spans are emitted per case, not per run. A run-level span records
+            # that generation happened; a per-case span records what it did, and
+            # is the granularity a developer actually needs when one case is slow
+            # or one provider call fails.
+            with tracer.start_as_current_span("provider.generate_candidate_answer") as span:
+                set_common_span_attributes(
+                    span,
+                    layer=SERVICE_LAYER_PROVIDER,
+                    run_id=config.run_id,
+                    trace_id=current_trace_id(),
+                )
+                span.set_attribute("eval.case_id", case.id)
+                span.set_attribute("eval.dataset_version", config.dataset_version)
+                span.set_attribute("llm.provider", config.provider_name)
+                span.set_attribute("llm.model", config.model_name)
+                span.set_attribute("eval.prompt_version", config.prompt_version)
+
+                with tracer.start_as_current_span("retrieval.fetch_context") as retrieval_span:
+                    set_common_span_attributes(
+                        retrieval_span,
+                        layer=SERVICE_LAYER_RETRIEVAL,
+                        run_id=config.run_id,
+                    )
+                    retrieval_span.set_attribute("eval.case_id", case.id)
+                    retrieval_span.set_attribute(
+                        "retrieval.strategy", config.retrieval_mode
+                    )
+                    retrieval_span.set_attribute(
+                        "retrieval.applied", case_requires_retrieval(case)
+                    )
+                    request, citation_fields = build_request_for_case(
+                        config=config,
+                        case=case,
+                        retriever=retriever,
+                    )
+                    retrieval_span.set_attribute(
+                        "retrieval.chunk_count",
+                        len(citation_fields.get("retrieved_chunk_ids", [])),
+                    )
+
+                response = generate_answer(provider=provider, request=request)
+                span.set_attribute("llm.answer_characters", len(response.answer_text))
+
+                with tracer.start_as_current_span("storage.append_candidate_answer") as store_span:
+                    set_common_span_attributes(
+                        store_span,
+                        layer=SERVICE_LAYER_STORAGE,
+                        run_id=config.run_id,
+                    )
+                    store_span.set_attribute("eval.case_id", case.id)
+                    store_span.set_attribute("eval.output_path", str(output_path))
+                    row = generation_response_to_row(
+                        config=config,
+                        case=case,
+                        response=response,
+                        citation_fields=citation_fields,
+                    )
         except Exception as error:
             failed_count += 1
             append_candidate_answer(

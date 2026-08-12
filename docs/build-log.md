@@ -3499,3 +3499,66 @@ Cost: roughly 25 minutes of `g4dn.xlarge` time plus 120 `gpt-4.1-mini` judgments
 Validation:
 
 - Full suite: `118 passed`
+
+## Session 57 - Per-Case Tracing Instrumentation
+
+Goal: find out what stands between the project and a real trace volume, and remove it.
+
+Finding: the blocker was never volume, it was **instrumentation coverage**. Spans were
+emitted only by `backend/main.py` (2) and `scripts/run_eval_worker.py` (10). The
+modules that do the actual work - `candidate_generation.py` and `bulk_judging.py` -
+emitted **zero**. The worker's spans are per *job*, not per case, and it contains no
+per-case loop, so 10,000 span documents would have required 1,000 worker jobs. That is
+span farming, not evaluation.
+
+Built:
+
+- Per-case spans in `candidate_generation.py`: `provider.generate_candidate_answer` as
+  parent, with `retrieval.fetch_context` and `storage.append_candidate_answer` as
+  children. Attributes include case ID, dataset version, provider, model, prompt
+  version, retrieval strategy, whether retrieval applied, and chunk count.
+- Per-answer spans in `bulk_judging.py`: `judge.score_candidate_answer` carrying case
+  ID, judge name and model, mock flag, bulk run ID, and the resulting correctness,
+  pass, and status.
+
+Measured emission rate, end to end into Elasticsearch:
+
+- Judged 120 SQuAD answers through the instrumented path with the rule-based judge.
+- Span documents before: `3`. After: `123`. Traces: `121`.
+- **1 span per judged answer**, exactly.
+
+| Path | Spans |
+|---|---:|
+| Generation, per case | 3 |
+| Judging, per answer | 1 |
+| Full cycle, per case | 4 |
+
+Requirement for a 10K claim:
+
+- `10,000 / 4` = **2,500 cases processed end to end**, about 21 cycles of the 120-case
+  set.
+- The same work satisfies claim 2: generating and judging `8,168` answers would emit
+  roughly `32,700` spans as a byproduct. Trace volume and scale are one job.
+
+Precision note recorded in claims.md: **span documents and traces are not the same
+number.** Each judgement is currently its own root span, so the counts sit near 1:1.
+Nesting per-case spans under a run-level parent would produce few traces and many
+spans, and "10K traces" would then be much harder to reach than "10K span documents".
+Any claim must say which is meant.
+
+Bug found and fixed during instrumentation: the first version read `response.answer`,
+but `GenerationResponse` exposes `answer_text`. The generation loop caught the
+`AttributeError` and wrote a failed row, so a test caught it as `status == 'failed'`
+rather than as a crash - the error handling worked, and the span carried the exception
+detail that identified it.
+
+Metric integrity notes:
+
+- Current measured volume is `123` span documents over `121` traces. That is not a
+  trace-count achievement and must not be reported as one.
+- Traces must be byproducts of real evaluation runs. Looping a smoke emitter to reach a
+  round number is the same failure as any other inflated metric.
+
+Validation:
+
+- Full suite: `118 passed`
