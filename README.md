@@ -364,29 +364,17 @@ window for the self-hosted judge.
 
 ## Screenshots
 
-<!-- Drop the five PNGs into docs/screenshots/ with these exact filenames and the
-     images below will render. Until then the links show as broken, which is the
-     intended reminder. -->
-
 | View | What it shows |
 |---|---|
-| ![Overview](docs/screenshots/overview.png) | Measured corpus, run, judge, and infrastructure status at a glance. |
-| ![Retrieval](docs/screenshots/retrieval.png) | Dense, BM25, and hybrid scored side by side, with unmeasured strategies drawn as hatched tracks rather than zero-length bars. |
-| ![Runs](docs/screenshots/runs.png) | Eval run metadata and provider coverage, with unmeasured score and latency rendered as "Not measured". |
-| ![Judges](docs/screenshots/judges.png) | Validation agreement, self-hosted judge metadata, and the boundary between measured and non-final numbers. |
+| ![Overview](docs/screenshots/overview.png) | Every headline number with its provenance: which artifact produced it and why. |
+| ![Retrieval](docs/screenshots/retrieval.png) | Dense, BM25, and hybrid RRF scored side by side on the same held-out queries. |
+| ![Judges](docs/screenshots/judges.png) | Dual-judge agreement, Cohen's kappa, and the pass rates that show the slice is not degenerate. |
+| ![Runs](docs/screenshots/runs.png) | Run history, with unmeasured score and latency rendered as "Not measured" rather than zero. |
 | ![Review queue](docs/screenshots/review-queue.png) | Disagreement cases routed for human inspection. |
 
-To capture them:
-
-```powershell
-# terminal 1
-.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
-# terminal 2
-cd frontend; npm run dev
-```
-
-Then open `http://localhost:5173` (use `localhost`, not `127.0.0.1` — the Vite dev
-server binds IPv6 only) and capture each page into `docs/screenshots/`.
+Regenerate them with `bash scripts/capture_screenshots.sh` while the backend and dev
+server are running. They are scripted rather than hand-captured so they cannot drift
+from the dashboard unnoticed.
 
 ## How To Run Locally
 
