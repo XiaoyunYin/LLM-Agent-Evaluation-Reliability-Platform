@@ -158,56 +158,57 @@ This is why BEIR treats nDCG@10 as the primary metric.
 
 ## 2. Scale — runs, candidate answers, judged answers
 
-**Status: Partial.** Provider diversity is real; the volume is roughly 8x smaller than
-originally claimed.
+**Status: Verified.** Re-run entirely on the SQuAD v2 fixture; the earlier synthetic-fixture
+numbers are superseded.
 
 ### Claim
 
-> Built an LLM evaluation and regression-testing platform for RAG and agentic
-> tool-calling, running versioned datasets through OpenAI and Anthropic APIs and scoring
-> output with a self-hosted vLLM Mistral-7B judge; a checkpoint-resumable pipeline
-> generated 960 candidate answers across 8 configurations (provider x retrieval mode x
-> prompt version) and judged all 960 with zero failed scores.
+> Built an LLM evaluation and regression-testing platform for RAG, running a versioned
+> dataset through OpenAI, Anthropic, and a self-hosted vLLM Mistral-7B across 11
+> configurations of retrieval mode and prompt version, generating 1,320 candidate answers
+> and judging all 1,320 with the self-hosted judge at zero failures.
 
 ### Evidence
 
 | Measure | Value |
 |---|---:|
-| Production run artifacts / distinct run IDs | 8 |
-| Completed candidate answers | 960 |
-| OpenAI (`gpt-4o-mini`) | 480 |
-| Anthropic (`claude-haiku-4-5`) | 480 |
-| Failed candidate rows | 4 |
-| Persisted judge scores | 960 |
-| Failed judge scores | 0 |
+| Distinct run configurations | 11 |
+| Candidate answers, all completed | **1,320** |
+| Self-hosted `mistral-7b-instruct-v0.3-awq` | 1,080 |
+| OpenAI `gpt-4o-mini` | 120 |
+| Anthropic `claude-haiku-4-5` | 120 |
+| Generation failures | 0 |
+| Judged answers | **1,320** |
+| Judge failures | **0** |
 
-Artifacts: `runs/candidate_generation/cgen__*_candidate_answers.jsonl`,
-`runs/self_hosted_bulk_judging/self_hosted_7b_bulk_20260811_061841_judge_scores.jsonl`
+The 9 self-hosted configurations vary **retrieval mode** (BM25 / dense / hybrid RRF) x
+**prompt version** (v1 baseline / v2 hardened abstention / v3 length-constrained). Both axes
+genuinely change behaviour.
 
-The designed matrix is larger and is validated, but was never executed:
-`config/candidate_answer_run_matrix.json` defines 72 runs / 8,168 answers, confirmed by
-`python scripts/summarize_candidate_run_matrix.py --validate`. Describing it as *designed*
-is accurate; describing it as *run* is not.
+Artifacts: `runs/candidate_generation/cgen__scale_v1__*`,
+`runs/candidate_generation/cgen__dual_judge_slice_v1__*`,
+`runs/self_hosted_bulk_judging/scale_bulk_*`
 
 ### Scope
 
-Both providers produced real, persisted answers, so OpenAI/Anthropic coverage is earned.
-The 8 configurations vary provider x retrieval mode x prompt version — a real matrix, just
-a small one.
+All three providers produced real, persisted answers on the same 120-question fixture, so
+provider coverage is earned rather than inherited from a superseded run.
 
 ### Must not say
 
-- No "60+ runs" — 8 run artifacts exist.
-- No "8K+ judged answers" — 960 persisted judge scores.
-- No "8K+ candidate answers" — 960 completed.
-- Mock-provider runs exist under `runs/` and must never count toward provider diversity.
-  Only the 8 `cgen__*` runs are real API generations.
+- No "60+ runs" — 11 configurations.
+- No "8K+ judged answers" — 1,320.
+- Do not count the older synthetic-fixture runs toward this. Their questions were not
+  answerable from their corpus.
 
-### Interview answer
+### A defect this run exposed
 
-> "Cost control. The matrix is designed and validated for 8,168 answers across 72 runs; I
-> ran a balanced 8-config slice that exercises every axis and proves the pipeline resumes
-> without re-spending. Scaling it is a budget decision, not an engineering one."
+`SelfHostedProvider` had never worked against real vLLM. It posted a bespoke
+`{"prompt": ...}` body and expected `{"answer_text": ...}` back, while vLLM serves the
+OpenAI chat-completions schema. The only test covering it asserted that same invented
+contract, so it passed while the provider could not talk to any real endpoint. Fail-fast
+caught it after 108 wasted calls instead of 1,080. The test now asserts the request shape,
+which is the part that would have caught it originally.
 
 ---
 
@@ -289,70 +290,58 @@ rehearsal scripts pass that flag, and a test covers both directions.
 
 ## 4. Self-hosted judge — vLLM Mistral-7B on AWS T4
 
-**Status: Partial.** Deployment and bulk judging are real; the throughput figure is not.
+**Status: Verified.** Throughput and volume are now a single measurement.
 
 ### Claim
 
-> Moved bulk judging off paid APIs onto an AWQ-quantized Mistral-7B served by vLLM on a
-> single on-demand AWS g4dn.xlarge (T4, 16 GB), sustaining 23 judgments/min at p50 2.6s /
-> p95 3.4s across a 960-answer run that completed in 41 minutes without a failure or
-> restart. A dedicated benchmark measured 506 tok/s total throughput (56 output tok/s) at
-> concurrency 16.
+> Served an AWQ-quantized Mistral-7B judge with vLLM on a single on-demand AWS
+> g4dn.xlarge (T4, 16 GB), sustaining 60.43 output tok/s
+> (871.15 total) at concurrency 16 across 1,320 bulk-judged
+> answers in 37 minutes, with zero failed scores.
 
 ### Evidence
 
-Bulk run, derived from per-row `judged_at` timestamps:
-
 | Measure | Value |
 |---|---:|
-| Answers judged | 960 |
-| Wall clock | 41.5 min |
-| Sustained throughput | 23.2 judgments/min |
-| Per-answer latency | p50 2.62s, p95 3.37s, max 3.78s |
-| Failures | 0 |
+| Answers judged | 1,320 |
+| Failed scores | 0 |
+| Concurrency | 16 |
+| Wall clock | 2198s (36.6 min) |
+| Judged per minute | 36.04 |
+| Output tokens | 132,801 |
+| Prompt tokens | 1,781,745 |
+| **Output tok/s** | **60.43** |
+| **Total tok/s** | **871.15** |
 
-Dedicated vLLM benchmark (`runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json`):
+Artifact: `runs/self_hosted_bulk_judging/scale_bulk_*_status.json`
 
-| Measure | Value |
-|---|---:|
-| Max concurrency | 16 |
-| Requests completed / failed | 64 / 0 |
-| Sustained output throughput | 56.18 tok/s |
-| Peak output throughput | 144.00 tok/s |
-| Total token throughput | 506.48 tok/s |
-| Input / output tokens | 131,320 / 16,384 |
+### Why this supersedes the earlier figure
 
-Hardware: AWS `g4dn.xlarge`, Tesla T4 15,360 MiB, vLLM 0.27.0, `max_model_len=4096`,
-`gpu_memory_utilization=0.90`, model `solidrust/Mistral-7B-Instruct-v0.3-AWQ`.
+Previously throughput came from a 64-request synthetic benchmark at concurrency 16
+(56.18 output tok/s) while the answer count came from a *different* run at concurrency 1.
+Quoting them in one sentence misrepresented both, which the project's own rules forbade.
+Token usage is now accumulated from the judging workload itself, so tok/s, concurrency,
+and answer count describe one run.
 
-### Scope
+The two agree closely — 60.43 tok/s measured on the real workload
+against 56.18 on the synthetic benchmark — which is a useful cross-check that the
+instrumentation is sound.
 
-The two measurements are **separate workloads** and must not be combined. The 960-answer
-bulk run executed at **concurrency 1** — confirmed arithmetically, since 1/2.62s equals
-the observed 0.386/s throughput. The concurrency-16 figure comes from a 64-request
-benchmark with 2,052-token prompts, which is why output tok/s reads low while total token
-throughput is high: the workload is prefill-dominated.
+The workload is prefill-dominated (1,781,745 prompt vs
+132,801 output tokens), which is why output tok/s reads modest
+while total token throughput is 871.15.
 
 ### Must not say
 
-- No "145 tok/s" — measured sustained is 56.18; 144.00 was peak only.
-- No "145 tok/s across 8K+ bulk-judged answers" — conflates two workloads, at two
-  concurrency levels, over two different volumes.
-- Do not attribute the concurrency-16 benchmark to the bulk run.
-
-### Interview answer
-
-> "Two separate measurements. The dedicated benchmark hit 56 output tok/s sustained at
-> concurrency 16 — 506 total, since the workload is prefill-heavy at 2,052 input versus
-> 256 output tokens. The bulk run is the one I'd actually quote: 960 judgments in 41
-> minutes, p50 2.6s, zero failures — but it ran at concurrency 1, so raising concurrency
-> is the obvious next optimisation."
+- No "145 tok/s" — never measured. Peak on the synthetic benchmark was 144.00; sustained
+  on the real workload is 60.43.
+- No "8K+ bulk-judged answers" — 1,320.
 
 ---
 
 ## 5. Tracing, dashboard, and the CI regression gate
 
-**Status: Partial.** All three are built; two lack the volume or execution to claim.
+**Status: Partial.** Tracing now carries real volume; CI still has never executed.
 
 ### Claim
 
@@ -367,7 +356,7 @@ throughput is high: the workload is prefill-dominated.
 |---|---|
 | Six instrumented layers | gateway, retrieval, provider, judge, tool, storage — verified in `backend/app/tracing.py` |
 | Trace export path | Verified end to end into the `otel-traces` data stream |
-| Trace volume | **123 span documents, 121 traces** (120 from one instrumented judging run) |
+| Trace volume | **4,899 span documents across 2,629 traces** |
 | Dashboard | Builds; provenance union makes an unmeasured metric a compile error |
 | CI gate logic | 8 tests pass; exit 0 on committed fixtures, exit 1 on a fake regression |
 | CI execution | **Never run** — `git remote` is empty, nothing pushed |
@@ -380,7 +369,7 @@ fixed, and `scripts/setup_trace_index.py` makes the data stream reproducible.
 
 ### Must not say
 
-- No "10K+ traces in Elasticsearch" — measured 123 span documents over 121 traces.
+- No "10K+ traces in Elasticsearch" — measured **4,899 span documents across 2,629 traces**, emitted as a byproduct of generating 1,320 answers and judging 1,320.
 - Distinguish **span documents** from **traces**. Each judgement is currently its own
   root span, so the two counts are near 1:1. Nesting per-case spans under a run-level
   parent would give few traces and many spans, and a claim phrased as "10K traces"

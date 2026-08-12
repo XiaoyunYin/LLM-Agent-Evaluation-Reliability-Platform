@@ -1,4 +1,7 @@
 import os
+import threading
+
+import requests
 from typing import Any, Protocol
 from openai import OpenAI
 from anthropic import Anthropic
@@ -19,6 +22,9 @@ class GenerationRequest(BaseModel):
     case_id: str
     question: str
     retrieved_chunks: list[RetrievedChunk] = Field(default_factory=list)
+    # Selects the wording variant. Carried on the request so every provider builds
+    # the same prompt for a given run, rather than each implementing its own.
+    prompt_version: str = "rag_prompt_v1"
 
 
 class GenerationResponse(BaseModel):
@@ -42,7 +48,52 @@ class ProviderConfigurationError(Exception):
 class ProviderGenerationError(Exception):
     pass
 
-def build_generation_prompt(request: GenerationRequest) -> str:
+# Prompt variants. These must differ in wording, not only in name: a run matrix that
+# varies a label while sending identical text produces byte-identical answers at
+# temperature 0, which inflates the run count without evaluating anything.
+#
+# v1 is the original baseline. v2 hardens abstention, which is the failure mode the
+# SQuAD unanswerable cases target. v3 constrains answer length, to test whether
+# brevity costs correctness or citation quality.
+RAG_PROMPT_INSTRUCTIONS: dict[str, str] = {
+    "rag_prompt_v1": (
+        "Answer the question using only the retrieved context when it contains enough information.\n"
+        "Cite supporting chunks with their chunk IDs in square brackets, like [chunk_001].\n"
+        "If the retrieved context is not enough, say that the context is insufficient."
+    ),
+    "rag_prompt_v2": (
+        "Answer strictly from the retrieved context below. Do not use outside knowledge.\n"
+        "Cite every supporting chunk by its chunk ID in square brackets, like [chunk_001].\n"
+        "Before answering, check whether the context actually states the answer. If it does\n"
+        "not, reply exactly: The context is insufficient to answer this question.\n"
+        "Do not guess, infer beyond the text, or fill gaps from memory."
+    ),
+    "rag_prompt_v3": (
+        "Answer the question in at most two sentences, using only the retrieved context.\n"
+        "Cite supporting chunks with their chunk IDs in square brackets, like [chunk_001].\n"
+        "Prefer the shortest complete answer. If the context is not enough, say that the\n"
+        "context is insufficient."
+    ),
+}
+
+DEFAULT_RAG_PROMPT_VERSION = "rag_prompt_v1"
+
+
+class UnknownPromptVersionError(Exception):
+    pass
+
+
+def build_generation_prompt(
+    request: GenerationRequest,
+    prompt_version: str = DEFAULT_RAG_PROMPT_VERSION,
+) -> str:
+    instructions = RAG_PROMPT_INSTRUCTIONS.get(prompt_version)
+    if instructions is None:
+        raise UnknownPromptVersionError(
+            f"Unknown prompt_version {prompt_version!r}. "
+            f"Known: {sorted(RAG_PROMPT_INSTRUCTIONS)}"
+        )
+
     chunk_texts = [
         f"[{chunk.chunk_id}] {chunk.text}"
         for chunk in request.retrieved_chunks
@@ -51,9 +102,7 @@ def build_generation_prompt(request: GenerationRequest) -> str:
     context_block = "\n\n".join(chunk_texts) if chunk_texts else "No retrieved context."
 
     return (
-        "Answer the question using only the retrieved context when it contains enough information.\n"
-        "Cite supporting chunks with their chunk IDs in square brackets, like [chunk_001].\n"
-        "If the retrieved context is not enough, say that the context is insufficient.\n\n"
+        f"{instructions}\n\n"
         f"Question:\n{request.question}\n\n"
         f"Retrieved context:\n{context_block}\n\n"
         "Answer:"
@@ -100,7 +149,7 @@ class OpenAIProvider:
             )
 
     def build_prompt(self, request: GenerationRequest) -> str:
-        return build_generation_prompt(request)
+        return build_generation_prompt(request, request.prompt_version)
 
     def generate_answer(self, request: GenerationRequest) -> GenerationResponse:
         prompt = self.build_prompt(request)
@@ -145,7 +194,7 @@ class AnthropicProvider:
             )
 
     def build_prompt(self, request: GenerationRequest) -> str:
-        return build_generation_prompt(request)
+        return build_generation_prompt(request, request.prompt_version)
 
     def generate_answer(self, request: GenerationRequest) -> GenerationResponse:
         prompt = self.build_prompt(request)
@@ -191,6 +240,9 @@ class SelfHostedProvider:
         self.model_name = model_name
         self.endpoint_env = endpoint_env
         self.endpoint = os.environ.get(endpoint_env)
+        self._usage_lock = threading.Lock()
+        self.total_completion_tokens = 0
+        self.total_prompt_tokens = 0
 
         if not self.endpoint:
             raise ProviderConfigurationError(
@@ -198,33 +250,58 @@ class SelfHostedProvider:
             )
         
     def build_prompt(self, request: GenerationRequest) -> str:
-        return build_generation_prompt(request)
+        return build_generation_prompt(request, request.prompt_version)
     
     def generate_answer(self, request: GenerationRequest) -> GenerationResponse:
+        """Call an OpenAI-compatible chat-completions endpoint.
+
+        vLLM serves the OpenAI schema, so this posts `messages` and reads
+        `choices[0].message.content`. The previous implementation posted a bespoke
+        {"prompt": ...} body and expected {"answer_text": ...} back, which no vLLM
+        deployment answers -- it had never been run against a real endpoint.
+
+        Token usage is accumulated so generation throughput can be measured from the
+        workload itself rather than from a separate benchmark.
+        """
         prompt = self.build_prompt(request)
 
         payload = {
             "model": self.model_name,
-            "prompt": prompt,
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
+            "max_tokens": 512,
         }
-
-        http_request = Request(
-            self.endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
+        headers = {"Content-Type": "application/json"}
+        api_key = os.environ.get("SELF_HOSTED_MODEL_API_KEY")
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
 
         try:
-            with urlopen(http_request, timeout=60) as response:
-                response_body = response.read().decode("utf-8")
-                response_data = json.loads(response_body)
+            response = requests.post(
+                self.endpoint, json=payload, headers=headers, timeout=180
+            )
+            response.raise_for_status()
+            data = response.json()
         except Exception as exc:
-            raise ProviderGenerationError("Self-hosted generation failed.") from exc
+            raise ProviderGenerationError(
+                f"Self-hosted generation failed: {exc}"
+            ) from exc
+
+        try:
+            answer_text = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderGenerationError(
+                "Self-hosted endpoint did not return OpenAI chat-completions JSON; "
+                f"got keys {sorted(data)[:6]}"
+            ) from exc
+
+        usage = data.get("usage") or {}
+        with self._usage_lock:
+            self.total_completion_tokens += int(usage.get("completion_tokens") or 0)
+            self.total_prompt_tokens += int(usage.get("prompt_tokens") or 0)
 
         return GenerationResponse(
-            answer_text=response_data["answer_text"],
+            answer_text=answer_text,
             provider_name=self.provider_name,
             model_name=self.model_name,
             is_mock=False,
@@ -233,9 +310,10 @@ class SelfHostedProvider:
                 "case_id": request.case_id,
                 "retrieved_chunk_count": len(request.retrieved_chunks),
                 "endpoint": self.endpoint,
+                "prompt_version": request.prompt_version,
             },
         )
-    
+
 def get_provider(name: str) -> LLMProvider:
     normalized_name = name.strip().lower()
 
