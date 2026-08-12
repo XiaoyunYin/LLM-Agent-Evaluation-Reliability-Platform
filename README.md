@@ -90,12 +90,14 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | SQuAD v2 dense recall@10 / nDCG@10 | 0.9583 / 0.8310 | `runs/retrieval_benchmark/squad_v2_benchmark.json` |
 | SQuAD v2 BM25 recall@10 / nDCG@10 | 0.9417 / 0.8808 | same artifact |
 | SQuAD v2 hybrid recall@10 / nDCG@10 (default config) | **0.9833** / **0.8991** | same artifact |
-| Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
-| Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
-| OpenAI candidate answers | 480 | Session 45 reconciliation |
-| Anthropic candidate answers | 480 | Session 45 reconciliation |
-| Self-hosted 7B bulk-judged answers | 960 | `docs/results/scale-runs.md` |
-| Bulk judge failures | 0 | `docs/results/scale-runs.md` |
+| Run configurations (SQuAD fixture) | **11** | `runs/candidate_generation/cgen__scale_v1__*`, `cgen__dual_judge_slice_v1__*` |
+| Candidate answers generated | **1,320** | same, all `status=completed` |
+| — self-hosted `mistral-7b-instruct-v0.3-awq` | 1,080 | 9 configs: 3 retrieval modes x 3 prompt versions |
+| — OpenAI `gpt-4o-mini` | 120 | |
+| — Anthropic `claude-haiku-4-5` | 120 | |
+| Generation failures | 0 | |
+| Answers bulk-judged by the self-hosted 7B | **1,320** | `runs/self_hosted_bulk_judging/scale_bulk_*` |
+| Bulk judge failures | **0** | |
 | Dual-judge validation slice | 120 answers | `runs/gpu_window/real_7b_validation_report.json` |
 | Pass/fail inter-judge agreement (SQuAD slice, real judges) | **65.0%** | `runs/dual_judge_squad/real_7b_report.json` |
 | Cohen's kappa (same slice) | **0.264** | same artifact |
@@ -105,18 +107,23 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | Score agreement at threshold 0.25 | 92.50% | `docs/results/scale-runs.md` |
 | Manual review routed cases | 9 | `runs/gpu_window/real_7b_manual_review_queue.jsonl` |
 | Cohen's kappa | undefined (single-category slice) | `scripts/recompute_validation_report.py` |
-| Bulk judge sustained throughput | 23.2 judgments/min | `runs/self_hosted_bulk_judging/*_judge_scores.jsonl` timestamps |
-| Bulk judge per-answer latency | p50 2.62s / p95 3.37s | same, at concurrency 1 |
-| vLLM sustained output throughput at concurrency 16 | 56.18 tok/s | `docs/results/vllm-benchmark.md` |
-| vLLM total token throughput at concurrency 16 | 506.48 tok/s | `runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json` |
-| vLLM peak output throughput at concurrency 16 | 144.00 tok/s | `docs/results/vllm-benchmark.md` |
-| Elasticsearch trace documents | 3 spans / 1 trace (smoke test) | `scripts/count_trace_documents.py` |
+| Judge throughput, measured on the workload @ c16 | **36.04 judged/min** | `runs/self_hosted_bulk_judging/scale_bulk_*_status.json` |
+| Judge output tok/s @ c16 | **60.43** | same run, tokens from endpoint usage |
+| Judge total tok/s @ c16 | **871.15** | same |
+| Judge latency p50 / p95 / p99 @ c16 | 25.86s / 35.62s / 41.42s | trace span durations in Elasticsearch |
+| Cost per 1,000 judgements | $0.2433 | g4dn.xlarge on-demand $0.526/h |
+| Cost per 1M tokens | $0.1677 | same |
+| Prefill : decode ratio | 13.4 : 1 (1,350 vs 101 tokens/judgement) | same run |
+| Tuned config (prefix cache, chunked prefill, len 2048, c32) | +5.1% throughput, **27 failures** — rejected | `runs/self_hosted_bulk_judging/opt_bulk_*_status.json` |
+| Standalone vLLM benchmark @ c16 (superseded) | 56.18 output / 506.48 total tok/s | `runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json` |
+| Elasticsearch trace documents | **4,899 spans / 2,629 traces** | `scripts/count_trace_documents.py` |
 
 Important metric boundaries:
 
 - Candidate-answer count and judged-answer count are different because an answer must be generated before it can be judged. A generated answer may be unjudged, failed, skipped, or judged later.
-- The vLLM throughput benchmark is separate from the bulk-judging run. The measured sustained benchmark was 56.18 output tok/s at concurrency 16; 144.00 tok/s was peak benchmark throughput, not sustained bulk-run throughput. The workload was prefill-heavy (2,052 input vs 256 output tokens per request), which is why output tok/s is modest while total token throughput is 506.48 tok/s.
-- The 960-answer bulk judging run executed at **concurrency 1**, not 16. Its 23.2 judgments/min is a real sustained end-to-end measurement, but it must not be attributed to the concurrency-16 benchmark.
+- Throughput and volume are now **one measurement**. Token usage is accumulated from the judging workload itself, so 60.43 output tok/s, concurrency 16, and 1,320 answers all describe the same run. Earlier figures came from a 64-request synthetic benchmark at one concurrency alongside an answer count from a different run at another, which could not honestly be stated together.
+- The workload is **prefill-bound** at 13.4:1. Output tok/s reads modest because ~93% of each request is prompt the model must read before emitting a token; the GPU processes 871.15 total tok/s.
+- The tuned configuration gained 5.1% throughput and lost 27 judgements to `max-model-len 2048` sitting below the prompt-length tail. It is recorded as **rejected**. Reporting the speedup without the failure count would hide a correctness regression.
 - The trace export path is now proven end to end: spans leave the app over OTLP, pass through the OpenTelemetry Collector, and are indexed into the `otel-traces` data stream in Elasticsearch, where `scripts/count_trace_documents.py` reads them back. The measured volume is only **3 span documents across 1 trace**, from a smoke test - the pipeline works, but no trace *volume* has been generated. Do not claim a trace count beyond what that script reports.
 - The collector's Elasticsearch exporter writes bulk `create` actions, which require a **data stream**, not a plain index. Without one every span fails with a 404 that never surfaces in the application - the trace count simply reads 0 as though nothing were instrumented. `scripts/setup_trace_index.py` creates the data stream idempotently and must be run before the collector.
 
@@ -471,7 +478,7 @@ The target matrix is larger than the currently measured matrix. Reported figures
 Measured current state:
 
 - 8 production candidate run artifacts.
-- 960 completed production candidate answers.
+- 1,320 completed candidate answers across 11 configurations and three providers.
 - 480 completed OpenAI candidate answers.
 - 480 completed Anthropic candidate answers.
 - 4 Anthropic failed rows were recorded during retries and should not be counted as completed answers.
@@ -583,7 +590,7 @@ The committed metric files are gate fixtures. They prove the blocking behavior; 
 
 ## Limitations
 
-- Scale targets are not yet met: the measured project has 8 production run artifacts and 960 judged answers, not 60+ runs or 8K+ judged answers.
+- Scale targets are not met: 11 run configurations and 1,320 judged answers, not 60+ runs or 8K+ judged answers. At the measured rates a full 8,168-answer matrix would take about 6.4 GPU-hours (~$3.35), but it has not been run.
 - Dense and hybrid retrieval quality results are pending because the saved measured artifact currently supports BM25-only quality numbers.
 - Elasticsearch holds only 3 span documents across 1 trace. The pipeline is proven, but no trace volume has been generated from real eval runs.
 - Dashboard screenshots are pending; the README references them but the image files are not committed yet.
