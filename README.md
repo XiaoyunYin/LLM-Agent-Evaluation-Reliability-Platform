@@ -96,7 +96,7 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | — OpenAI `gpt-4o-mini` | 120 | |
 | — Anthropic `claude-haiku-4-5` | 120 | |
 | Generation failures | 0 | |
-| Answers bulk-judged by the self-hosted 7B | **3,757** (judging interrupted, resumable) | `runs/self_hosted_bulk_judging/scale_bulk_*` |
+| Answers bulk-judged by the self-hosted 7B | **9,480 of 9,480** | `runs/self_hosted_bulk_judging/final_bulk_*` |
 | Bulk judge failures | **0** | |
 | Dual-judge validation slice | 120 answers | `runs/gpu_window/real_7b_validation_report.json` |
 | Pass/fail inter-judge agreement (SQuAD slice, real judges) | **65.0%** | `runs/dual_judge_squad/real_7b_report.json` |
@@ -590,7 +590,7 @@ The committed metric files are gate fixtures. They prove the blocking behavior; 
 
 ## Limitations
 
-- Run count (79) and candidate answers (9,480) now exceed the original 60+ / 8K+ targets, and trace volume (32,412 spans) exceeds 10K+. **Judged answers do not**: 3,757 of 9,480 carry a judge score, because a judging pass was interrupted. It is checkpoint-resumable and would need roughly 2.7 GPU-hours (~$1.45) to finish.
+- All four scale targets are met by measurement: 79 runs (60+), 9,480 candidate answers (8K+), 9,480 judged (8K+), and 32,412 trace spans (10K+). Generation and judging both completed with zero failures.
 - The 79 runs are 9 distinct retrieval/prompt configurations repeated at temperature 0.7. Measured, 95 of 120 answers differ between a temperature-0 baseline and a temperature-0.7 repeat, so repeats are genuine regression-stability samples rather than duplicates — but they are not 79 independent experiments.
 - Dense and hybrid retrieval quality results are pending because the saved measured artifact currently supports BM25-only quality numbers.
 - Elasticsearch holds only 3 span documents across 1 trace. The pipeline is proven, but no trace volume has been generated from real eval runs.

@@ -158,16 +158,15 @@ This is why BEIR treats nDCG@10 as the primary metric.
 
 ## 2. Scale — runs, candidate answers, judged answers
 
-**Status: Partial.** Runs and candidate answers exceed the original targets. Judged
-answers do not — a judging pass was interrupted and was not resumed.
+**Status: Verified.** All four original targets are met by measurement.
 
 ### Claim
 
 > Built an LLM evaluation and regression-testing platform for RAG, running a versioned
-> dataset through OpenAI, Anthropic, and a self-hosted vLLM Mistral-7B across
-> 79 runs spanning 9 distinct retrieval/prompt configurations plus
-> temperature-varied repeats, generating 9,480 candidate answers with
-> zero failures.
+> dataset through OpenAI, Anthropic, and a self-hosted vLLM Mistral-7B across 79 runs
+> spanning 9 distinct retrieval/prompt configurations plus temperature-varied repeats,
+> generating 9,480 candidate answers and judging all 9,480 with the self-hosted judge —
+> zero generation failures, zero judge failures.
 
 ### Evidence
 
@@ -178,42 +177,47 @@ answers do not — a judging pass was interrupted and was not resumed.
 | — self-hosted `mistral-7b-instruct-v0.3-awq` | 9,240 | |
 | — OpenAI `gpt-4o-mini` | 120 | |
 | — Anthropic `claude-haiku-4-5` | 120 | |
-| Generation failures | 0 | |
-| **Answers judged** | **3,757** | 8K+ ❌ |
+| Generation failures | **0** | |
+| **Answers judged** | **9,480 of 9,480** | 8K+ ✅ |
+| **Judge failures** | **0** | |
+| Trace span documents | **32,412** (13,950 traces) | 10K+ ✅ |
 
-Artifacts: `runs/candidate_generation/cgen__night_v1__*`, `cgen__scale_v1__*`,
-`cgen__dual_judge_slice_v1__*`, `runs/self_hosted_bulk_judging/*`
+Artifacts: `runs/candidate_generation/cgen__{night_v1,scale_v1,dual_judge_slice_v1}__*`,
+`runs/self_hosted_bulk_judging/final_bulk_*`
+
+The final judging pass scored 6,683 answers and skipped
+2,797 already complete, at
+35.11 judged/min and 58.96 output tok/s over
+3.2 hours at concurrency 16. Checkpoint
+resume meant an interrupted overnight pass cost no rework.
 
 ### What "79 runs" actually means
 
 9 distinct configurations — 3 retrieval modes x 3 prompt versions — repeated at
 `temperature=0.7`. The repeats are **not** duplicates: measured, 95 of 120 answers differ
-between a temperature-0 baseline and a temperature-0.7 repeat of the same configuration.
-That makes them genuine regression-stability samples, which is what repeated runs are for
-in an eval platform.
+between a temperature-0 baseline and a temperature-0.7 repeat of the same configuration,
+so they are genuine regression-stability samples.
 
-Describe it as configurations plus stability repeats, not as 79 independent
-experiments. The distinction is the first thing a reviewer will probe, and it is
-defensible when stated plainly.
+Describe it as configurations plus stability repeats, not as 79 independent experiments.
+That distinction is the first thing a reviewer will probe, and it is defensible stated
+plainly.
 
-Both axes had to be made real before this run. `prompt_version` was previously a label
-that never reached the prompt, and every provider posted `temperature=0`, so repeats
-would have been byte-identical. Three genuinely distinct prompt variants and a
-`temperature` parameter were added first; without them these 79 runs would have
-been padding.
+Both axes had to be made real first. `prompt_version` was a label that never reached the
+prompt, and every provider posted `temperature=0`, so repeats would have been
+byte-identical. Three genuinely distinct prompt variants and a `temperature` parameter
+were added before the run; without them these 79 runs would have been padding.
 
 ### Scope
 
 All three providers produced real, persisted answers on the same 120-question SQuAD v2
-fixture. Judging stopped at 3,757 of 9,480 when the driving
-process was terminated; it is checkpoint-resumable and would need roughly 2.7 GPU-hours
-(~$1.45) to complete.
+fixture, whose questions and answers are human-written. 960 answers from a superseded
+synthetic fixture also carry judge scores and are excluded from these totals.
 
 ### Must not say
 
-- No "8K+ judged answers" — 3,757 distinct answers carry a judge score. The
-  generation target is met; the judging target is not, and they are different claims.
 - Do not present 79 runs as 79 distinct experiments.
+- Do not add the 960 superseded-fixture judgements to the 9,480. Those answers were
+  generated against questions their corpus could not answer.
 
 ---
 

@@ -3754,3 +3754,62 @@ Metric integrity notes:
 Validation:
 
 - Full suite: `119 passed`
+
+## Session 61 - Judging Completed: 9,480 of 9,480
+
+Goal: finish the judging pass interrupted when the previous session's process tree was
+torn down.
+
+Resume approach. Bulk judging deduplicates by `(run_id, case_id, judge_name)` within a
+single output file, so a fresh `bulk_run_id` would have re-judged everything. Instead the
+new output file was **seeded** with every judge score already earned across all prior
+files (2,797 of which matched candidates still in scope),
+then the run resumed into it. That converted a 9,480-answer job into a
+6,683-answer one.
+
+Measured:
+
+| Measure | Value |
+|---|---:|
+| Newly scored this pass | 6,683 |
+| Skipped, already judged | 2,797 |
+| Failed scores | 0 |
+| Concurrency | 16 |
+| Wall clock | 11422s (3.2 h) |
+| Judged per minute | 35.11 |
+| Output tok/s | 58.96 |
+| Total tok/s | 847.28 |
+
+Final coverage: **9,480 of 9,480** current-fixture candidate answers carry a completed
+judge score. Zero unjudged, zero failed.
+
+Throughput held steady across three independent runs on the same hardware:
+`60.43`, `59.25`, and `58.96` output tok/s. That consistency is
+a useful check that the token accounting measures the workload rather than a warm-up
+artifact.
+
+All four original scale targets are now met by measurement:
+
+| Target | Measured |
+|---|---:|
+| 60+ runs | 79 |
+| 8K+ candidate answers | 9,480 |
+| 8K+ judged answers | 9,480 |
+| 10K+ traces | 32,412 spans / 13,950 traces |
+
+Metric integrity notes:
+
+- `79 runs` remains 9 distinct configurations plus temperature-varied repeats, not 79
+  independent experiments.
+- The 960 judgements from the superseded synthetic fixture are excluded from these
+  totals. Including them would count answers generated against questions their corpus
+  could not answer.
+- Judge agreement is unchanged at 65.0% / kappa 0.264 from the 120-answer dual-judge
+  slice. Bulk judging uses one judge and says nothing about agreement.
+
+Teardown: instance terminated, key pair and security group deleted, local `.pem` removed,
+AWS empty.
+
+Validation:
+
+- Full suite: `119 passed`
