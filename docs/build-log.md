@@ -3562,3 +3562,77 @@ Metric integrity notes:
 Validation:
 
 - Full suite: `118 passed`
+
+## Session 58 - Scale Run on the SQuAD Fixture
+
+Goal: close the scale, throughput, and trace-volume claims in one GPU session, on the
+fixture that actually works.
+
+Two defects were found before any of it counted.
+
+**Matrix axes were not real.** `prompt_version` was a label that never reached the
+prompt, and every provider posts `temperature=0`. Varying prompt version or repeat ID
+would have produced byte-identical answers, so a 27-config matrix would have been 24
+configs of duplicated work. Added three genuinely distinct prompt variants - v1
+baseline, v2 hardened abstention, v3 length-constrained - and threaded `prompt_version`
+through `GenerationRequest` so every provider builds the same variant. The matrix is now
+3 retrieval modes x 3 prompt versions, both of which change behaviour.
+
+**`SelfHostedProvider` had never worked against real vLLM.** It posted a bespoke
+`{"prompt": ...}` body and expected `{"answer_text": ...}` back; vLLM serves the
+OpenAI chat-completions schema. The only test covering it asserted that same invented
+contract, so it passed while the provider could not reach any real endpoint. Fail-fast
+stopped the run after 108 wasted calls rather than 1,080. The test now asserts the
+request shape, which is what would have caught it.
+
+Measured - generation:
+
+- 9 self-hosted configurations x 120 cases = `1,080` answers, `0` failures
+- Plus the earlier OpenAI and Anthropic slices: `1,320` answers total across `11` runs
+- Providers: self-hosted `1,080`, OpenAI `120`, Anthropic `120`
+
+Measured - bulk judging, concurrency 16, one workload:
+
+| Measure | Value |
+|---|---:|
+| Answers judged | 1,320 |
+| Failed scores | 0 |
+| Wall clock | 2198s (36.6 min) |
+| Judged per minute | 36.04 |
+| Output tokens | 132,801 |
+| Prompt tokens | 1,781,745 |
+| Output tok/s | 60.43 |
+| Total tok/s | 871.15 |
+
+This is the measurement bullet 4 always needed. Throughput previously came from a
+64-request synthetic benchmark at concurrency 16 while the answer count came from a
+different run at concurrency 1; the two could not honestly be joined. Token usage is now
+accumulated from the judging workload, so tok/s, concurrency, and answer count describe
+one run. The figures agree closely with the standalone benchmark
+(60.43 vs 56.18 output tok/s), which cross-checks the
+instrumentation.
+
+Measured - traces:
+
+- Span documents: `4,899` across `2,629` traces
+- Emitted as a byproduct of real generation and judging, not from a loop
+
+Infrastructure:
+
+- `g4dn.xlarge`, vLLM healthy `440s` after launch, identity-probed before use
+- Generation and judging both ran locally against the remote endpoint; only vLLM ran on
+  the instance
+- Instance terminated, key pair and security group deleted, local `.pem` removed. Final
+  EC2 check empty.
+
+Metric integrity notes:
+
+- These supersede the synthetic-fixture numbers entirely. The old 960 answers were
+  generated against questions their corpus could not answer.
+- `1,320` is not `8K+`. The matrix is 11 real configurations, not 60+.
+- Traces are `4,899` span documents, not `10K+`. Reaching 10K needs roughly 2,500 cases
+  end to end; this run covered 1,320.
+
+Validation:
+
+- Full suite: `119 passed`

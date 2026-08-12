@@ -379,6 +379,9 @@ def generate_candidate_answers_for_run(
                         case=case,
                         retriever=retriever,
                     )
+                    request = request.model_copy(
+                        update={"prompt_version": config.prompt_version}
+                    )
                     retrieval_span.set_attribute(
                         "retrieval.chunk_count",
                         len(citation_fields.get("retrieved_chunk_ids", [])),

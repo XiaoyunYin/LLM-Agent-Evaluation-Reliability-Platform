@@ -212,41 +212,85 @@ def test_self_hosted_provider_wraps_generation_errors(monkeypatch):
     with pytest.raises(ProviderGenerationError):
         provider.generate_answer(request)
 
-def test_self_hosted_provider_generates_from_http_response(monkeypatch):
+def test_self_hosted_provider_uses_openai_chat_completions_schema(monkeypatch):
+    """vLLM serves the OpenAI schema, so the provider must speak it.
+
+    The previous version posted a bespoke {"prompt": ...} body and read
+    {"answer_text": ...} back. Nothing serves that, and because only this test
+    exercised the path, it passed while the provider could not talk to a real
+    endpoint. Asserting the request shape is the part that would have caught it.
+    """
     monkeypatch.setenv(
         "SELF_HOSTED_MODEL_ENDPOINT",
-        "http://localhost:8000/generate",
+        "http://localhost:8001/v1/chat/completions",
     )
+    captured = {}
 
-    class FakeHttpResponse:
-        def __enter__(self):
-            return self
+    class FakeResponse:
+        status_code = 200
 
-        def __exit__(self, exc_type, exc, traceback):
-            return False
+        def raise_for_status(self):
+            return None
 
-        def read(self):
-            return b'{"answer_text": "RAG uses retrieved context."}'
+        def json(self):
+            return {
+                "choices": [{"message": {"content": "RAG uses retrieved context."}}],
+                "usage": {"prompt_tokens": 120, "completion_tokens": 30},
+            }
 
-    def fake_urlopen(request, timeout):
-        return FakeHttpResponse()
+    def fake_post(url, json=None, headers=None, timeout=None):
+        captured["url"] = url
+        captured["payload"] = json
+        return FakeResponse()
 
-    monkeypatch.setattr(
-        "backend.app.providers.urlopen",
-        fake_urlopen,
-    )
+    monkeypatch.setattr("backend.app.providers.requests.post", fake_post)
 
     provider = SelfHostedProvider()
-
-    request = GenerationRequest(
-        run_id="run_001",
-        case_id="case_001",
-        question="What is RAG?",
+    response = provider.generate_answer(
+        GenerationRequest(
+            run_id="run_001",
+            case_id="case_001",
+            question="What is RAG?",
+            prompt_version="rag_prompt_v2",
+        )
     )
-
-    response = provider.generate_answer(request)
 
     assert response.answer_text == "RAG uses retrieved context."
     assert response.provider_name == "self-hosted"
-    assert response.model_name == "self-hosted-model"
     assert response.is_mock is False
+
+    # The request shape is the contract that actually broke.
+    assert "messages" in captured["payload"], "must post OpenAI messages, not prompt"
+    assert captured["payload"]["messages"][0]["role"] == "user"
+    assert "prompt" not in captured["payload"]
+
+    # Token usage feeds workload throughput measurement.
+    assert provider.total_completion_tokens == 30
+    assert provider.total_prompt_tokens == 120
+
+
+def test_self_hosted_provider_rejects_non_openai_response(monkeypatch):
+    monkeypatch.setenv(
+        "SELF_HOSTED_MODEL_ENDPOINT", "http://localhost:8001/v1/chat/completions"
+    )
+
+    class FakeResponse:
+        status_code = 200
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"answer_text": "wrong shape"}
+
+    monkeypatch.setattr(
+        "backend.app.providers.requests.post",
+        lambda url, json=None, headers=None, timeout=None: FakeResponse(),
+    )
+
+    with pytest.raises(ProviderGenerationError):
+        SelfHostedProvider().generate_answer(
+            GenerationRequest(run_id="r", case_id="c", question="q")
+        )
+
+
