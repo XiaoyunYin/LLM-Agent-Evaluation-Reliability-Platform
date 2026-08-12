@@ -1,7 +1,6 @@
 # LLM Evaluation Regression Platform
 
-<!-- Replace OWNER/REPO once the GitHub repository exists. -->
-[![Eval Regression Gate](https://github.com/OWNER/REPO/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/OWNER/REPO/actions/workflows/eval-regression-gate.yml)
+[![Eval Regression Gate](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform-/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform-/actions/workflows/eval-regression-gate.yml)
 
 An end-to-end LLM evaluation and regression-testing platform for measuring RAG candidate answers, validating judge behavior, routing judge disagreements to review, and blocking regressions in CI.
 
