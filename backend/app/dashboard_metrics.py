@@ -269,6 +269,17 @@ NON_PRODUCTION_DIRS = (
 )
 
 
+# Artifacts from the superseded synthetic fixture. Those answers were generated
+# against questions their corpus could not answer, so counting them inflates the
+# headline totals and makes the dashboard disagree with the README. They are kept
+# on disk as history, not counted as current work.
+SUPERSEDED_FIXTURE_MARKERS = (
+    "cgen__candidate_answer_run_matrix_v0_1__",
+    "cgen_sample__",
+    "self_hosted_7b_bulk_",
+)
+
+
 def is_production_artifact(path: Path) -> bool:
     parts = {part for part in path.parts}
     if parts & set(NON_PRODUCTION_DIRS):
@@ -277,6 +288,8 @@ def is_production_artifact(path: Path) -> bool:
     if name.startswith("test_") or "_mock_" in name or name.startswith("local_mock"):
         return False
     if any(part.startswith("test_") or part.startswith("pytest") for part in path.parts):
+        return False
+    if any(marker in name for marker in SUPERSEDED_FIXTURE_MARKERS):
         return False
     return True
 
@@ -287,6 +300,27 @@ def judged_answer_count_metric(runs_dir: Path) -> DashboardMetric:
     # Count distinct answers judged, not judge-score rows. Re-judging the same
     # answers -- as the inference-tuning comparison did -- writes a second row per
     # answer, and summing rows would report the work twice.
+    # A judge score only counts if it scored a candidate answer from the current
+    # fixture. The resume pass seeded its output file with earlier scores, including
+    # superseded-fixture ones, so filtering by filename alone is not enough --
+    # membership has to be decided by the run_id the score points at.
+    current_run_ids: set[str] = set()
+    for path in list_artifact_files(runs_dir, "*_candidate_answers.jsonl"):
+        if not is_production_artifact(path):
+            continue
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        current_run_ids.add(str(json.loads(line).get("run_id")))
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            continue
+
     judged: set[tuple[str, str]] = set()
     for path in files:
         try:
@@ -299,7 +333,10 @@ def judged_answer_count_metric(runs_dir: Path) -> DashboardMetric:
                         row = json.loads(line)
                     except json.JSONDecodeError:
                         continue
-                    judged.add((str(row.get("run_id")), str(row.get("case_id"))))
+                    run_id = str(row.get("run_id"))
+                    if run_id not in current_run_ids:
+                        continue
+                    judged.add((run_id, str(row.get("case_id"))))
         except OSError:
             continue
     count = len(judged)

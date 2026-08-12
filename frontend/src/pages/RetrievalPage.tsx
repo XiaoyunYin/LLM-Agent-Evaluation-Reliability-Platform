@@ -145,13 +145,13 @@ export function RetrievalPage() {
       </Panel>
 
       <Callout glyph="ℹ">
-        <strong>Why the BM25 bar looks so small.</strong> The scale is pinned to
-        0–1 rather than to the largest value present. Auto-scaling would stretch
-        0.0667 across the full width and make a weak lexical result read as a
-        strong one. A recall@10 of 0.0667 on a heavily templated synthetic corpus
-        is a finding worth investigating — near-duplicate chunks may be
-        outranking the specific chunk IDs the label file names, which would
-        under-count real successes.
+        <strong>Why the axis is pinned to 0–1.</strong> Auto-scaling to the
+        largest value present would stretch any result across the full width and
+        make a weak retriever read as a strong one. Pinning keeps the bars
+        comparable across corpora, which matters because these scores are
+        corpus-specific: the same BM25 configuration measured 0.94 here and 0.35
+        on a harder fixture, with no change to the retriever. Compare strategies
+        within one chart, never numbers across charts.
       </Callout>
     </>
   )
