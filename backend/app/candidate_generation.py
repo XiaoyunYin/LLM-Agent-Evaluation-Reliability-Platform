@@ -18,6 +18,7 @@ from backend.app.generation import (
 )
 from backend.app.hybrid_retrieval import HybridRetriever, RRF_K
 from backend.app.providers import (
+    SelfHostedProvider,
     AnthropicProvider,
     GenerationRequest,
     GenerationResponse,
@@ -29,7 +30,14 @@ from backend.app.providers import (
 DEFAULT_OUTPUT_DIR = Path("runs/candidate_generation")
 
 DATASET_PATHS = {
+    # v0.1 is retained because versioned datasets are immutable, but its rag_qa
+    # rows are not answerable from the corpus. Use v0.2 for retrieval runs.
     "golden_rag_v0.1": Path("datasets/golden/golden_rag_v0.1.jsonl"),
+    "golden_rag_v0.2": Path("datasets/golden/golden_rag_v0.2.jsonl"),
+    # Human-written questions and answers sampled from SQuAD v2, including its
+    # adversarial unanswerable cases. Preferred over the synthetic sets when the
+    # claim needs labels this project did not author.
+    "golden_squad_v2_sampled": Path("datasets/squad_v2/golden.jsonl"),
     "golden_agentic_tools_v0.1": Path(
         "datasets/golden/golden_agentic_tools_v0.1.jsonl"
     ),
@@ -159,14 +167,26 @@ def write_status(path: Path, summary: CandidateGenerationRunSummary) -> None:
     path.write_text(summary.model_dump_json(indent=2), encoding="utf-8")
 
 
+# Providers whose output may be counted as a real candidate answer. Mock providers
+# are excluded deliberately: they are useful for rehearsing the pipeline without
+# spending money, but their answers must never enter a measured run. "self-hosted"
+# is a real model served over HTTP, so it belongs here -- but it is a different
+# claim from OpenAI/Anthropic API coverage and must be reported separately.
+REAL_CANDIDATE_PROVIDERS = frozenset({"openai", "anthropic", "self-hosted"})
+
+
 def resolve_provider(config: CandidateGenerationRunConfig) -> LLMProvider:
     if config.provider_name == "openai":
         return OpenAIProvider(model_name=config.model_name)
     if config.provider_name == "anthropic":
         return AnthropicProvider(model_name=config.model_name)
+    if config.provider_name == "self-hosted":
+        return SelfHostedProvider(model_name=config.model_name)
 
     raise CandidateGenerationError(
-        f"Candidate matrix only permits real OpenAI/Anthropic providers, got {config.provider_name!r}."
+        f"Candidate generation only permits real providers "
+        f"({', '.join(sorted(REAL_CANDIDATE_PROVIDERS))}), got {config.provider_name!r}. "
+        "Mock providers are for rehearsal and must not enter a measured run."
     )
 
 

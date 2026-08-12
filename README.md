@@ -87,6 +87,10 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | NFCorpus BM25 recall@10 / nDCG@10 | 0.1489 / 0.3080 | same artifact |
 | NFCorpus hybrid, tuned on train, held-out test (k=5, depth=50) | 0.1875 / 0.3829 | same artifact |
 | NFCorpus theoretical max recall@10 (38.2 relevant/query) | 0.6146 | computed from qrels |
+| SQuAD v2 sampled questions (80 answerable / 40 abstention) | 120 | `scripts/load_squad_dataset.py` |
+| SQuAD v2 dense recall@10 / nDCG@10 | 0.9583 / 0.8310 | `runs/retrieval_benchmark/squad_v2_benchmark.json` |
+| SQuAD v2 BM25 recall@10 / nDCG@10 | 0.9417 / 0.8808 | same artifact |
+| SQuAD v2 hybrid recall@10 / nDCG@10 (default config) | **0.9833** / **0.8991** | same artifact |
 | Production candidate run artifacts | 8 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | Completed production candidate answers | 960 | `docs/results/scale-runs.md` and Session 45 reconciliation |
 | OpenAI candidate answers | 480 | Session 45 reconciliation |

@@ -3350,3 +3350,79 @@ Metric integrity notes:
 Validation:
 
 - Full suite: `116 passed`
+
+## Session 55 - SQuAD v2: Human Questions and Answers, and the Clearest Fusion Result
+
+Goal: replace the self-authored golden set with human-written questions and answers,
+and enable self-hosted candidate generation so scale does not depend on paid APIs.
+
+Built:
+
+- `scripts/load_squad_dataset.py`. BEIR supplies human relevance judgments but no
+  reference answers, so it can score retrieval and nothing downstream. SQuAD v2 has
+  question, answer, and supporting paragraph, all written by annotators. Produces
+  `chunks.jsonl`, `golden.jsonl` (EvalCase schema), and `labels.jsonl` in the
+  formats this project already uses. Sampling is seeded and reproducible.
+- Registered `golden_squad_v2_sampled` and the previously missing `golden_rag_v0.2`
+  in `DATASET_PATHS`. Without the latter, a scale run would have used the broken
+  v0.1 fixture.
+- `resolve_provider()` rejected everything except OpenAI and Anthropic, which
+  blocked self-hosted candidate generation entirely. Added
+  `REAL_CANDIDATE_PROVIDERS = {openai, anthropic, self-hosted}`; mock stays rejected
+  so rehearsal output cannot enter a measured run.
+
+Sampled set (seed `20260811`):
+
+- Source: SQuAD v2 dev, `1,204` unique paragraphs, `11,873` questions
+- Sampled: `120` questions - `80` answerable, `40` requiring abstention
+- Distinct paragraphs referenced: `116`
+
+The unanswerable cases are the reason to prefer this over a synthetic set. `SQ-001`
+asks "What percentage of students enroll in public primary school in the
+Philippines?" against the Private school article: it reads as answerable and is not.
+Synthetic abstention cases are obviously unanswerable and test very little.
+
+Measured - retrieval at the default config (`k=60`, `depth=50`, no tuning):
+
+| Strategy | recall@10 | nDCG@10 |
+|---|---:|---:|
+| BM25 only | 0.9417 | 0.8808 |
+| Dense only | 0.9583 | 0.8310 |
+| Hybrid RRF | 0.9833 | 0.8991 |
+
+Hybrid beats both on both metrics: `+0.0250` recall over dense, `+0.0183` nDCG over
+BM25. Because this used the configured defaults, there is no selection-on-test
+concern, unlike the tuned SciFact result.
+
+The mechanism is visible in the baselines: **dense wins recall while BM25 wins
+nDCG**. The retrievers are complementary rather than one dominating, which is
+exactly when rank fusion should help.
+
+Pattern across four corpora:
+
+| Corpus | Baselines | Hybrid vs best single |
+|---|---|---|
+| Synthetic support corpus | BM25 dominates | below |
+| BEIR SciFact | Dense dominates | above only after tuning depth |
+| BEIR NFCorpus | Dense dominates | tied |
+| SQuAD v2 | complementary | above both, untuned |
+
+Supported generalisation: **RRF beats both inputs when they are complementary and
+tracks the stronger one when either dominates.** That explains when to expect a
+gain, which a bare number does not.
+
+Metric integrity notes:
+
+- SQuAD retrieval is an easier task than the BEIR sets: `1,204` paragraphs, one
+  relevant paragraph per question. Absolute scores near `0.95` are expected and are
+  not comparable to SciFact or NFCorpus.
+- Relevance is derived from SQuAD paragraph provenance - the annotator wrote the
+  question against that paragraph. Other paragraphs may also support the answer, so
+  the labels are not exhaustive.
+- Embedding cost: `1,204` chunks, `$0.0048`, `67.3s`.
+
+Validation:
+
+- Full suite: `118 passed`, including tests that self-hosted resolves as a real
+  provider, that mock is still rejected, and that the fixed golden dataset is
+  selectable.

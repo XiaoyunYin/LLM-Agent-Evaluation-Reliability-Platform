@@ -1,8 +1,13 @@
+import pytest
 from pathlib import Path
 from uuid import uuid4
 
 import scripts.run_eval_worker as eval_worker
 from backend.app.candidate_generation import (
+    DATASET_PATHS,
+    REAL_CANDIDATE_PROVIDERS,
+    CandidateGenerationError,
+    resolve_provider,
     build_request_for_case,
     case_requires_retrieval,
     CandidateGenerationRunConfig,
@@ -177,3 +182,30 @@ def test_non_retrieval_case_gets_empty_context_even_when_retriever_present():
 
     assert citations["retrieved_chunk_ids"] == []
     assert citations["generation_context_chunk_ids"] == []
+
+
+def test_self_hosted_is_a_real_provider_but_mock_is_not(monkeypatch):
+    """Self-hosted generation is a real model over HTTP, so it may enter a
+    measured run. Mock output must never be counted as a candidate answer."""
+    monkeypatch.setenv("SELF_HOSTED_MODEL_ENDPOINT", "http://127.0.0.1:8001/generate")
+
+    assert "self-hosted" in REAL_CANDIDATE_PROVIDERS
+    assert "mock" not in REAL_CANDIDATE_PROVIDERS
+
+    config = CandidateGenerationRunConfig(
+        run_id="run_sh",
+        dataset_version="golden_rag_v0.2",
+        provider_name="self-hosted",
+        model_name="mistral-7b-instruct-v0.3-awq",
+    )
+    provider = resolve_provider(config)
+    assert provider.provider_name == "self-hosted"
+
+    mock_config = config.model_copy(update={"provider_name": "mock"})
+    with pytest.raises(CandidateGenerationError):
+        resolve_provider(mock_config)
+
+
+def test_fixed_golden_dataset_is_selectable():
+    assert "golden_rag_v0.2" in DATASET_PATHS
+    assert DATASET_PATHS["golden_rag_v0.2"].exists()
