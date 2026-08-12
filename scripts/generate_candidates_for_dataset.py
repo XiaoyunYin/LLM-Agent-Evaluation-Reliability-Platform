@@ -71,6 +71,13 @@ def main() -> int:
     parser.add_argument("--index", default=None, help="Elasticsearch index to search.")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help="Parallel in-flight generations. Raising this is what makes a "
+             "self-hosted scale run affordable in GPU hours.",
+    )
+    parser.add_argument(
         "--allow-paid-api",
         action="store_true",
         help="Required for openai/anthropic. Spending money should be explicit.",
@@ -118,6 +125,7 @@ def main() -> int:
         config=config,
         output_dir=args.output_dir,
         retriever=build_retriever(args.retrieval_mode, args.index),
+        concurrency=args.concurrency,
     )
 
     print(f"total_cases:            {summary.total_cases}")

@@ -1,4 +1,6 @@
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
@@ -302,10 +304,21 @@ def generate_candidate_answers_for_run(
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     provider: LLMProvider | None = None,
     retriever: Retriever | None = None,
+    concurrency: int = 1,
 ) -> CandidateGenerationRunSummary:
+    """Generate a candidate answer per case, resuming from prior work.
+
+    Fail-fast is deliberate and survives concurrency: a systematically broken config
+    (wrong model name, exhausted credit) should stop immediately rather than spend
+    money producing hundreds of identical failures. Under concurrency that becomes
+    "stop submitting new work once any case has failed" -- in-flight requests still
+    land, so nothing already paid for is discarded.
+    """
     dataset_path = DATASET_PATHS.get(config.dataset_version)
     if dataset_path is None:
         raise CandidateGenerationError(f"Unknown dataset_version: {config.dataset_version}")
+    if concurrency < 1:
+        raise CandidateGenerationError("concurrency must be at least 1.")
 
     cases = load_eval_cases(dataset_path)
     if config.expected_case_count is not None and len(cases) != config.expected_case_count:
@@ -323,18 +336,19 @@ def generate_candidate_answers_for_run(
         retriever = build_retriever(config.retrieval_mode)
 
     tracer = get_tracer()
+    pending = [case for case in cases if case.id not in completed_case_ids]
+
+    write_lock = threading.Lock()
+    stop = threading.Event()
     generated_count = 0
     failed_count = 0
 
-    for case in cases:
-        if case.id in completed_case_ids:
-            continue
+    def generate_one(case: EvalCase) -> None:
+        nonlocal generated_count, failed_count
+        if stop.is_set():
+            return
 
         try:
-            # Spans are emitted per case, not per run. A run-level span records
-            # that generation happened; a per-case span records what it did, and
-            # is the granularity a developer actually needs when one case is slow
-            # or one provider call fails.
             with tracer.start_as_current_span("provider.generate_candidate_answer") as span:
                 set_common_span_attributes(
                     span,
@@ -347,6 +361,7 @@ def generate_candidate_answers_for_run(
                 span.set_attribute("llm.provider", config.provider_name)
                 span.set_attribute("llm.model", config.model_name)
                 span.set_attribute("eval.prompt_version", config.prompt_version)
+                span.set_attribute("eval.concurrency", concurrency)
 
                 with tracer.start_as_current_span("retrieval.fetch_context") as retrieval_span:
                     set_common_span_attributes(
@@ -355,9 +370,7 @@ def generate_candidate_answers_for_run(
                         run_id=config.run_id,
                     )
                     retrieval_span.set_attribute("eval.case_id", case.id)
-                    retrieval_span.set_attribute(
-                        "retrieval.strategy", config.retrieval_mode
-                    )
+                    retrieval_span.set_attribute("retrieval.strategy", config.retrieval_mode)
                     retrieval_span.set_attribute(
                         "retrieval.applied", case_requires_retrieval(case)
                     )
@@ -388,46 +401,58 @@ def generate_candidate_answers_for_run(
                         response=response,
                         citation_fields=citation_fields,
                     )
-        except Exception as error:
-            failed_count += 1
-            append_candidate_answer(
-                output_path,
-                {
-                    "run_id": config.run_id,
-                    "case_id": case.id,
-                    "generated_answer": "",
-                    "status": "failed",
-                    "provider_name": config.provider_name,
-                    "model_name": config.model_name,
-                    "is_mock": False,
-                    "dataset_version": config.dataset_version,
-                    "task_family": config.task_family,
-                    "retrieval_mode": config.retrieval_mode,
-                    "prompt_version": config.prompt_version,
-                    "repeat_id": config.repeat_id,
-                    "matrix_id": config.matrix_id,
-                    "error": str(error),
-                },
+        except Exception as error:  # noqa: BLE001 - recorded, then the run stops
+            with write_lock:
+                failed_count += 1
+                append_candidate_answer(
+                    output_path,
+                    {
+                        "run_id": config.run_id,
+                        "case_id": case.id,
+                        "generated_answer": "",
+                        "status": "failed",
+                        "provider_name": config.provider_name,
+                        "model_name": config.model_name,
+                        "is_mock": False,
+                        "dataset_version": config.dataset_version,
+                        "task_family": config.task_family,
+                        "retrieval_mode": config.retrieval_mode,
+                        "prompt_version": config.prompt_version,
+                        "repeat_id": config.repeat_id,
+                        "matrix_id": config.matrix_id,
+                        "error": str(error),
+                    },
+                )
+            stop.set()
+            return
+
+        with write_lock:
+            append_candidate_answer(output_path, row)
+            completed_case_ids.add(case.id)
+            generated_count += 1
+            write_status(
+                status_path,
+                build_summary(
+                    config=config,
+                    output_path=output_path,
+                    status_path=status_path,
+                    total_cases=len(cases),
+                    already_completed_count=already_completed_count,
+                    generated_count=generated_count,
+                    failed_count=failed_count,
+                    final_completed_count=len(completed_case_ids),
+                ),
             )
-            break
 
-        append_candidate_answer(output_path, row)
-        completed_case_ids.add(case.id)
-        generated_count += 1
-
-        write_status(
-            status_path,
-            build_summary(
-                config=config,
-                output_path=output_path,
-                status_path=status_path,
-                total_cases=len(cases),
-                already_completed_count=already_completed_count,
-                generated_count=generated_count,
-                failed_count=failed_count,
-                final_completed_count=len(completed_case_ids),
-            ),
-        )
+    if concurrency == 1:
+        for case in pending:
+            generate_one(case)
+            if stop.is_set():
+                break
+    else:
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            for _ in pool.map(generate_one, pending):
+                pass
 
     summary = build_summary(
         config=config,
