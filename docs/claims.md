@@ -248,7 +248,28 @@ Root cause: `golden_rag_v0.1.jsonl` was written independently of the corpus — 
 of 120** questions contained corpus vocabulary — so 115 of 120 answers were correctly
 refusing "the context is insufficient". The judges were right; the fixture was wrong.
 
-Both repairs are in place but the slice has not been re-run: `golden_rag_v0.2.jsonl` is
+**Re-run in progress.** A 120-answer slice now exists on the SQuAD v2 fixture and the
+pipeline has been rehearsed end to end against the mock 7B endpoint:
+
+| Judge | Pass rate | Correctness distribution |
+|---|---|---|
+| GPT-4o-mini (real) | 0.608 — 73 pass / 47 fail | 0.0 x17, 0.5 x22, 1.0 x81 |
+| Mock 7B (stub) | 0.000 — always fails | constant |
+
+On the old fixture GPT-4o-mini returned 0.0 correctness on all 120. It now produces a
+genuine three-way spread, which confirms the fixture was the cause. The remaining
+`agreement_is_degenerate=True` comes from the mock stub and clears when the real 7B
+replaces it — the flag firing here is the guard working, not a defect.
+
+The underlying slice has a real failure mode to grade: of 40 unanswerable questions,
+gpt-4o-mini correctly abstained on 17 and hallucinated an answer on 23, while
+attempting all 80 answerable ones. Agreement measured over that mix means something;
+agreement over 120 uniform failures did not.
+
+Remaining: one GPU window to swap the mock endpoint for real vLLM and record the
+number. Everything upstream is done and committed.
+
+Prior repairs, both in place: `golden_rag_v0.2.jsonl` is
 corpus-grounded (108 verified-answerable plus 12 abstention cases), and retrieval routing
 is now decided per case via `case_requires_retrieval()`. Re-running needs a GPU window.
 
