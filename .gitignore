@@ -38,3 +38,15 @@ datasets/beir/_download/
 datasets/squad_v2/_download/
 runs/trace_measure/
 datasets/beir/*_train/chunks.jsonl
+
+# Mock and rehearsal output. Useful for exercising the pipeline without spending
+# money, but never counted toward a measured claim, so it is noise in the history.
+runs/local_mock_*
+runs/gpu_window_rehearsal/
+runs/gpu_window_smoke/
+runs/judge_validation_rehearsal/
+runs/dual_judge_squad/rehearsal_mock7b_*
+
+# Personal editor and tooling config, not project configuration.
+.editor-rules.md
+.tooling-rules.md
