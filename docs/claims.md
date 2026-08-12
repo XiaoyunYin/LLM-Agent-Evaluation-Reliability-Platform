@@ -331,8 +331,49 @@ The workload is prefill-dominated (1,781,745 prompt vs
 132,801 output tokens), which is why output tok/s reads modest
 while total token throughput is 871.15.
 
+### Inference tuning: measured, and mostly a negative result
+
+The workload is **prefill-bound**: 1350 prompt tokens
+against 101 completion tokens per judgement,
+a ratio of 13.4 : 1. Roughly 93% of every
+request is prompt the model must read before emitting a token, which is why output tok/s
+reads modest while the GPU processes 871 total tok/s.
+
+Four vLLM options were tested against that profile, re-judging the identical 1,320 answers:
+`--enable-prefix-caching`, `--enable-chunked-prefill`, `--max-model-len 2048` (down from
+4096), and client concurrency 32 (up from 16).
+
+| Metric | Baseline (c16) | Tuned (c32) | Change |
+|---|---:|---:|---:|
+| Judged/min | 36.04 | 37.87 | +5.1% |
+| Output tok/s | 60.43 | 62.23 | +3.0% |
+| Total tok/s | 871.15 | 893.08 | +2.5% |
+| Wall clock | 2198s | 2091s | -4.8% |
+| **Failed scores** | **0** | **27** | **regression** |
+
+**The tuning is not worth adopting.** A 5% throughput gain cost 27 failed judgements, all
+from the same cause: `max-model-len 2048` is below the prompt-length tail. Mean prompt is
+1,350 tokens, but 2% of judge prompts exceed 2,048 and the server rejected them with
+`HTTP 400: maximum context length is 2048 tokens`. The KV-cache budget saved by shrinking
+the window did not buy enough batching to justify losing 2% of the data.
+
+Prefix caching and chunked prefill are not implicated — they are free and directionally
+correct for a prefill-bound job. The failure is attributable to one knob, and the honest
+conclusion is to keep those two, restore `max-model-len 4096`, and re-measure.
+
+Latency and cost, from the baseline run (percentiles read from trace span durations):
+
+| Measure | Value |
+|---|---:|
+| p50 / p90 / p95 / p99 | 25.86s / 33.32s / 35.62s / 41.42s |
+| Cost per 1,000 judgements | $0.2433 |
+| Cost per 1M tokens | $0.1677 |
+
 ### Must not say
 
+- No "5% faster" without the failure count beside it. The tuned configuration lost 27
+  judgements; reporting the speedup alone would hide a correctness regression that the
+  measurement exists to catch.
 - No "145 tok/s" — never measured. Peak on the synthetic benchmark was 144.00; sustained
   on the real workload is 60.43.
 - No "8K+ bulk-judged answers" — 1,320.

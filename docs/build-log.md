@@ -3636,3 +3636,66 @@ Metric integrity notes:
 Validation:
 
 - Full suite: `119 passed`
+
+## Session 59 - Inference Tuning: a 5% Gain That Should Not Be Adopted
+
+Goal: test whether vLLM configuration can raise judge throughput, chosen to address the
+measured bottleneck rather than to collect vocabulary.
+
+Profile first. The workload is prefill-bound: `1350`
+prompt tokens against `101` completion tokens
+per judgement, a ratio of `13.4 : 1`. About
+93% of each request is prompt. That rules out decode-side optimizations - speculative
+decoding would have looked good in a summary and done nearly nothing here.
+
+Tested, re-judging the identical 1,320 answers on a fresh `g4dn.xlarge`:
+
+- `--enable-prefix-caching`
+- `--enable-chunked-prefill`
+- `--max-model-len 2048` (down from 4096)
+- client concurrency `32` (up from `16`)
+
+Measured:
+
+| Metric | Baseline (c16) | Tuned (c32) | Change |
+|---|---:|---:|---:|
+| Judged/min | 36.04 | 37.87 | +5.1% |
+| Output tok/s | 60.43 | 62.23 | +3.0% |
+| Total tok/s | 871.15 | 893.08 | +2.5% |
+| Wall clock | 2198s | 2091s | -4.8% |
+| Failed scores | 0 | **27** | regression |
+
+**Conclusion: do not adopt.** The 5% gain cost 27 failed judgements, all one cause.
+`max-model-len 2048` sits below the prompt-length tail: the mean prompt is 1,350 tokens,
+but ~2% exceed 2,048 and the server rejected them with
+`HTTP 400: maximum context length is 2048 tokens`. Shrinking the context window freed KV
+cache but did not buy enough batching to justify losing 2% of the data.
+
+Prefix caching and chunked prefill are not implicated and remain directionally correct for
+a prefill-bound workload. The honest next step is to keep those two, restore
+`max-model-len 4096`, and re-measure - which has not been done.
+
+Also observed: throughput in the first ~170 judgements read *below* baseline
+(32.75/min) before climbing to 37.87. Early-run rates on a warming prefix cache are not
+representative, which is an argument for measuring throughput over a whole run rather than
+a sample.
+
+Free metrics computed from existing artifacts, no GPU required:
+
+- Latency percentiles read from trace span durations: p50 `25.86s`, p90 `33.32s`,
+  p95 `35.62s`, p99 `41.42s` at concurrency 16. Consistency check: 16 concurrent requests
+  at 25.86s each predicts 37/min, matching the measured 36.04.
+- Cost at `$0.526/h`: `$0.2433` per 1,000 judgements, `$0.1677` per 1M tokens.
+
+Metric integrity notes:
+
+- A "+5% throughput" claim without the failure count beside it would hide a correctness
+  regression. The measurement exists to catch exactly that.
+- The tuned configuration is recorded as rejected, not deleted.
+
+Teardown: instance terminated, key pair and security group deleted, local `.pem` removed,
+final EC2 check empty.
+
+Validation:
+
+- Full suite: `119 passed`
