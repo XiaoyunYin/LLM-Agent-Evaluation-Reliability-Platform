@@ -306,6 +306,15 @@ export const judging = {
     '52 of 120 cases routed by the disagreement threshold',
     '2026-08-12',
   ),
+  // Agreement is a 120-answer measurement. Bulk judging used ONE judge, so scoring
+  // 9,480 answers says nothing about whether two judges agree. Surfacing this as
+  // explicitly not measured stops a reader combining "9,480 judged" with "65%
+  // agreement" into a claim neither number supports.
+  agreementAtBulkScale: notMeasured(
+    'Inter-judge agreement was measured on a 120-answer slice. Bulk judging ran a single judge, so agreement across all 9,480 answers is unknown.',
+    'would require running both judges over the full set',
+    'python scripts/dual_judge_validate.py over a larger slice',
+  ),
   targetAgreement: 0.84,
   targetBulkJudged: 8000,
 } satisfies Record<string, Metric | number>
@@ -365,9 +374,10 @@ export const ci = {
     '2026-08-12',
     'python scripts/compare_regression_metrics.py --baseline runs/test_regression_gate/failing_baseline.json --current runs/test_regression_gate/failing_current.json',
   ),
-  regressionGateExecutedInCi: notMeasured(
-    'The workflow is committed and triggers on push to main, but no completed GitHub Actions run has been observed from here.',
-    'private repository; run status not readable without the GitHub API',
+  regressionGateExecutedInCi: measured(
+    5,
+    'Eval Regression Gate runs #1-#5 on main, all passing, 25-41s each',
+    '2026-08-12',
     'open the Actions tab after a push to a watched path',
   ),
   evalScoreRegressionThreshold: 0.05,
