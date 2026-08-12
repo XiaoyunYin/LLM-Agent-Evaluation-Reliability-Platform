@@ -267,7 +267,14 @@ attempting all 80 answerable ones. Agreement measured over that mix means someth
 agreement over 120 uniform failures did not.
 
 Remaining: one GPU window to swap the mock endpoint for real vLLM and record the
-number. Everything upstream is done and committed.
+number. Everything upstream is done and committed; the step is written up in
+`docs/runbooks/dual-judge-gpu-step.md` and should take 15-25 minutes of GPU time.
+
+**Blocker on provider diversity, separate from this claim.** Anthropic generation on
+the SQuAD fixture fails with `400 - Your credit balance is too low`, so the
+OpenAI/Anthropic phrase still rests on the older synthetic-fixture runs. The empty
+failed run was deleted rather than kept, since a 0-answer artifact would inflate the
+run count. Topping up and re-running costs about $0.05.
 
 Prior repairs, both in place: `golden_rag_v0.2.jsonl` is
 corpus-grounded (108 verified-answerable plus 12 abstention cases), and retrieval routing
