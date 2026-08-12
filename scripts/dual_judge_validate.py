@@ -142,6 +142,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset", default=str(DEFAULT_DATASET_PATH))
     parser.add_argument("--chunks", default=str(DEFAULT_CHUNKS_PATH))
     parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT)
+    parser.add_argument(
+        "--judge-a-model",
+        default="gpt-4o-mini",
+        help="Judge A model. Use a model other than the one that generated the "
+             "candidates: a model grading its own output has a documented "
+             "self-preference bias, which confounds any agreement number.",
+    )
     parser.add_argument("--self-hosted-url", default=None)
     parser.add_argument("--self-hosted-model", default=None)
     parser.add_argument("--human-labels", default=None)
@@ -178,7 +185,7 @@ def main() -> None:
     contexts_by_case_id = build_contexts_by_case_id(candidate_rows, chunks_by_id)
     human_labels = load_human_labels(Path(args.human_labels) if args.human_labels else None)
 
-    judge_a = GPT4oMiniJudge()
+    judge_a = GPT4oMiniJudge(model_name=args.judge_a_model)
     judge_b_config = SelfHostedJudgeConfig.from_env()
 
     if args.self_hosted_url:

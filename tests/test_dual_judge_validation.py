@@ -138,7 +138,20 @@ def test_dual_judge_validation_runs_both_judges_on_same_slice():
         66.666,
         abs=0.001,
     )
-    assert result.report.mock_7b_warning == MOCK_7B_WARNING
+    # The warning belongs only on runs that actually used a mock judge. A real run
+    # carrying "this is a harness test" would discredit a sound measurement, which
+    # is a provenance error in the opposite direction from the usual one.
+    assert result.report.mock_7b_warning is None
+
+    mock_result = run_dual_judge_validation(
+        cases=make_cases(),
+        candidates=make_candidates(),
+        judge_a=judge_a,
+        judge_b=judge_b,
+        retrieved_context_by_case_id={"case_001": ["[chunk_001] context"]},
+        judge_b_is_mock=True,
+    )
+    assert mock_result.report.mock_7b_warning == MOCK_7B_WARNING
 
 
 def test_dual_judge_validation_routes_disagreements_to_manual_review_queue():
