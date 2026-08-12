@@ -98,7 +98,11 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | Self-hosted 7B bulk-judged answers | 960 | `docs/results/scale-runs.md` |
 | Bulk judge failures | 0 | `docs/results/scale-runs.md` |
 | Dual-judge validation slice | 120 answers | `runs/gpu_window/real_7b_validation_report.json` |
-| Pass/fail inter-judge agreement | 100.00% (degenerate, see below) | `runs/gpu_window/real_7b_validation_report.json` |
+| Pass/fail inter-judge agreement (SQuAD slice, real judges) | **65.0%** | `runs/dual_judge_squad/real_7b_report.json` |
+| Cohen's kappa (same slice) | **0.264** | same artifact |
+| Judge A / Judge B pass rate | 0.867 / 0.533 | same artifact |
+| Manual review routed (same slice) | 52 of 120 (43.3%) | same artifact |
+| Pass/fail agreement, superseded v0.1 slice | 100.00% (degenerate) | `runs/gpu_window/real_7b_validation_report.json` |
 | Score agreement at threshold 0.25 | 92.50% | `docs/results/scale-runs.md` |
 | Manual review routed cases | 9 | `runs/gpu_window/real_7b_manual_review_queue.jsonl` |
 | Cohen's kappa | undefined (single-category slice) | `scripts/recompute_validation_report.py` |

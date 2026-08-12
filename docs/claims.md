@@ -213,92 +213,79 @@ a small one.
 
 ## 3. Judge validation — dual-judge agreement and manual review routing
 
-**Status: Unsupported.** The harness is real; the measurement is degenerate.
+**Status: Verified.** Measured on a real slice with two real judges. The number is
+materially worse than originally claimed, and that is the finding.
 
-### Claim that may be made
+### Claim
 
-> Built a dual-judge cross-check (GPT-4o-mini + self-hosted 7B) computing Cohen's kappa
-> and per-dimension score deltas, with configurable disagreement thresholds routing cases
-> to a manual-review queue.
-
-That describes **capability built**, which is accurate. No agreement *number* may be
-reported.
+> Built a dual-judge cross-check over a 120-answer slice with human-written questions
+> and answers, scoring gpt-4.1-mini against a self-hosted Mistral-7B-AWQ served by vLLM
+> on an AWS T4. Measured 65.0% pass/fail agreement and Cohen's kappa 0.264 — fair
+> agreement at best — with the 7B systematically harsher (53% pass rate vs 87%), and
+> 43% of cases routed to manual review by a configurable disagreement threshold.
 
 ### Evidence
+
+Artifact: `runs/dual_judge_squad/real_7b_report.json`
 
 | Measure | Value |
 |---|---:|
 | Validation slice | 120 answers |
-| Pass/fail agreement | 100.00% — degenerate |
-| Judge A pass rate | 0.0 |
-| Judge B pass rate | 0.0 |
-| Cohen's kappa | `None` (undefined) |
-| Score agreement at threshold 0.25 | 92.50% |
-| Manual review routed | 9 cases (7.5%) |
+| Judge A | `gpt-4.1-mini` |
+| Judge B | `mistral-7b-instruct-v0.3-awq` on vLLM, AWS g4dn.xlarge (T4) |
+| Pass/fail agreement | **65.0%** |
+| Cohen's kappa | **0.264** |
+| Score agreement at threshold 0.25 | 56.7% |
+| Judge A pass rate | 0.867 (104 pass / 16 fail) |
+| Judge B pass rate | 0.533 (64 pass / 56 fail) |
+| `agreement_is_degenerate` | **false** |
+| Manual review routed | 52 cases (43.3%) |
 
-Artifact: `runs/gpu_window/real_7b_validation_report.json`
+Correctness distributions — both judges used the full range, which is what makes the
+agreement figure meaningful:
 
-Both judges marked **all 120** cases failed, so agreement is trivially 100% and kappa is
-undefined rather than 1.00 — chance agreement is also 100% when both raters use one
-category. `calculate_cohens_kappa_from_pairs` previously returned a hardcoded `1.0` there;
-it now returns `None`, and every report carries `judge_a_pass_rate`, `judge_b_pass_rate`,
-and `agreement_is_degenerate`.
+- Judge A: 0.0 ×3, 0.5 ×12, 0.8 ×1, 1.0 ×104
+- Judge B: 0.0 ×42, 0.5 ×14, 0.8 ×1, 1.0 ×63
 
-Root cause: `golden_rag_v0.1.jsonl` was written independently of the corpus — measured, **0
-of 120** questions contained corpus vocabulary — so 115 of 120 answers were correctly
-refusing "the context is insufficient". The judges were right; the fixture was wrong.
+### What the number means
 
-**Re-run in progress.** A 120-answer slice now exists on the SQuAD v2 fixture and the
-pipeline has been rehearsed end to end against the mock 7B endpoint:
+Kappa 0.264 sits in the "fair" band. Two judges agreeing 65% of the time on a binary
+decision is not much above chance once base rates are accounted for, which is exactly
+what kappa corrects for.
 
-| Judge | Pass rate | Correctness distribution |
-|---|---|---|
-| GPT-4o-mini (real) | 0.608 — 73 pass / 47 fail | 0.0 x17, 0.5 x22, 1.0 x81 |
-| Mock 7B (stub) | 0.000 — always fails | constant |
+The mechanism is visible in the pass rates: the 7B fails 56 of 120 where gpt-4.1-mini
+fails 16. It is not randomly disagreeing — it is **systematically harsher**. That is a
+calibration gap, not noise, and it is the more useful diagnosis because calibration can
+be addressed with prompt work or thresholding while noise cannot.
 
-On the old fixture GPT-4o-mini returned 0.0 correctness on all 120. It now produces a
-genuine three-way spread, which confirms the fixture was the cause. The remaining
-`agreement_is_degenerate=True` comes from the mock stub and clears when the real 7B
-replaces it — the flag firing here is the guard working, not a defect.
-
-The underlying slice has a real failure mode to grade: of 40 unanswerable questions,
-gpt-4o-mini correctly abstained on 17 and hallucinated an answer on 23, while
-attempting all 80 answerable ones. Agreement measured over that mix means something;
-agreement over 120 uniform failures did not.
-
-Remaining: one GPU window to swap the mock endpoint for real vLLM and record the
-number. Everything upstream is done and committed; the step is written up in
-`docs/runbooks/dual-judge-gpu-step.md` and should take 15-25 minutes of GPU time.
-
-**Blocker on provider diversity, separate from this claim.** Anthropic generation on
-the SQuAD fixture fails with `400 - Your credit balance is too low`, so the
-OpenAI/Anthropic phrase still rests on the older synthetic-fixture runs. The empty
-failed run was deleted rather than kept, since a 0-answer artifact would inflate the
-run count. Topping up and re-running costs about $0.05.
-
-Prior repairs, both in place: `golden_rag_v0.2.jsonl` is
-corpus-grounded (108 verified-answerable plus 12 abstention cases), and retrieval routing
-is now decided per case via `case_requires_retrieval()`. Re-running needs a GPU window.
+**Judge A was deliberately not the model that generated the candidates.** `gpt-4o-mini`
+wrote the answers; `gpt-4.1-mini` judged them. A model grading its own output carries a
+documented self-preference bias, which would have confounded the agreement number.
 
 ### Must not say
 
-- No "84% inter-judge agreement" — never measured.
-- No "16% sent to manual review" — measured 7.5%, and from a degenerate slice.
-- No "100% agreement" or "kappa 1.00" — numerically true, statistically meaningless, and
-  the fastest way to lose credibility in an interview.
-- No "graded relevance labels created blind to judge outputs" for the synthetic set — its
-  labels are programmatically derived from planted facts. The BEIR sets carry genuine
-  human judgments; cite those instead.
+- ❌ *"84% inter-judge agreement"* — measured 65.0%.
+- ❌ *"16% sent to manual review"* — measured 43.3%.
+- ❌ Presenting kappa 0.264 as validation that the 7B is a reliable judge. It measures
+  the opposite: a 7B does not substitute for a stronger judge without calibration or
+  substantial human review.
 
 ### Interview answer
 
-> "Both judges failed all 120, so agreement was degenerate and kappa undefined. I traced
-> it to a dataset/corpus mismatch — the RAG golden set was arithmetic QA and the corpus was
-> support runbooks, so 115 of 120 answers were correctly-refusing 'insufficient context'.
-> The harness was right; the fixture was wrong. I also fixed a kappa implementation that
-> returned a hardcoded 1.0 on single-category slices, which is what let it hide."
+> "I wanted to know whether a 7B could carry bulk judging, so I ran it against
+> gpt-4.1-mini on 120 answers with human-written ground truth. Agreement was 65% and
+> kappa 0.264 — fair at best. The 7B fails 56 of 120 where the larger model fails 16,
+> so it is systematically harsher rather than noisy. My read is that a 7B judge is
+> usable for triage but not as an unsupervised scorer, which is why the harness routes
+> disagreements to review rather than trusting either judge outright."
 
----
+### Provenance fix made during this run
+
+`DualJudgeValidationReport.mock_7b_warning` was a class default, so every report —
+including real ones — carried the text "Mock 7B agreement is only a harness test." That
+is a provenance error in the opposite direction from the usual one: it discredits a
+sound measurement. The field is now populated only when `judge_b_is_mock=True`, the
+rehearsal scripts pass that flag, and a test covers both directions.
 
 ## 4. Self-hosted judge — vLLM Mistral-7B on AWS T4
 

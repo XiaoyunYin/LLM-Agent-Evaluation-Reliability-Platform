@@ -118,6 +118,14 @@ class GPT4oMiniJudge:
         self.api_key_env = api_key_env
         self.max_parse_attempts = max_parse_attempts
 
+        # judge_name is written into every score row and into the validation
+        # report, so it must identify the model that actually produced the score.
+        # A class-level default would silently label gpt-4.1-mini output as
+        # gpt-4o-mini, which is exactly the kind of provenance error this project
+        # exists to prevent.
+        if model_name != GPT4O_MINI_JUDGE_MODEL:
+            self.judge_name = f"{model_name}-validation-v0"
+
         if client is not None:
             self.client = client
             return

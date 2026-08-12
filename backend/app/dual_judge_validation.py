@@ -68,7 +68,10 @@ class DualJudgeValidationReport(BaseModel):
     judge_b_pass_rate: float = 0.0
     agreement_is_degenerate: bool = False
     manual_review_case_count: int
-    mock_7b_warning: str = MOCK_7B_WARNING
+    # Only populated when judge B was a mock. A real run must not carry a warning
+    # saying its numbers are a harness test -- that is a provenance error in the
+    # opposite direction, and it would discredit a measurement that is sound.
+    mock_7b_warning: str | None = None
     metadata: dict = Field(default_factory=dict)
     results: list[DualJudgeCaseResult] = Field(default_factory=list)
 
@@ -89,6 +92,7 @@ def run_dual_judge_validation(
     score_disagreement_threshold: float = DEFAULT_SCORE_DISAGREEMENT_THRESHOLD,
     validation_run_id: str | None = None,
     report_metadata: dict | None = None,
+    judge_b_is_mock: bool = False,
 ) -> DualJudgeValidationResult:
     if not candidates:
         raise ValueError("At least one candidate answer is required.")
@@ -172,6 +176,7 @@ def run_dual_judge_validation(
         human_labels_by_case_id=human_labels_by_case_id,
         validation_run_id=validation_run_id,
         report_metadata=report_metadata,
+        judge_b_is_mock=judge_b_is_mock,
     )
 
     return DualJudgeValidationResult(
@@ -223,6 +228,7 @@ def build_validation_report(
     human_labels_by_case_id: dict[str, bool] | None = None,
     validation_run_id: str | None = None,
     report_metadata: dict | None = None,
+    judge_b_is_mock: bool = False,
 ) -> DualJudgeValidationReport:
     total_cases = len(case_results)
     pass_fail_agreements = sum(result.pass_fail_agree for result in case_results)
@@ -285,6 +291,7 @@ def build_validation_report(
         judge_b_pass_rate=judge_b_pass_rate,
         agreement_is_degenerate=agreement_is_degenerate,
         manual_review_case_count=len(manual_review_cases),
+        mock_7b_warning=MOCK_7B_WARNING if judge_b_is_mock else None,
         metadata=report_metadata or {},
         results=case_results,
     )
