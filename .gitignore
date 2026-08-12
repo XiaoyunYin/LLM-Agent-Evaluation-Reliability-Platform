@@ -36,3 +36,4 @@ Thumbs.db
 # BEIR source archives; the converted chunks/labels are committed instead.
 datasets/beir/_download/
 datasets/squad_v2/_download/
+runs/trace_measure/

@@ -8,6 +8,12 @@ from pydantic import BaseModel, ConfigDict
 from backend.app.dataset_loader import load_eval_cases
 from backend.app.eval_case import EvalCase
 from backend.app.eval_run import CandidateAnswer, JudgeScore, RunStatus
+from backend.app.tracing import (
+    SERVICE_LAYER_JUDGE,
+    current_trace_id,
+    get_tracer,
+    set_common_span_attributes,
+)
 
 
 DEFAULT_DATASET_PATH = Path("datasets/golden/golden_rag_v0.1.jsonl")
@@ -167,6 +173,7 @@ def judge_candidate_files(
     rows_seen = 0
     eligible = 0
     skipped = 0
+    tracer = get_tracer()
     newly_scored = 0
 
     for candidate_path in candidate_paths:
@@ -201,11 +208,31 @@ def judge_candidate_files(
                     f"{candidate_path} references unknown case_id={candidate.case_id}"
                 )
 
-            score = judge.judge_candidate_answer(
-                case=case,
-                candidate=candidate,
-                retrieved_context=build_retrieved_context(row, chunks_by_id),
-            )
+            # One span per judged answer. A run-level span would say only that
+            # judging happened; this granularity is what lets a slow or failing
+            # single judgement be found later.
+            with tracer.start_as_current_span("judge.score_candidate_answer") as span:
+                set_common_span_attributes(
+                    span,
+                    layer=SERVICE_LAYER_JUDGE,
+                    run_id=candidate.run_id,
+                    trace_id=current_trace_id(),
+                )
+                span.set_attribute("eval.case_id", candidate.case_id)
+                span.set_attribute("judge.name", judge.judge_name)
+                span.set_attribute("judge.model", judge_model_name or "unknown")
+                span.set_attribute("judge.is_mock", bool(mock_rehearsal))
+                span.set_attribute("eval.bulk_run_id", bulk_run_id)
+
+                score = judge.judge_candidate_answer(
+                    case=case,
+                    candidate=candidate,
+                    retrieved_context=build_retrieved_context(row, chunks_by_id),
+                )
+                span.set_attribute("judge.correctness", score.correctness)
+                span.set_attribute("judge.passed", bool(score.passed))
+                span.set_attribute("judge.status", str(score.status.value))
+
             score_row = score.model_dump(mode="json")
             score_row.update(
                 {
