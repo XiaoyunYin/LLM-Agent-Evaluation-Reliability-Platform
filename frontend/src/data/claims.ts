@@ -114,8 +114,13 @@ export function evaluateClaims(): ClaimVerdict[] {
       id: 'ci-gate',
       claim: `CI blocks changes that regress eval score >${ci.evalScoreRegressionThreshold * 100}% or latency/cost >${ci.latencyCostRegressionThreshold * 100}%`,
       guard: 'Rule 45 — no CI gating claim until CI blocks a fake regression',
-      met: measuredValue(ci.regressionGate) !== undefined,
-      evidence: 'No .github/workflows directory exists. Nothing blocks anything yet.',
+      // Deliberately gated on remote execution, not on the local logic passing.
+      // A gate that has never run in CI does not block anything.
+      met: measuredValue(ci.regressionGateExecutedInCi) !== undefined,
+      evidence:
+        measuredValue(ci.regressionGateLogic) !== undefined
+          ? 'Gate logic verified locally: exits 1 on a deliberate regression, 8 tests pass. No completed GitHub Actions run observed yet.'
+          : 'Gate logic not verified.',
     },
   ]
 }

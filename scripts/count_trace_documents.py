@@ -1,5 +1,7 @@
 import argparse
+import json
 import os
+from datetime import datetime, timezone
 import sys
 from pathlib import Path
 
@@ -83,6 +85,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--index", default=DEFAULT_TRACE_INDEX)
     parser.add_argument("--trace-id-field", default="trace_id")
+    parser.add_argument(
+        "--save",
+        type=Path,
+        default=Path("runs/trace_counts/trace_count.json"),
+        help="Persist the count so the dashboard can read a measured value "
+             "instead of reporting not_measured while Elasticsearch is offline.",
+    )
     return parser.parse_args()
 
 
@@ -107,6 +116,14 @@ def main() -> None:
     print(f"span_document_count={counts['span_document_count']}")
     print(f"unique_trace_count={counts['unique_trace_count']}")
     print(f"trace_id_field={counts['trace_id_field']}")
+
+    if args.save:
+        args.save.parent.mkdir(parents=True, exist_ok=True)
+        payload = dict(counts)
+        payload["measured_at"] = datetime.now(timezone.utc).isoformat()
+        payload["exact_command"] = "python scripts/count_trace_documents.py"
+        args.save.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        print(f"saved_artifact={args.save}")
 
 
 if __name__ == "__main__":
