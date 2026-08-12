@@ -116,7 +116,8 @@ Only measured results are listed here. Targets and headline claims stay out of t
 | Prefill : decode ratio | 13.4 : 1 (1,350 vs 101 tokens/judgement) | same run |
 | Tuned config (prefix cache, chunked prefill, len 2048, c32) | +5.1% throughput, **27 failures** — rejected | `runs/self_hosted_bulk_judging/opt_bulk_*_status.json` |
 | Standalone vLLM benchmark @ c16 (superseded) | 56.18 output / 506.48 total tok/s | `runs/vllm_benchmark/mistral_7b_awq_t4_c16_n64.json` |
-| Elasticsearch trace documents | **32,412 spans / 13,950 traces** | `scripts/count_trace_documents.py` |
+| Elasticsearch trace documents | **32,412 spans / 13,950 traces** |
+| CI regression gate executions | **5 runs on `main`, all green** | GitHub Actions, Eval Regression Gate #1-#5 | `scripts/count_trace_documents.py` |
 
 Important metric boundaries:
 

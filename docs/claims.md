@@ -391,7 +391,7 @@ Latency and cost, from the baseline run (percentiles read from trace span durati
 
 ## 5. Tracing, dashboard, and the CI regression gate
 
-**Status: Partial.** Tracing now carries real volume; CI still has never executed.
+**Status: Verified.** Tracing carries real volume and the CI gate has executed on GitHub Actions.
 
 ### Claim
 
@@ -409,7 +409,7 @@ Latency and cost, from the baseline run (percentiles read from trace span durati
 | Trace volume | **32,412 span documents across 13,950 traces** |
 | Dashboard | Builds; provenance union makes an unmeasured metric a compile error |
 | CI gate logic | 8 tests pass; exit 0 on committed fixtures, exit 1 on a fake regression |
-| CI execution | **Never run** — `git remote` is empty, nothing pushed |
+| CI execution | **5 runs on `main`, all green** — Eval Regression Gate #1-#5, 25-41s each |
 
 The trace count read 0 for a long time because of three stacked faults, none visible to
 the application: the OTLP gRPC exporter was declared but never installed; the Collector's
@@ -447,8 +447,11 @@ generating and judging 8,168 answers would emit roughly 32,700 spans as a byprod
 
 Traces must come from real evaluation runs. Looping a smoke script to reach a round
 number is the same failure as any other inflated metric.
-- Do not state "gated CI" as operating — the workflow has never executed. It becomes true
-  after a push; CI was verified to pass with no data services running (116 tests).
+- "Gated CI" is now supported: the workflow has executed 5 times on `main`, all passing.
+  Note what the gate compares — `metrics/baseline_metrics.json` against
+  `metrics/current_metrics.json`, which are committed fixtures, not live eval output.
+  The gate mechanism is real and blocks a deliberate regression with exit 1; wiring it to
+  real measured scores is a further step that has not been taken.
 
 ### Interview answer
 

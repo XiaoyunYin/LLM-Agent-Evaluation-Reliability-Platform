@@ -3813,3 +3813,36 @@ AWS empty.
 Validation:
 
 - Full suite: `119 passed`
+
+## Session 62 - CI Confirmed Executing
+
+The Eval Regression Gate workflow has run **5 times on `main`, all passing**, 25-41
+seconds each, triggered by real pushes (`26cb4c6`, `8b5aae0`, `793a312`, `c37020c`,
+`49d6bea`).
+
+That closes the last unverified claim. Every headline claim is now backed by an artifact
+or an observed run.
+
+Two details worth recording:
+
+- The judging-completion commit `8c40e73` correctly did **not** trigger a run: it touched
+  only `docs/**` and `runs/**`, neither of which is in the workflow's paths filter. A
+  docs-only change should not burn a runner.
+- Run #1 is `26cb4c6`, the first push after `master` was added to the trigger branches.
+  The workflow originally listened only for `main` while the local branch was `master`,
+  so without that fix there would be zero runs.
+
+What the gate actually compares, stated plainly: `metrics/baseline_metrics.json` against
+`metrics/current_metrics.json`, which are committed fixtures. The mechanism is real and
+blocks a deliberate regression with exit code 1, and it now demonstrably executes in CI.
+Wiring it to live eval scores rather than fixtures is a further step that has not been
+taken, and the claim should not imply otherwise.
+
+Also added `agreementAtBulkScale` to the dashboard snapshot as explicitly **not
+measured**. Inter-judge agreement is a 120-answer result; bulk judging ran a single
+judge, so agreement across all 9,480 answers is unknown. Marking it prevents a reader
+combining "9,480 judged" with "65% agreement" into a claim neither number supports.
+
+Validation:
+
+- Full suite: `119 passed`; frontend builds.
