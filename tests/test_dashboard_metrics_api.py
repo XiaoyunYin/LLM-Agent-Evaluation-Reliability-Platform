@@ -32,8 +32,16 @@ def test_metrics_summary_exposes_required_dashboard_keys():
         elif metric["status"] == "not_measured":
             assert metric["value"] is None, metric["key"]
 
-    assert metrics["judge_agreement_percentage"]["status"] == "non_final"
-    assert "Mock rehearsal" in metrics["judge_agreement_percentage"]["note"]
+    # Agreement was non_final while only a mock rehearsal report existed. Once a real
+    # dual-judge slice is measured it must read as measured -- pinning "non_final"
+    # here would keep asserting that the dashboard shows a mock number.
+    agreement = metrics["judge_agreement_percentage"]
+    assert agreement["status"] in {"measured", "non_final", "not_measured"}
+    if agreement["status"] == "measured":
+        assert agreement["value"] is not None
+        assert agreement["source"]
+    elif agreement["status"] == "non_final":
+        assert "Mock rehearsal" in agreement["note"]
 
 
 def test_review_cases_include_saved_manual_review_queue_artifacts():

@@ -74,8 +74,12 @@ def build_metrics_summary(project_root: Path | None = None) -> MetricsSummaryRes
 
 
 def latest_rehearsal_report(runs_dir: Path) -> tuple[Path, dict] | None:
-    reports = list_artifact_files(runs_dir, "*_rehearsal_report.json")
+    # Include real validation reports, not just rehearsals. Matching only
+    # *_rehearsal_report.json meant the dashboard kept showing a mock agreement of
+    # 0.0 long after a real slice had been measured.
+    reports = list_artifact_files(runs_dir, "*_report.json")
     reports.extend(list_artifact_files(runs_dir, "validation_report.json"))
+    reports = [r for r in reports if is_production_artifact(r)]
 
     loaded = []
     for path in reports:
@@ -93,6 +97,10 @@ def latest_rehearsal_report(runs_dir: Path) -> tuple[Path, dict] | None:
 
 
 def latest_retrieval_summary(runs_dir: Path) -> tuple[Path, dict] | None:
+    # Match on location as well as filename. The original globs required
+    # "retrieval" in the name, so beir_scifact_benchmark.json and
+    # squad_v2_benchmark.json were silently ineligible and the dashboard kept
+    # showing an older corpus.
     candidates = []
     for pattern in (
         "*retrieval*summary*.json",
@@ -100,6 +108,9 @@ def latest_retrieval_summary(runs_dir: Path) -> tuple[Path, dict] | None:
         "*retrieval*metrics*.json",
     ):
         candidates.extend(list_artifact_files(runs_dir, pattern))
+    retrieval_dir = runs_dir / "retrieval_benchmark"
+    if retrieval_dir.is_dir():
+        candidates.extend(sorted(retrieval_dir.glob("*.json")))
 
     loaded = []
     for path in candidates:
@@ -147,7 +158,12 @@ def retrieval_metric(
                 source=relative_source(path),
                 measured_at=data.get("created_at") or data.get("measured_at"),
                 command=data.get("exact_command") or command,
-                note="Loaded from a saved retrieval benchmark artifact.",
+                note=(
+                    "Hybrid RRF on "
+                    f"{data.get('corpus_version') or data.get('label_dataset_version') or 'an unnamed corpus'}"
+                    ". Retrieval scores are corpus-specific and are not comparable "
+                    "across fixtures; see docs/claims.md for all four."
+                ),
             )
 
     return DashboardMetric(
@@ -241,9 +257,52 @@ def judge_report_note(data: dict) -> str:
     return "Measured from a saved dual-judge validation report."
 
 
+# Directories holding rehearsal, smoke, or pytest output. Counting these inflates
+# every headline number on the dashboard with work that was never a measured run.
+NON_PRODUCTION_DIRS = (
+    "gpu_window_rehearsal",
+    "gpu_window_smoke",
+    "judge_validation_rehearsal",
+    "trace_measure",
+    "conc_probe",
+    "failfast_probe",
+)
+
+
+def is_production_artifact(path: Path) -> bool:
+    parts = {part for part in path.parts}
+    if parts & set(NON_PRODUCTION_DIRS):
+        return False
+    name = path.name
+    if name.startswith("test_") or "_mock_" in name or name.startswith("local_mock"):
+        return False
+    if any(part.startswith("test_") or part.startswith("pytest") for part in path.parts):
+        return False
+    return True
+
+
 def judged_answer_count_metric(runs_dir: Path) -> DashboardMetric:
-    files = list_artifact_files(runs_dir, "*_judge_scores.jsonl")
-    count = sum(count_jsonl_rows(path) for path in files)
+    files = [f for f in list_artifact_files(runs_dir, "*_judge_scores.jsonl")
+             if is_production_artifact(f)]
+    # Count distinct answers judged, not judge-score rows. Re-judging the same
+    # answers -- as the inference-tuning comparison did -- writes a second row per
+    # answer, and summing rows would report the work twice.
+    judged: set[tuple[str, str]] = set()
+    for path in files:
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        row = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    judged.add((str(row.get("run_id")), str(row.get("case_id"))))
+        except OSError:
+            continue
+    count = len(judged)
 
     if not files:
         return DashboardMetric(
@@ -263,8 +322,9 @@ def judged_answer_count_metric(runs_dir: Path) -> DashboardMetric:
         status="measured",
         source="runs/**/*_judge_scores.jsonl",
         note=(
-            "Counted persisted judge-score rows. This is not the self-hosted "
-            "bulk judge count unless those rows came from that run."
+            "Distinct answers judged, deduplicated by (run_id, case_id) so a "
+            "re-judged answer is counted once. Spans every fixture version, so it "
+            "exceeds the current-fixture total reported in the README."
         ),
     )
 
@@ -272,6 +332,8 @@ def judged_answer_count_metric(runs_dir: Path) -> DashboardMetric:
 def eval_run_count_metric(runs_dir: Path) -> DashboardMetric:
     run_ids = set()
     for path in list_artifact_files(runs_dir, "*_candidate_answers.jsonl"):
+        if not is_production_artifact(path):
+            continue
         first_row = first_jsonl_object(path)
         if isinstance(first_row, dict) and isinstance(first_row.get("run_id"), str):
             run_ids.add(first_row["run_id"])
