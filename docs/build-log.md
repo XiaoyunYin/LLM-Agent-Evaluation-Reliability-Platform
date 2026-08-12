@@ -3699,3 +3699,58 @@ final EC2 check empty.
 Validation:
 
 - Full suite: `119 passed`
+
+## Session 60 - Overnight Scale Run: Generation Complete, Judging Interrupted
+
+Goal: reach the original run-count, answer-count, and trace-volume targets with a
+detached overnight job.
+
+Prerequisite added first. `prompt_version` was a label that never reached the prompt,
+and every provider posted `temperature=0`, so repeats of a configuration would have been
+byte-identical. A `temperature` parameter was threaded through `GenerationRequest` and
+all three providers, defaulting to `0` so existing behaviour is unchanged. Without it the
+run count would have been padding.
+
+Matrix: 9 distinct configurations (3 retrieval modes x 3 prompt versions) at
+`temperature=0` as a deterministic baseline, then the same 9 repeated at
+`temperature=0.7` across repeat IDs 02-08, to 68 configurations.
+
+Verified the axis is real before letting it run: **95 of 120 answers differ** between the
+temperature-0 baseline and a temperature-0.7 repeat of the same configuration. Repeats are
+genuine regression-stability samples, not duplicates.
+
+Measured:
+
+| Measure | Value | Original target |
+|---|---:|---:|
+| Runs | `79` | 60+ met |
+| Candidate answers | `9,480` | 8K+ met |
+| Generation failures | `0` | |
+| Trace span documents | `32,412` (13,950 traces) | 10K+ met |
+| Answers judged | `3,757` | 8K+ **not met** |
+
+Generation completed cleanly (`GENERATION COMPLETE: 68 configs`). The chained judging pass
+ran `48.9` minutes at `35.13` judged/min and `59.25` output tok/s before its process was
+terminated with the previous session. `nohup` did not survive the host process exiting.
+
+Judging is checkpoint-resumable by `(run_id, case_id, judge_name)`, so the remaining
+`5,723` answers would take roughly 2.7 GPU-hours (~$1.45) with no rework. Not done.
+
+Teardown behaved. Three layers were in place: the follow-on script terminating on
+completion, `shutdown -h +540` baked into user-data, and
+`--instance-initiated-shutdown-behavior terminate`. The instance is terminated and the
+leftover key pair and security group have been removed. Roughly 3.5 GPU-hours, about
+`$1.84`.
+
+Metric integrity notes:
+
+- Runs, candidate answers, and trace volume now exceed their original targets. **Judged
+  answers do not.** Generation and judging are different claims and must not be merged.
+- `79 runs` is 9 configurations plus temperature-varied repeats, not 79 independent
+  experiments. State it that way.
+- Judge agreement is untouched at 65.0% / kappa 0.264 from the 120-answer slice, 95% CI
+  [0.085, 0.443].
+
+Validation:
+
+- Full suite: `119 passed`

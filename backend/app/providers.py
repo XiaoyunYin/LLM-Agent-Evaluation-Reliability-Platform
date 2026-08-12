@@ -25,6 +25,12 @@ class GenerationRequest(BaseModel):
     # Selects the wording variant. Carried on the request so every provider builds
     # the same prompt for a given run, rather than each implementing its own.
     prompt_version: str = "rag_prompt_v1"
+    # Sampling temperature. Defaults to 0 so existing runs stay deterministic.
+    # Repeats of one configuration are only meaningful above 0: at temperature 0
+    # the same config produces byte-identical answers, so counting them as separate
+    # runs would inflate the run count without evaluating anything. Above 0 a repeat
+    # is a genuine regression-stability sample.
+    temperature: float = 0.0
 
 
 class GenerationResponse(BaseModel):
@@ -159,7 +165,7 @@ class OpenAIProvider:
             response = client.responses.create(
                 model=self.model_name,
                 input=prompt,
-                temperature=0,
+                temperature=request.temperature,
             )
         except Exception as exc:
             raise ProviderGenerationError("OpenAI generation failed.") from exc
@@ -204,7 +210,7 @@ class AnthropicProvider:
             response = client.messages.create(
                 model=self.model_name,
                 max_tokens=512,
-                temperature=0,
+                temperature=request.temperature,
                 messages=[
                     {
                         "role": "user",
@@ -268,7 +274,7 @@ class SelfHostedProvider:
         payload = {
             "model": self.model_name,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0,
+            "temperature": request.temperature,
             "max_tokens": 512,
         }
         headers = {"Content-Type": "application/json"}

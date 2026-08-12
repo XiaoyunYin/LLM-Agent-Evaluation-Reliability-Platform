@@ -67,6 +67,13 @@ def main() -> int:
     parser.add_argument("--retrieval-mode", default="hybrid_rrf_k60_top10_context4")
     parser.add_argument("--prompt-version", default="rag_prompt_v1")
     parser.add_argument("--repeat-id", default="repeat_01")
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Sampling temperature. Repeats of one configuration are only "
+             "meaningful above 0; at 0 they are byte-identical duplicates.",
+    )
     parser.add_argument("--matrix-id", default="dual_judge_slice_v1")
     parser.add_argument("--index", default=None, help="Elasticsearch index to search.")
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
@@ -117,6 +124,7 @@ def main() -> int:
         retrieval_mode=args.retrieval_mode,
         prompt_version=args.prompt_version,
         repeat_id=args.repeat_id,
+        temperature=args.temperature,
         matrix_id=args.matrix_id,
     )
 

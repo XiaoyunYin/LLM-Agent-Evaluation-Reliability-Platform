@@ -65,6 +65,7 @@ class CandidateGenerationRunConfig(BaseModel):
     retrieval_mode: str = "hybrid_rrf_k60_top10_context4"
     prompt_version: str = "rag_prompt_v1"
     repeat_id: str = "repeat_01"
+    temperature: float = 0.0
     matrix_id: str = "manual"
     expected_case_count: int | None = None
 
@@ -380,7 +381,10 @@ def generate_candidate_answers_for_run(
                         retriever=retriever,
                     )
                     request = request.model_copy(
-                        update={"prompt_version": config.prompt_version}
+                        update={
+                            "prompt_version": config.prompt_version,
+                            "temperature": config.temperature,
+                        }
                     )
                     retrieval_span.set_attribute(
                         "retrieval.chunk_count",
