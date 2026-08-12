@@ -1,4 +1,7 @@
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Protocol
@@ -48,6 +51,13 @@ class BulkJudgingSummary(BaseModel):
     newly_scored_count: int
     latest_completed_judge_score_count: int
     latest_failed_judge_score_count: int
+    concurrency: int = 1
+    elapsed_seconds: float = 0.0
+    judged_per_minute: float | None = None
+    total_completion_tokens: int | None = None
+    total_prompt_tokens: int | None = None
+    output_tokens_per_second: float | None = None
+    total_tokens_per_second: float | None = None
     output_path: str
     status_path: str
     started_at: str
@@ -151,14 +161,29 @@ def judge_candidate_files(
     limit: int | None = None,
     mock_rehearsal: bool = False,
     progress_every: int = 25,
+    concurrency: int = 1,
 ) -> BulkJudgingSummary:
+    """Judge every completed candidate answer, resuming from prior work.
+
+    Structured as plan, execute, write. The planning pass decides what still needs
+    judging before any request is made, which is what lets execution run concurrently
+    without two workers racing to score the same answer. Results are appended under a
+    lock, so an interrupted run still leaves a valid JSONL file.
+
+    Throughput is recorded from this run rather than from a separate benchmark. A
+    tok/s figure measured on synthetic prompts at one concurrency, quoted alongside an
+    answer count from a different run at another concurrency, misrepresents both.
+    """
     if not candidate_paths:
         raise ValueError("At least one candidate-answer file is required.")
+    if concurrency < 1:
+        raise ValueError("concurrency must be at least 1.")
 
     bulk_run_id = bulk_run_id or create_bulk_run_id()
     output_path = output_path or default_output_path(bulk_run_id)
     status_path = status_path or default_status_path(bulk_run_id)
     started_at = datetime.now(timezone.utc).isoformat()
+    started_monotonic = time.monotonic()
 
     cases = load_eval_cases(dataset_path)
     cases_by_id = {case.id: case for case in cases}
@@ -173,26 +198,25 @@ def judge_candidate_files(
     rows_seen = 0
     eligible = 0
     skipped = 0
-    tracer = get_tracer()
-    newly_scored = 0
+    pending: list[tuple[dict, CandidateAnswer, EvalCase, str]] = []
 
+    # Plan. Nothing is judged here, so the work set is fixed before execution and
+    # cannot shift under a concurrent worker.
     for candidate_path in candidate_paths:
         for row in load_jsonl(candidate_path):
             rows_seen += 1
-
-            if limit is not None and newly_scored >= limit:
-                break
 
             if row.get("status", "completed") != RunStatus.COMPLETED.value:
                 continue
 
             eligible += 1
-            score_key = (
-                f"{row.get('run_id')}::{row.get('case_id')}::{judge.judge_name}"
-            )
+            score_key = f"{row.get('run_id')}::{row.get('case_id')}::{judge.judge_name}"
 
             if score_key in completed_score_keys:
                 skipped += 1
+                continue
+
+            if limit is not None and len(pending) >= limit:
                 continue
 
             candidate = CandidateAnswer(
@@ -207,50 +231,58 @@ def judge_candidate_files(
                 raise ValueError(
                     f"{candidate_path} references unknown case_id={candidate.case_id}"
                 )
+            pending.append((row, candidate, case, score_key))
 
-            # One span per judged answer. A run-level span would say only that
-            # judging happened; this granularity is what lets a slow or failing
-            # single judgement be found later.
-            with tracer.start_as_current_span("judge.score_candidate_answer") as span:
-                set_common_span_attributes(
-                    span,
-                    layer=SERVICE_LAYER_JUDGE,
-                    run_id=candidate.run_id,
-                    trace_id=current_trace_id(),
-                )
-                span.set_attribute("eval.case_id", candidate.case_id)
-                span.set_attribute("judge.name", judge.judge_name)
-                span.set_attribute("judge.model", judge_model_name or "unknown")
-                span.set_attribute("judge.is_mock", bool(mock_rehearsal))
-                span.set_attribute("eval.bulk_run_id", bulk_run_id)
+    tracer = get_tracer()
+    write_lock = threading.Lock()
+    newly_scored = 0
 
-                score = judge.judge_candidate_answer(
-                    case=case,
-                    candidate=candidate,
-                    retrieved_context=build_retrieved_context(row, chunks_by_id),
-                )
-                span.set_attribute("judge.correctness", score.correctness)
-                span.set_attribute("judge.passed", bool(score.passed))
-                span.set_attribute("judge.status", str(score.status.value))
+    def score_one(item: tuple[dict, CandidateAnswer, EvalCase, str]) -> None:
+        nonlocal newly_scored
+        row, candidate, case, score_key = item
 
-            score_row = score.model_dump(mode="json")
-            score_row.update(
-                {
-                    "bulk_run_id": bulk_run_id,
-                    "judge_model_name": judge_model_name,
-                    "judge_endpoint_url": endpoint_url,
-                    "mock_rehearsal": mock_rehearsal,
-                    "judged_at": datetime.now(timezone.utc).isoformat(),
-                    "candidate_provider_name": row.get("provider_name"),
-                    "candidate_model_name": row.get("model_name"),
-                    "candidate_matrix_id": row.get("matrix_id"),
-                    "candidate_retrieval_mode": row.get("retrieval_mode"),
-                    "candidate_prompt_version": row.get("prompt_version"),
-                }
+        with tracer.start_as_current_span("judge.score_candidate_answer") as span:
+            set_common_span_attributes(
+                span,
+                layer=SERVICE_LAYER_JUDGE,
+                run_id=candidate.run_id,
+                trace_id=current_trace_id(),
             )
+            span.set_attribute("eval.case_id", candidate.case_id)
+            span.set_attribute("judge.name", judge.judge_name)
+            span.set_attribute("judge.model", judge_model_name or "unknown")
+            span.set_attribute("judge.is_mock", bool(mock_rehearsal))
+            span.set_attribute("eval.bulk_run_id", bulk_run_id)
+            span.set_attribute("judge.concurrency", concurrency)
+
+            score = judge.judge_candidate_answer(
+                case=case,
+                candidate=candidate,
+                retrieved_context=build_retrieved_context(row, chunks_by_id),
+            )
+            span.set_attribute("judge.correctness", score.correctness)
+            span.set_attribute("judge.passed", bool(score.passed))
+            span.set_attribute("judge.status", str(score.status.value))
+
+        score_row = score.model_dump(mode="json")
+        score_row.update(
+            {
+                "bulk_run_id": bulk_run_id,
+                "judge_model_name": judge_model_name,
+                "judge_endpoint_url": endpoint_url,
+                "mock_rehearsal": mock_rehearsal,
+                "judged_at": datetime.now(timezone.utc).isoformat(),
+                "candidate_provider_name": row.get("provider_name"),
+                "candidate_model_name": row.get("model_name"),
+                "candidate_matrix_id": row.get("matrix_id"),
+                "candidate_retrieval_mode": row.get("retrieval_mode"),
+                "candidate_prompt_version": row.get("prompt_version"),
+            }
+        )
+
+        with write_lock:
             append_jsonl(output_path, score_row)
             newly_scored += 1
-
             if score.status == RunStatus.COMPLETED:
                 completed_score_keys.add(score_key)
 
@@ -268,6 +300,8 @@ def judge_candidate_files(
                 output_path=output_path,
                 status_path=status_path,
                 started_at=started_at,
+                concurrency=concurrency,
+                elapsed_seconds=time.monotonic() - started_monotonic,
             )
             write_status(status_path, summary)
 
@@ -278,8 +312,13 @@ def judge_candidate_files(
                     f"rows_seen={rows_seen}"
                 )
 
-        if limit is not None and newly_scored >= limit:
-            break
+    if concurrency == 1:
+        for item in pending:
+            score_one(item)
+    else:
+        with ThreadPoolExecutor(max_workers=concurrency) as pool:
+            for _ in pool.map(score_one, pending):
+                pass
 
     summary = build_summary(
         bulk_run_id=bulk_run_id,
@@ -295,6 +334,8 @@ def judge_candidate_files(
         output_path=output_path,
         status_path=status_path,
         started_at=started_at,
+        concurrency=concurrency,
+        elapsed_seconds=time.monotonic() - started_monotonic,
     )
     write_status(status_path, summary)
     return summary
@@ -314,9 +355,26 @@ def build_summary(
     output_path: Path,
     status_path: Path,
     started_at: str,
+    concurrency: int = 1,
+    elapsed_seconds: float = 0.0,
 ) -> BulkJudgingSummary:
     completed, failed = summarize_latest_scores(output_path)
     status = "completed" if failed == 0 else "completed_with_failures"
+
+    # Throughput from this workload. Only reported when the endpoint actually
+    # returned token usage; a judge that does not report it leaves these None
+    # rather than carrying a silently wrong number.
+    completion_tokens = getattr(judge, "total_completion_tokens", None)
+    prompt_tokens = getattr(judge, "total_prompt_tokens", None)
+    output_tps = None
+    total_tps = None
+    judged_per_minute = None
+    if elapsed_seconds > 0:
+        judged_per_minute = round(newly_scored / elapsed_seconds * 60, 2)
+        if completion_tokens:
+            output_tps = round(completion_tokens / elapsed_seconds, 2)
+        if completion_tokens and prompt_tokens:
+            total_tps = round((completion_tokens + prompt_tokens) / elapsed_seconds, 2)
 
     return BulkJudgingSummary(
         bulk_run_id=bulk_run_id,
@@ -336,6 +394,13 @@ def build_summary(
         started_at=started_at,
         finished_at=datetime.now(timezone.utc).isoformat(),
         status=status,
+        concurrency=concurrency,
+        elapsed_seconds=round(elapsed_seconds, 2),
+        judged_per_minute=judged_per_minute,
+        total_completion_tokens=completion_tokens or None,
+        total_prompt_tokens=prompt_tokens or None,
+        output_tokens_per_second=output_tps,
+        total_tokens_per_second=total_tps,
     )
 
 

@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from typing import Any
 
@@ -77,6 +78,12 @@ class SelfHostedJudge:
         self.max_parse_attempts = max_parse_attempts
         self.session = session or requests.Session()
         self.sleep = sleep
+        # Token accounting for throughput measured on the real workload rather
+        # than a separate benchmark. Locked because bulk judging runs concurrently.
+        self._usage_lock = threading.Lock()
+        self.total_completion_tokens = 0
+        self.total_prompt_tokens = 0
+        self.usage_reported_calls = 0
 
     def judge_candidate_answer(
         self,
@@ -184,11 +191,35 @@ class SelfHostedJudge:
             except ValueError as error:
                 raise SelfHostedJudgeEndpointError("endpoint returned non-JSON") from error
 
+            self._record_usage(data.get("usage"))
             return self._extract_output_text(data)
 
         raise SelfHostedJudgeEndpointError(
             last_error or "endpoint did not return a response"
         )
+
+    def _record_usage(self, usage: dict[str, Any] | None) -> None:
+        """Accumulate token counts reported by the endpoint.
+
+        Throughput has to be measured from the workload itself, not from a separate
+        benchmark. Two disjoint measurements -- tok/s from a synthetic benchmark and
+        an answer count from a different run at a different concurrency -- cannot be
+        stated as one sentence without misrepresenting both. Counting tokens here
+        makes "sustained X tok/s across N judged answers" a single measurement.
+
+        Guarded by a lock because bulk judging runs this concurrently.
+        """
+        if not isinstance(usage, dict):
+            return
+
+        completion = usage.get("completion_tokens")
+        prompt = usage.get("prompt_tokens")
+        with self._usage_lock:
+            if isinstance(completion, int):
+                self.total_completion_tokens += completion
+            if isinstance(prompt, int):
+                self.total_prompt_tokens += prompt
+            self.usage_reported_calls += 1
 
     def _extract_output_text(self, data: dict[str, Any]) -> str:
         try:
