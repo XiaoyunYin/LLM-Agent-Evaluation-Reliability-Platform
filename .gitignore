@@ -68,3 +68,7 @@ runs/spider_benchmark/*/payloads.jsonl
 # The P1 run family IS committed - it is the evidence behind the variance
 # envelope and the CI thresholds. Only its large payload blobs are gzipped, like
 # every other run.
+
+# P3 support fixture is generated deterministically from a seed; PIN is the record.
+datasets/support/*.sqlite
+runs/_support_qa_tmp/
