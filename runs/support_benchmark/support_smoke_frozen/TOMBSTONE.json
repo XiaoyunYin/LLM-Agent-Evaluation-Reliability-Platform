@@ -1,0 +1,10 @@
+{
+  "run_id": "support_smoke_frozen",
+  "quarantined_at": "2026-08-13T18:29:30.675455+00:00",
+  "contamination_reason": "Smoke run against the superseded 79-task suite.",
+  "detection_mechanism": "same defect analysis as support_base_01..10",
+  "exclusion_status": "EXCLUDED_FROM_ALL_ANALYSIS",
+  "data_retained": true,
+  "why_retained": "Deleting a contaminated run hides how the contamination happened. The data is unusable; the evidence is not.",
+  "evidence": {}
+}

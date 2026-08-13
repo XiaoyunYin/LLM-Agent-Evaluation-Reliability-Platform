@@ -36,7 +36,7 @@ from backend.app.support.verifier import (
     TaskSpec,
 )
 
-TASK_FAMILY_VERSION = "support_tasks_v3"
+TASK_FAMILY_VERSION = "support_tasks_v4"
 
 CORE_FAMILIES = (
     "simple_update",
@@ -425,7 +425,8 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
                 ),
                 required_changes=required,
                 forbidden_changes=forbidden,
-                metadata={"expected_policy": policy_id, "customer_tier": tier},
+                metadata={"expected_policy": policy_id, "customer_tier": tier,
+                          "policy_ids": {ticket["ticket_id"]: policy_id}},
             ),
             "reference": [
                 ("get_ticket", {"ticket_id": ticket["ticket_id"]}),
@@ -514,6 +515,7 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
                     f"Look up the billing dispute policy and apply it. Note the "
                     f"policy's condition on escalation carefully."
                 ),
+                metadata={"policy_ids": {ticket["ticket_id"]: "POL-002"}},
                 required_changes=noop_required,
                 forbidden_changes=[
                     _field_change("tickets", ticket["ticket_id"], "escalated", 1)
@@ -541,7 +543,7 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
         if len(group) < 3:
             continue
         query = "performance tier" if signal == "performance" else "outage tier"
-        required, reference = [], [("search_policy", {"query": query})]
+        required, reference, policy_ids = [], [("search_policy", {"query": query})], []
         ok = True
         for ticket in group:
             tier = customers[ticket["customer_id"]]["tier"]
@@ -549,12 +551,25 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
             if len(matching) != 1:
                 ok = False
                 break
+            # Every field the policy mandates, not just priority. Requiring only
+            # priority while telling the agent to apply the policy failed
+            # SUP-mtcond-006/007 10/10: POL-001 mandates escalation for enterprise
+            # outages, the agent escalated correctly, and the verifier called it an
+            # undeclared mutation. Same defect class as the noop family.
             actions = POLICY_ACTIONS[matching[0]]
-            if _needs_change(ticket, "priority", actions["priority"]):
-                required.append(_field_change("tickets", ticket["ticket_id"],
-                                              "priority", actions["priority"]))
-                reference.append(("update_ticket", {"ticket_id": ticket["ticket_id"],
-                                                    "priority": actions["priority"]}))
+            policy_ids.append(matching[0])
+            update: dict[str, Any] = {}
+            for field, value in actions.items():
+                if not _needs_change(ticket, field, value):
+                    continue
+                required.append(_field_change("tickets", ticket["ticket_id"], field, value))
+                if field == "team_id":
+                    reference.append(("assign_ticket", {"ticket_id": ticket["ticket_id"],
+                                                        "team_id": value}))
+                else:
+                    update[field] = bool(value) if field == "escalated" else value
+            if update:
+                reference.append(("update_ticket", {"ticket_id": ticket["ticket_id"], **update}))
         if not ok or not required:
             continue
         hard.append({
@@ -565,14 +580,16 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
                                  required_mutations=len(required), retrieval_required=True,
                                  policy_reasoning_required=True, conditional_branches=len(group),
                                  tickets_affected=len(group), cross_entity_resolution=True),
+                metadata={"policy_ids": {t["ticket_id"]: pid
+                                         for t, pid in zip(group, policy_ids)}},
                 prompt=(
                     ("These tickets all report slow performance: "
                      if signal == "performance" else
                      "These tickets all report an outage: ")
                     + ", ".join(t["ticket_id"] for t in group)
-                    + ". The correct priority depends on each customer's tier. Look "
-                    f"up the {signal} policies and set each ticket's priority "
-                    "accordingly. Change nothing else."
+                    + ". The correct handling depends on each customer's tier. Look "
+                    f"up the {signal} policies and apply the applicable policy to "
+                    "each ticket. Change nothing the policies do not require."
                 ),
                 required_changes=required,
             ),

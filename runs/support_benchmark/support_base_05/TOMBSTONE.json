@@ -1,0 +1,21 @@
+{
+  "run_id": "support_base_05",
+  "quarantined_at": "2026-08-13T18:29:30.673476+00:00",
+  "contamination_reason": "Measured a superseded benchmark. Two spec defects were found by analysing these runs: (a) two subjects shared the shipping_delay signal, so \"Customer 003s shipping ticket\" had two correct answers; (b) multi_ticket_conditional required only priority while the prompt told the agent to apply policies that also mandate escalation and team. Fixed in fixture v5 / tasks v4; suite hash and turn budget both changed.",
+  "detection_mechanism": "analyze_p3_baseline taxonomy: 4 tasks failing 10/10 with a single repeated signature, then trajectory inspection",
+  "exclusion_status": "EXCLUDED_FROM_ALL_ANALYSIS",
+  "data_retained": true,
+  "why_retained": "Deleting a contaminated run hides how the contamination happened. The data is unusable; the evidence is not.",
+  "evidence": {
+    "superseded_suite_sha256": "d7c2116f7a9a56b9e4509e8fbd9a8af73d3dbb5dda790e2aa6d4bb06427d08f7",
+    "current_suite_sha256": "6820d75008d5",
+    "superseded_budget": 15,
+    "current_budget": 20,
+    "tasks_failing_all_repeats": [
+      "SUP-distract-001",
+      "SUP-distract-003",
+      "SUP-mtcond-006",
+      "SUP-mtcond-007"
+    ]
+  }
+}

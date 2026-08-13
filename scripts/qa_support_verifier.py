@@ -39,6 +39,7 @@ if str(REPO_ROOT) not in sys.path:
 from backend.app.support.environment import SupportEnvironment  # noqa: E402
 from backend.app.support.normalize import NORMALIZATION_VERSION  # noqa: E402
 from backend.app.support.schema import (  # noqa: E402
+    signal_for_subject,
     DEFAULT_TICKET_COUNT,  # noqa: E402
     FIXTURE_VERSION,
     SCHEMA_VERSION,
@@ -165,16 +166,23 @@ def main() -> int:
     # distractor-resolution task was unresolvable by reading it. The agent picked
     # an equally-valid ticket and was scored wrong.
     probe = sqlite3.connect(FIXTURE_PATH)
-    collisions = probe.execute(
-        "SELECT customer_id, subject, COUNT(*) n FROM tickets "
-        "GROUP BY customer_id, subject HAVING n > 1"
-    ).fetchall()
+    # Keyed on SIGNAL, not subject. The first version of this check used subject
+    # and passed while the fixture was still ambiguous: prompts identify a ticket
+    # by the issue ("their shipping ticket"), which is the signal, and two subjects
+    # shared the shipping_delay signal. A uniqueness check must be keyed on the
+    # same thing the prompt uses to identify the row, or it measures nothing.
+    rows = probe.execute("SELECT customer_id, subject FROM tickets").fetchall()
     probe.close()
+    seen: dict[tuple[str, str], int] = {}
+    for customer_id, subject in rows:
+        key = (customer_id, signal_for_subject(subject) or subject)
+        seen[key] = seen.get(key, 0) + 1
+    collisions = [k for k, n in seen.items() if n > 1]
     checks.append({
-        "task_id": "-", "check": "fixture_customer_subject_unique",
+        "task_id": "-", "check": "fixture_customer_signal_unique",
         "expected": "PASS", "actual": "PASS" if not collisions else "FAIL",
         "ok": not collisions,
-        "outcome": f"{len(collisions)} ambiguous (customer, subject) group(s)",
+        "outcome": f"{len(collisions)} ambiguous (customer, signal) group(s)",
         "detail": "a ticket described by customer and issue must be uniquely resolvable",
     })
 
@@ -204,16 +212,15 @@ def main() -> int:
     # how the family built its required list.
     for entry in tasks:
         spec = entry["spec"]
-        policy_id = spec.metadata.get("policy_id") if spec.metadata else None
-        if spec.family == "noop_plus_mutation":
-            policy_id = "POL-002"
-        if not policy_id or policy_id not in POLICY_ACTIONS:
+        policy_ids = (spec.metadata or {}).get("policy_ids") or {}
+        if not policy_ids:
             continue
         declared = {(c.key, c.field) for c in spec.required_changes}
         forbidden_fields = {(c.key, c.field) for c in spec.forbidden_changes}
-        subjects = {c.key for c in spec.required_changes}
         missing = []
-        for key in subjects:
+        for key, policy_id in policy_ids.items():
+            if policy_id not in POLICY_ACTIONS:
+                continue
             row = fixture_tickets.get(key, {})
             for field, value in POLICY_ACTIONS[policy_id].items():
                 if (key, field) in declared or (key, field) in forbidden_fields:
@@ -227,7 +234,7 @@ def main() -> int:
             "task_id": spec.task_id, "check": "policy_actions_fully_required",
             "expected": "PASS", "actual": "PASS" if not missing else "FAIL",
             "ok": not missing, "outcome": ",".join(missing) or "none",
-            "detail": f"{policy_id} mandates changes the task does not require",
+            "detail": "the task must require every change its policies mandate",
         })
 
     # ---- state isolation --------------------------------------------------

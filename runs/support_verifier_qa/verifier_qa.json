@@ -1,36 +1,36 @@
 {
-  "generated_at": "2026-08-13T18:11:16.391099+00:00",
+  "generated_at": "2026-08-13T18:28:15.044446+00:00",
   "fixture_sha256": "18d64bd9595c47f79810a37562b01b0e03eb6b31627ff50f489e083a55ff0efc",
   "versions": {
     "schema": "support_schema_v2",
-    "fixture": "support_fixture_v4",
+    "fixture": "support_fixture_v5",
     "normalization": "support_normalize_v1",
     "verifier": "support_verifier_v1",
     "tools": "support_tools_v2",
-    "task_families": "support_tasks_v3"
+    "task_families": "support_tasks_v4"
   },
-  "tasks": 79,
-  "checks_run": 418,
+  "tasks": 80,
+  "checks_run": 443,
   "checks_failed": 0,
   "by_check": {
     "no_noop_required_changes": {
-      "ok": 79,
+      "ok": 80,
       "bad": 0
     },
     "reference_passes": {
-      "ok": 79,
+      "ok": 80,
       "bad": 0
     },
     "unrelated_mutation_fails": {
-      "ok": 79,
+      "ok": 80,
       "bad": 0
     },
     "wrong_value_fails": {
-      "ok": 55,
+      "ok": 56,
       "bad": 0
     },
     "partial_completion_fails": {
-      "ok": 71,
+      "ok": 72,
       "bad": 0
     },
     "missing_required_comment_fails": {
@@ -38,19 +38,19 @@
       "bad": 0
     },
     "forbidden_mutation_fails": {
-      "ok": 27,
+      "ok": 28,
       "bad": 0
     },
-    "fixture_customer_subject_unique": {
+    "fixture_customer_signal_unique": {
       "ok": 1,
       "bad": 0
     },
     "distractors_are_other_customers": {
-      "ok": 8,
+      "ok": 9,
       "bad": 0
     },
     "policy_actions_fully_required": {
-      "ok": 8,
+      "ok": 26,
       "bad": 0
     },
     "state_isolation_between_episodes": {
@@ -2626,7 +2626,7 @@
       "detail": "1 undeclared change(s)"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "no_noop_required_changes",
       "expected": "PASS",
       "actual": "PASS",
@@ -2635,7 +2635,7 @@
       "detail": "a required change already true in the fixture is unverifiable"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "reference_passes",
       "expected": "PASS",
       "actual": "PASS",
@@ -2644,7 +2644,7 @@
       "detail": "all required changes present, nothing undeclared"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "partial_completion_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -2653,7 +2653,7 @@
       "detail": "1 required change(s) and 0 required comment(s) missing"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "unrelated_mutation_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -2662,7 +2662,7 @@
       "detail": "1 undeclared change(s)"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "wrong_value_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -2671,7 +2671,7 @@
       "detail": "1 required change(s) and 0 required comment(s) missing"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "forbidden_mutation_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -2834,6 +2834,60 @@
     },
     {
       "task_id": "SUP-distract-008",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-distract-009",
       "check": "forbidden_mutation_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -3568,7 +3622,7 @@
       "actual": "FAIL",
       "ok": true,
       "outcome": "missing_required",
-      "detail": "1 required change(s) and 0 required comment(s) missing"
+      "detail": "2 required change(s) and 0 required comment(s) missing"
     },
     {
       "task_id": "SUP-mtcond-007",
@@ -3595,7 +3649,7 @@
       "actual": "FAIL",
       "ok": true,
       "outcome": "missing_required",
-      "detail": "1 required change(s) and 0 required comment(s) missing"
+      "detail": "2 required change(s) and 0 required comment(s) missing"
     },
     {
       "task_id": "SUP-mtcond-007",
@@ -3613,7 +3667,7 @@
       "actual": "FAIL",
       "ok": true,
       "outcome": "missing_required",
-      "detail": "1 required change(s) and 0 required comment(s) missing"
+      "detail": "2 required change(s) and 0 required comment(s) missing"
     },
     {
       "task_id": "SUP-mtcond-008",
@@ -3662,11 +3716,11 @@
     },
     {
       "task_id": "-",
-      "check": "fixture_customer_subject_unique",
+      "check": "fixture_customer_signal_unique",
       "expected": "PASS",
       "actual": "PASS",
       "ok": true,
-      "outcome": "0 ambiguous (customer, subject) group(s)",
+      "outcome": "0 ambiguous (customer, signal) group(s)",
       "detail": "a ticket described by customer and issue must be uniquely resolvable"
     },
     {
@@ -3697,7 +3751,7 @@
       "detail": "a forbidden ticket owned by the target customer is an ambiguity"
     },
     {
-      "task_id": "SUP-distract-005",
+      "task_id": "SUP-distract-004",
       "check": "distractors_are_other_customers",
       "expected": "PASS",
       "actual": "PASS",
@@ -3733,6 +3787,15 @@
       "detail": "a forbidden ticket owned by the target customer is an ambiguity"
     },
     {
+      "task_id": "SUP-distract-009",
+      "check": "distractors_are_other_customers",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a forbidden ticket owned by the target customer is an ambiguity"
+    },
+    {
       "task_id": "SUP-distract-010",
       "check": "distractors_are_other_customers",
       "expected": "PASS",
@@ -3742,13 +3805,103 @@
       "detail": "a forbidden ticket owned by the target customer is an ambiguity"
     },
     {
+      "task_id": "SUP-polsel-001",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-002",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-003",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-004",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-005",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-006",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-007",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-008",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-009",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
       "task_id": "SUP-noop-001",
       "check": "policy_actions_fully_required",
       "expected": "PASS",
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-002",
@@ -3757,7 +3910,7 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-003",
@@ -3766,7 +3919,7 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-004",
@@ -3775,7 +3928,7 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-005",
@@ -3784,7 +3937,7 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-006",
@@ -3793,7 +3946,7 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-007",
@@ -3802,7 +3955,7 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "SUP-noop-008",
@@ -3811,7 +3964,79 @@
       "actual": "PASS",
       "ok": true,
       "outcome": "none",
-      "detail": "POL-002 mandates changes the task does not require"
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-001",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-002",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-003",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-004",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-005",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-006",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-007",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
+    },
+    {
+      "task_id": "SUP-mtcond-008",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "the task must require every change its policies mandate"
     },
     {
       "task_id": "-",

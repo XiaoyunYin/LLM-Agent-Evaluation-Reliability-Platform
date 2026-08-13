@@ -137,11 +137,12 @@ class SupportAgentConfig:
     # Derived from the reference-trajectory distribution, not guessed:
     # longest reference is 4 tool calls + 1 finish_task = 5 model turns, and the
     # budget is 2x that. Recomputed and frozen after expansion to ~80 tasks.
-    # Frozen at 15 = ceil(2.5 x 6), where 6 is the longest legitimate reference
-    # (5 tool calls + finish_task) measured across all 79 references. The worst
-    # observed SUCCESSFUL episode used 9 turns, so nothing in the suite is
-    # budget-bound. Derivation: docs/P3_BUDGET_DERIVATION.md.
-    max_steps: int = 15
+    # Frozen at 20 = ceil(2.5 x 8), where 8 is the longest legitimate reference
+    # (7 tool calls + finish_task) measured across all 80 references. Derivation:
+    # docs/P3_BUDGET_DERIVATION.md. It was 15 until a spec fix lengthened the
+    # multi_ticket_conditional references from 4 to 7 - which is the argument for
+    # deriving the budget after the suite is final rather than picking one early.
+    max_steps: int = 20
     temperature: float = 0.0
     top_p: float | None = None
     seed: int | None = None

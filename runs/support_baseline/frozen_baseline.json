@@ -1,0 +1,136 @@
+{
+  "label": "frozen_baseline",
+  "runs": [
+    "support_base_01",
+    "support_base_02",
+    "support_base_03",
+    "support_base_04",
+    "support_base_05",
+    "support_base_06",
+    "support_base_07",
+    "support_base_08",
+    "support_base_09",
+    "support_base_10"
+  ],
+  "episodes": 790,
+  "per_run_success": {
+    "support_base_01": 0.9240506329113924,
+    "support_base_02": 0.9113924050632911,
+    "support_base_03": 0.9240506329113924,
+    "support_base_04": 0.9367088607594937,
+    "support_base_05": 0.9240506329113924,
+    "support_base_06": 0.9493670886075949,
+    "support_base_07": 0.9367088607594937,
+    "support_base_08": 0.9367088607594937,
+    "support_base_09": 0.9493670886075949,
+    "support_base_10": 0.9367088607594937
+  },
+  "mean_success": 0.9329113924050633,
+  "sd_success": 0.012008649342411548,
+  "tier": {
+    "core": {
+      "passed": 343,
+      "total": 350
+    },
+    "hard": {
+      "passed": 394,
+      "total": 440
+    }
+  },
+  "family": {
+    "simple_update": {
+      "passed": 80,
+      "total": 80
+    },
+    "lookup_update": {
+      "passed": 80,
+      "total": 80
+    },
+    "policy_update": {
+      "passed": 40,
+      "total": 40
+    },
+    "multi_field": {
+      "passed": 60,
+      "total": 60
+    },
+    "multi_ticket": {
+      "passed": 30,
+      "total": 30
+    },
+    "conditional_escalation": {
+      "passed": 53,
+      "total": 60
+    },
+    "chained_resolution": {
+      "passed": 100,
+      "total": 100
+    },
+    "policy_selection": {
+      "passed": 100,
+      "total": 100
+    },
+    "distractor_resolution": {
+      "passed": 54,
+      "total": 80
+    },
+    "noop_plus_mutation": {
+      "passed": 80,
+      "total": 80
+    },
+    "multi_ticket_conditional": {
+      "passed": 60,
+      "total": 80
+    }
+  },
+  "provenance": {
+    "calibrated-core": {
+      "passed": 343,
+      "total": 350
+    },
+    "hard-calibration-derived": {
+      "passed": 394,
+      "total": 440
+    }
+  },
+  "consistency": {
+    "always": 72,
+    "never": 4,
+    "intermittent": 3
+  },
+  "calls": {
+    "tool_calls": 4327,
+    "invalid_calls": 224,
+    "episodes_with_invalid": 224,
+    "episodes": 790
+  },
+  "cost_usd": 0.58260105,
+  "taxonomy": {
+    "forbidden_mutation_made": 7,
+    "wrong_entity": 26,
+    "undeclared_mutation": 20
+  },
+  "failing_tasks": {
+    "SUP-cond-002": {
+      "forbidden_mutation_made": 5
+    },
+    "SUP-distract-001": {
+      "wrong_entity": 10
+    },
+    "SUP-distract-003": {
+      "wrong_entity": 10
+    },
+    "SUP-distract-005": {
+      "wrong_entity": 6
+    },
+    "SUP-mtcond-007": {
+      "undeclared_mutation": 10
+    },
+    "SUP-mtcond-006": {
+      "undeclared_mutation": 10
+    },
+    "SUP-cond-004": {
+      "forbidden_mutation_made": 2
+    }
+  }
+}
