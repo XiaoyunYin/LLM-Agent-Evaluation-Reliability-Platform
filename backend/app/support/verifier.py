@@ -89,9 +89,32 @@ class CommentPredicate(BaseModel):
     body_contains: str | None = None
 
 
+class DifficultyAttributes(BaseModel):
+    """Structural properties recorded on every task.
+
+    Inclusion in the suite is decided by these, never by whether the agent passes
+    a candidate. A composition chosen by outcome describes the model, not the
+    capability.
+    """
+
+    reference_call_count: int = 0
+    entities_involved: int = 1
+    required_mutations: int = 0
+    retrieval_required: bool = False
+    cross_entity_resolution: bool = False
+    distractor_count: int = 0
+    conditional_branches: int = 0
+    tickets_affected: int = 1
+    policy_reasoning_required: bool = False
+    requires_noop_decision: bool = False
+
+
 class TaskSpec(BaseModel):
     task_id: str
     family: str
+    tier: str = "core"
+    provenance: str = "calibrated-core"
+    attributes: DifficultyAttributes = Field(default_factory=DifficultyAttributes)
     prompt: str
     required_changes: list[ChangeSpec] = Field(default_factory=list)
     allowed_incidental_changes: list[ChangeSpec] = Field(default_factory=list)
