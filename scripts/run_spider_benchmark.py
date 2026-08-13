@@ -244,7 +244,12 @@ def main() -> int:
         # episodes per task and silently double-count them in every metric.
         store.reset()
         already_done: set[str] = set()
+        pruned = 0
     else:
+        # Episodes that ended for an infrastructure reason measured nothing. They
+        # are removed so this session re-runs them and the file does not end up
+        # with two rows for one task.
+        pruned = store.prune_infrastructure_episodes()
         already_done = store.completed_task_ids()
 
     pending = [task for task in tasks if task.task_id not in already_done]
@@ -310,6 +315,9 @@ def main() -> int:
     print(f"  dataset          {task_set.dataset_version}")
     print(f"  valid tasks      {len(task_set):,}  excluded {len(task_set.excluded)}")
     print(f"  selected         {len(tasks):,}  already done {len(already_done):,}  to run {len(pending):,}")
+    if pruned:
+        print(f"  pruned           {pruned:,} infrastructure-terminated episode(s) "
+              f"from a previous session; they will be re-run")
     print(f"  artifacts        {store.run_dir}")
     print()
 

@@ -262,14 +262,24 @@ class TrajectoryStore:
         self._append(self.episodes_path, episode.model_dump(mode="json"))
 
     def completed_task_ids(self) -> set[str]:
-        """Task IDs already persisted, for checkpoint resume.
+        """Task IDs that are genuinely done, for checkpoint resume.
+
+        An episode that terminated for an infrastructure reason is NOT done. It
+        measured nothing about the agent, and counting it as complete would make a
+        resume skip it forever, silently shrinking the benchmark.
+
+        That is not hypothetical: a real 429 recorded one RATE_LIMITED episode,
+        and before this fix `completed_task_ids()` returned that task, so resuming
+        would have dropped it from the run permanently while every report still
+        claimed the full task set.
 
         A truncated final line (a crash mid-write) is skipped rather than raising:
         the task simply gets re-run, which is the safe direction.
         """
-        if not self.episodes_path.exists():
+        if not jsonl_exists(self.episodes_path):
             return set()
 
+        infrastructure = {reason.value for reason in INFRASTRUCTURE_TERMINATIONS}
         done: set[str] = set()
         with open_jsonl(self.episodes_path) as handle:
             for line in handle:
@@ -277,10 +287,98 @@ class TrajectoryStore:
                 if not line:
                     continue
                 try:
-                    done.add(json.loads(line)["task_id"])
+                    record = json.loads(line)
+                    if record.get("termination_reason") in infrastructure:
+                        continue
+                    done.add(record["task_id"])
                 except (json.JSONDecodeError, KeyError):
                     continue
         return done
+
+    def incomplete_task_ids(self) -> set[str]:
+        """Task IDs recorded only with an infrastructure termination.
+
+        These have a row in `episodes.jsonl` but no usable measurement. A resume
+        re-runs them, which means the file can end up with two rows for one task,
+        so `prune_infrastructure_episodes()` clears them first.
+        """
+        if not jsonl_exists(self.episodes_path):
+            return set()
+
+        infrastructure = {reason.value for reason in INFRASTRUCTURE_TERMINATIONS}
+        incomplete: set[str] = set()
+        with open_jsonl(self.episodes_path) as handle:
+            for line in handle:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("termination_reason") in infrastructure:
+                    incomplete.add(record.get("task_id", ""))
+        return incomplete - {""}
+
+    def prune_infrastructure_episodes(self) -> int:
+        """Drop infrastructure-terminated episodes so a resume can replace them.
+
+        Returns how many were removed. Without this, resuming after a quota halt
+        would append a second row for the same task and every metric computed over
+        the file would double-count it.
+        """
+        if not jsonl_exists(self.episodes_path):
+            return 0
+
+        infrastructure = {reason.value for reason in INFRASTRUCTURE_TERMINATIONS}
+        kept: list[str] = []
+        removed = 0
+        removed_episode_ids: set[str] = set()
+
+        with open_jsonl(self.episodes_path) as handle:
+            for line in handle:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    record = json.loads(stripped)
+                except json.JSONDecodeError:
+                    continue
+                if record.get("termination_reason") in infrastructure:
+                    removed += 1
+                    removed_episode_ids.add(record.get("episode_id", ""))
+                else:
+                    kept.append(stripped)
+
+        if not removed:
+            return 0
+
+        with self._lock:
+            self.episodes_path.write_text(
+                "\n".join(kept) + ("\n" if kept else ""), encoding="utf-8"
+            )
+
+        # Their steps go too, or step/episode counts stop reconciling.
+        if jsonl_exists(self.steps_path):
+            kept_steps: list[str] = []
+            with open_jsonl(self.steps_path) as handle:
+                for line in handle:
+                    stripped = line.strip()
+                    if not stripped:
+                        continue
+                    try:
+                        if json.loads(stripped).get("episode_id") in removed_episode_ids:
+                            continue
+                    except json.JSONDecodeError:
+                        continue
+                    kept_steps.append(stripped)
+            with self._lock:
+                self.steps_path.write_text(
+                    "\n".join(kept_steps) + ("\n" if kept_steps else ""),
+                    encoding="utf-8",
+                )
+
+        return removed
 
     def iter_episodes(self) -> Iterator[dict[str, Any]]:
         if not jsonl_exists(self.episodes_path):
