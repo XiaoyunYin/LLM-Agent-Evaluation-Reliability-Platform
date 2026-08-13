@@ -1,0 +1,274 @@
+{
+  "generated_at": "2026-08-13T09:21:12.282198+00:00",
+  "run_id": "spider_rpt__on_4",
+  "episodes": 1034,
+  "config": {
+    "dataset_version": "spider-1.0:dev:30d64a3fccde",
+    "model_version": "gpt-4o-mini",
+    "prompt_version": "sql_agent_v1",
+    "tool_schema_version": "spider_tools_v2",
+    "agent_version": "spider_langgraph_agent_v1",
+    "adapter_version": "spider_adapter_v1",
+    "max_steps": 10,
+    "temperature": 0.0,
+    "code_commit_sha": "30595c20c6679bb66e4233e2a81889d7adaba84f",
+    "stage": "full",
+    "is_mock": false
+  },
+  "termination_breakdown": {
+    "counts": {
+      "SUCCESS": 760,
+      "VERIFICATION_FAILED": 229,
+      "SQL_ERROR": 1,
+      "MAX_STEPS": 44,
+      "MODEL_ERROR": 0,
+      "TOOL_ERROR": 0,
+      "NO_FINAL_SQL": 0,
+      "RATE_LIMITED": 0
+    },
+    "total": 1034,
+    "episodes_on_file": 1034,
+    "sums_exactly": true,
+    "unexpected_reasons": []
+  },
+  "step_decomposition": {
+    "definitions": {
+      "model_turns": "One completed call to the model API. This is what max_steps caps.",
+      "tool_calls": "One tool invocation record (inspect_schema, execute_sql, or submit_answer).",
+      "trajectory_records": "Rows written to steps.jsonl = model_turns + tool_calls."
+    },
+    "max_steps_config": 10,
+    "max_steps_is_a_model_turn_cap": true,
+    "successful_tasks": {
+      "model_turns": {
+        "mean": 4.657894736842105,
+        "median": 4.0,
+        "min": 3.0,
+        "max": 9.0
+      },
+      "tool_calls": {
+        "mean": 4.657894736842105,
+        "median": 4.0,
+        "min": 3.0,
+        "max": 9.0
+      },
+      "trajectory_records": {
+        "mean": 9.31578947368421,
+        "median": 8.0,
+        "min": 6.0,
+        "max": 18.0
+      },
+      "schema_inspections": {
+        "mean": 2.6013157894736842,
+        "median": 2.0,
+        "min": 1.0,
+        "max": 5.0
+      },
+      "sql_executions": {
+        "mean": 1.056578947368421,
+        "median": 1.0,
+        "min": 1.0,
+        "max": 6.0
+      }
+    },
+    "all_tasks": {
+      "model_turns": {
+        "mean": 5.024177949709864,
+        "median": 5.0,
+        "min": 3.0,
+        "max": 10.0
+      },
+      "tool_calls": {
+        "mean": 5.024177949709864,
+        "median": 5.0,
+        "min": 3.0,
+        "max": 10.0
+      },
+      "trajectory_records": {
+        "mean": 10.048355899419729,
+        "median": 10.0,
+        "min": 6.0,
+        "max": 20.0
+      }
+    },
+    "totals": {
+      "model_turns": 5195,
+      "tool_calls": 5195,
+      "trajectory_records": 10390,
+      "step_records_on_file": 10390
+    },
+    "identity_holds": true,
+    "episodes_reaching_the_model_turn_cap": 46
+  },
+  "tool_vs_episode_errors": {
+    "tool_call_level": {
+      "definition": "Counted per tool invocation. A failure here is one call going wrong; the episode may recover from it.",
+      "calls_by_tool": {
+        "inspect_schema": 2841,
+        "execute_sql": 1364,
+        "submit_answer": 990
+      },
+      "failures_by_tool": {
+        "inspect_schema": 16,
+        "execute_sql": 9
+      },
+      "execute_sql_calls": 1364,
+      "execute_sql_failures": 9,
+      "execute_sql_error_rate": 0.006598240469208211,
+      "execute_sql_failure_messages": [
+        {
+          "task_id": "spider_dev_0089",
+          "error": "OperationalError: no such column: c.ContId"
+        },
+        {
+          "task_id": "spider_dev_0113",
+          "error": "OperationalError: no such column: CountryId"
+        },
+        {
+          "task_id": "spider_dev_0152",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0151",
+          "error": "OperationalError: no such column: mn.Model"
+        },
+        {
+          "task_id": "spider_dev_0227",
+          "error": "OperationalError: 1st ORDER BY term does not match any column in the result set"
+        },
+        {
+          "task_id": "spider_dev_0254",
+          "error": "OperationalError: unrecognized token: \"}\""
+        },
+        {
+          "task_id": "spider_dev_0459",
+          "error": "OperationalError: no such column: tour_counts.loser_id"
+        },
+        {
+          "task_id": "spider_dev_0637",
+          "error": "OperationalError: near \";\": syntax error"
+        },
+        {
+          "task_id": "spider_dev_0638",
+          "error": "OperationalError: near \";\": syntax error"
+        }
+      ]
+    },
+    "episode_level": {
+      "definition": "Counted per episode, from termination_reason. SQL_ERROR means the episode's FINAL SUBMITTED query does not execute.",
+      "sql_error_terminations": 1,
+      "episodes_containing_at_least_one_execute_sql_failure": 9,
+      "of_those_that_still_succeeded": 2,
+      "episodes_containing_any_tool_failure_that_still_succeeded": 13
+    },
+    "why_they_differ": "A failed execute_sql is a tool-call event the agent can see and fix. SQL_ERROR is an episode outcome. These are different denominators (tool calls vs episodes) and must not appear in the same table."
+  },
+  "max_steps_analysis": {
+    "total_max_step_episodes": 44,
+    "rules": {
+      "empty_result_loop_broad": "Episode terminated MAX_STEPS AND executed at least one execute_sql call that returned row_count == 0 with error == None (a valid query returning no rows).",
+      "empty_result_loop_strict": "Episode terminated MAX_STEPS AND executed at least two execute_sql calls that each returned row_count == 0 with error == None.",
+      "abandoned_a_correct_query": "Episode terminated MAX_STEPS AND at least one query it executed during the episode passes the official evaluator against gold. Established by re-running each executed query through verify_sql, not by inspection."
+    },
+    "empty_result_loop_broad": {
+      "count": 32,
+      "share_of_max_steps": 0.7272727272727273,
+      "task_ids": [
+        "spider_dev_0066",
+        "spider_dev_0105",
+        "spider_dev_0106",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0158",
+        "spider_dev_0175",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0224",
+        "spider_dev_0233",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0354",
+        "spider_dev_0356",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0458",
+        "spider_dev_0642",
+        "spider_dev_0700",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0908",
+        "spider_dev_1033"
+      ]
+    },
+    "empty_result_loop_strict": {
+      "count": 31,
+      "share_of_max_steps": 0.7045454545454546,
+      "task_ids": [
+        "spider_dev_0066",
+        "spider_dev_0105",
+        "spider_dev_0106",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0158",
+        "spider_dev_0175",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0224",
+        "spider_dev_0233",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0356",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0458",
+        "spider_dev_0642",
+        "spider_dev_0700",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0908",
+        "spider_dev_1033"
+      ]
+    },
+    "abandoned_a_correct_query": {
+      "verified": false,
+      "count": null,
+      "share_of_max_steps": null,
+      "share_of_benchmark_pp": null,
+      "share_of_benchmark_meaning": "Observed theoretical headroom: the share of the benchmark where a verifier-passing query was already executed and never submitted. It is NOT guaranteed recoverable accuracy - no intervention has been measured, and any intervention that changes behaviour here would change it on other episodes too.",
+      "task_ids": [],
+      "cases": []
+    },
+    "cohort_overlap": {
+      "definition": "Exact intersection of episodes that abandoned a verifier-passing query with those matching empty_result_loop_broad.",
+      "abandoned_correct_query": null,
+      "empty_result_loop_broad": 32,
+      "in_both": null,
+      "abandoned_only": null,
+      "empty_result_only": null,
+      "passing_query_itself_returned_empty": null,
+      "equivalent_query_repeated_later": null
+    },
+    "upper_bound_if_all_max_steps_were_solved": {
+      "current_success_rate": 0.7350096711798839,
+      "ceiling": 0.7775628626692457,
+      "note": "A ceiling, not a forecast. It assumes every max-step episode would convert to a pass, which the data does not establish."
+    }
+  },
+  "substrate": "single_db"
+}

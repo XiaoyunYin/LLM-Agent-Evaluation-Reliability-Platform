@@ -1,82 +1,110 @@
 {
-  "policy_version": "p1_draft_unarmed",
-  "status": "NOT ARMED",
-  "why_not_armed": [
-    "Thresholds must be derived from measured same-commit repeat variability, per docs/P1_PREREGISTRATION.md.",
-    "Those repeats are blocked on the OpenAI requests-per-day quota (10,000/day; one full run costs ~5,200 requests).",
-    "Until the variance table exists, every threshold below is null. A gate with an invented threshold is worse than no gate: it manufactures confidence."
-  ],
+  "policy_version": "p1_armed_v1",
+  "status": "ARMED",
+  "derived_from": {
+    "variance_family": [
+      "spider_rpt__on_1",
+      "spider_rpt__on_2",
+      "spider_rpt__on_3",
+      "spider_rpt__on_4"
+    ],
+    "execution_tag": "p1-runner",
+    "execution_commit": "30595c20c6679bb66e4233e2a81889d7adaba84f",
+    "same_commit_clean_tree": true,
+    "identical_recorded_configuration": true,
+    "identical_task_set": true,
+    "tasks": 1034,
+    "primary_metric": "test_suite_execution_accuracy",
+    "variance_artifact": "runs/spider_variance/on_family_test_suite.json"
+  },
   "threshold_formula": "max(2 x observed_spread_across_repeats, minimum_detectable_change)",
-  "threshold_formula_source": "docs/P1_PREREGISTRATION.md, fixed before any repeat ran",
+  "threshold_formula_source": "docs/P1_PREREGISTRATION_V2.md, fixed before any family run executed",
+  "threshold_caveat": "A policy choice derived from a measured 4-run envelope, NOT a statistical guarantee. Four repeats give a descriptive range, not a confidence interval.",
   "superseded": {
     "previous_policy": "eval score drop > 5%, latency increase > 15%, cost increase > 15%",
-    "why_superseded": "Those numbers were chosen by judgement, not measured. The two P0 full runs differed by 34 pass/fail flips under an identical recorded configuration, so a 5% accuracy threshold was never anchored to anything observed."
+    "why_superseded": "Chosen by judgement, never measured. The measured same-commit accuracy spread is 1.35pp, so a 5% threshold would have been ~3.7x wider than the noise it was meant to sit above and would have missed real regressions."
   },
   "gate": {
-    "description": "Fails CI when exceeded. Only metrics whose same-commit variability has been measured may be armed here.",
+    "description": "Fails CI when the metric moves further than the threshold in the bad direction.",
     "metrics": {
-      "task_success_rate": {
-        "definition": "SUCCESS episodes / episodes measured, single-database execution accuracy",
+      "test_suite_task_success": {
+        "definition": "SUCCESS episodes / episodes measured, test-suite execution accuracy",
         "direction": "decrease_is_bad",
-        "threshold": null,
-        "armed": false
+        "observed_range": [0.636364, 0.649903],
+        "observed_spread": 0.013540,
+        "threshold": 0.027079,
+        "armed": true
       },
-      "consistency_pass_pow_k": {
-        "definition": "Share of tasks passing in every repeat of a run set",
+      "consistency_pass_pow_4": {
+        "definition": "Share of tasks passing in every repeat, C(c,k)/C(n,k) averaged over tasks",
         "direction": "decrease_is_bad",
+        "observed_value": 0.613153,
         "threshold": null,
         "armed": false,
-        "note": "Requires k repeats per side; cannot be evaluated from a single run."
+        "why_not_armed": "Requires k repeats per side to evaluate. A single CI run cannot produce it, so it is a release-gate candidate rather than a per-commit gate."
       },
       "mean_model_turns_per_success": {
-        "definition": "Model API calls per successful episode",
+        "definition": "Model API calls per successful episode; max_steps caps this",
         "direction": "increase_is_bad",
-        "threshold": null,
-        "armed": false
+        "observed_range": [4.571856, 4.599702],
+        "observed_spread": 0.027846,
+        "threshold": 0.055692,
+        "armed": true
       },
       "tool_validity_rate": {
         "definition": "1 - (tool calls with arguments not matching the declared schema / tool calls)",
         "direction": "decrease_is_bad",
-        "threshold": null,
-        "armed": false
+        "observed_range": [0.995964, 0.996920],
+        "observed_spread": 0.000956,
+        "threshold": 0.001912,
+        "armed": true,
+        "note": "The validation-OFF ablation moved this to 0.97776 (117 malformed calls vs 16-21), roughly 12x the threshold, so this gate does detect the ablation even though accuracy does not."
       },
       "estimated_cost_per_success": {
-        "definition": "Total estimated cost / successful episodes, from token counts and the pricing snapshot",
+        "definition": "Total estimated cost / successful episodes, from recorded tokens and the pinned price snapshot",
         "direction": "increase_is_bad",
-        "threshold": null,
-        "armed": false,
-        "note": "Token-derived, not billed. Insulated from provider latency, unlike wall-clock cost proxies."
+        "observed_range": [0.000938, 0.000978],
+        "observed_spread": 0.000040,
+        "threshold": 0.000080,
+        "armed": true,
+        "pricing_basis": "Token-derived from the price snapshot stored in each run's manifest. Provider repricing must never retroactively change a historical CI verdict."
       }
     }
   },
   "monitor": {
     "description": "Reported on every run, never fails CI.",
     "metrics": {
+      "single_database_execution_accuracy": {
+        "why_monitor_only": "Diagnostic companion to the primary metric. Measured to credit 10.8% false positives relative to the test suite, so gating on it would gate on a known-looser signal.",
+        "observed_range": [0.7215, 0.7350],
+        "armed": false
+      },
       "external_api_p95_latency_ms": {
-        "why_monitor_only": "Dominated by provider-side variation this project does not control. Measured directly: a 5-token call ranged 0.5s to 18s within one hour, and the cause was the SDK silently retrying 429s. Gating on it would fail CI for someone else's incident.",
+        "why_monitor_only": "Provider-side. Measured to range 0.5s-18s within one hour, and the cause was hidden SDK retries against an exhausted quota. Gating would fail CI for someone else's incident.",
         "armed": false
       },
       "termination_reason_distribution": {
-        "why_monitor_only": "The taxonomy is not yet stable enough to gate. Two runs of an identical recorded configuration produced 49 termination-reason changes, of which 15 were fail-to-fail (e.g. VERIFICATION_FAILED to MAX_STEPS). Gating on a distribution that churns without any outcome changing would fire on noise.",
-        "promotion_criterion": "Promote to gate once same-commit repeats show its fail-to-fail churn is small relative to the effect sizes worth catching.",
+        "why_monitor_only": "Still churning. Across the 6 ON-to-ON pairs the mean termination-reason change count is 50.3 while mean pass/fail flips are 36.8, so ~13 reason changes per pair alter nothing about the outcome.",
+        "promotion_criterion": "Promote once fail-to-fail reason churn is small relative to the effect sizes worth catching.",
         "armed": false
       },
-      "episode_wall_clock_latency_ms": {
-        "why_monitor_only": "Same provider-side exposure as API latency, plus it now depends on the run's concurrency setting.",
+      "sql_execution_error_rate": {
+        "why_monitor_only": "Tool-call-level metric whose observed spread (0.0066) is half its own mean, so a threshold derived from it would be wider than the signal.",
+        "observed_range": [0.005822, 0.012382],
         "armed": false
       }
     }
   },
   "always_fail_regardless_of_threshold": {
-    "description": "Infrastructure correctness is not a tunable metric. Any non-zero value here invalidates the run's quality numbers, so it fails CI unconditionally.",
+    "description": "Infrastructure correctness is not a tunable metric. Any non-zero value invalidates the run's quality numbers.",
     "conditions": [
-      "generation_infrastructure_failures > 0",
-      "tool_infrastructure_failures > 0",
+      "any RATE_LIMITED, MODEL_ERROR, or TOOL_ERROR episode",
       "evaluator_infrastructure_failures > 0",
       "gold_query_failures > 0",
       "missing_trajectories > 0",
       "duplicate_task_ids non-empty",
-      "trace_check.matches_trajectory is false"
+      "trace_check.matches_trajectory is false",
+      "episodes measured != 1034"
     ]
   }
 }

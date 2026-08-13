@@ -1,0 +1,177 @@
+{
+  "generated_at": "2026-08-13T09:33:14.130273+00:00",
+  "run_a": "spider_rpt__on_3",
+  "run_b": "spider_abl__off_1",
+  "substrate": "test_suite",
+  "verdict_source": "rescore__test_suite.json (offline, no model re-run)",
+  "task_sets": {
+    "shared": 1034,
+    "only_in_a": [],
+    "only_in_b": [],
+    "identical": true
+  },
+  "configuration": {
+    "identity_field_differences": {
+      "tool_schema_version": {
+        "a": "spider_tools_v2",
+        "b": "spider_tools_v2__validation_off_ablation"
+      }
+    },
+    "same_experiment": false,
+    "expected_differences": {
+      "run_id": {
+        "a": "spider_rpt__on_3",
+        "b": "spider_abl__off_1"
+      },
+      "started_at": {
+        "a": "2026-08-13T09:07:24.659361+00:00",
+        "b": "2026-08-13T09:21:14.108720+00:00"
+      }
+    },
+    "other_differences": {
+      "tool_argument_validation": {
+        "a": true,
+        "b": false
+      }
+    },
+    "fields_compared": [
+      "dataset",
+      "dataset_version",
+      "split",
+      "archive_sha256",
+      "dev_json_sha256",
+      "model_version",
+      "prompt_version",
+      "tool_schema_version",
+      "adapter_version",
+      "agent_version",
+      "max_steps",
+      "temperature",
+      "max_visible_rows",
+      "valid_task_count",
+      "excluded_task_ids",
+      "sampled",
+      "sample_seed"
+    ]
+  },
+  "sampling": {
+    "run_a": {
+      "temperature": 0.0,
+      "top_p": null,
+      "seed": null,
+      "requested_model_alias": "gpt-4o-mini",
+      "resolved_model_revision": "not captured for this run; the alias above was requested",
+      "determinism_note": "No seed was sent. These are repeated runs under an identical recorded configuration, NOT seeded runs. OpenAI's seed parameter is best-effort and would not make them deterministic either."
+    },
+    "run_b": {
+      "temperature": 0.0,
+      "top_p": null,
+      "seed": null,
+      "requested_model_alias": "gpt-4o-mini",
+      "resolved_model_revision": "not captured for this run; the alias above was requested",
+      "determinism_note": "No seed was sent. These are repeated runs under an identical recorded configuration, NOT seeded runs. OpenAI's seed parameter is best-effort and would not make them deterministic either."
+    }
+  },
+  "accuracy": {
+    "run_a": {
+      "passes": 658,
+      "total": 1034,
+      "rate": 0.6363636363636364
+    },
+    "run_b": {
+      "passes": 669,
+      "total": 1034,
+      "rate": 0.6470019342359767
+    },
+    "net_change_tasks": 11,
+    "net_change_rate": 0.010638297872340425
+  },
+  "pass_fail_ledger": {
+    "definition": "PASS means termination_reason == SUCCESS. Counted per task, joined on task_id across the two runs.",
+    "pass_to_pass": 646,
+    "pass_to_fail": 12,
+    "fail_to_pass": 23,
+    "fail_to_fail": 353,
+    "total_pass_fail_flips": 35,
+    "flip_rate": 0.033849129593810444,
+    "identities": {
+      "cells_sum_to_shared_tasks": {
+        "expected": 1034,
+        "actual": 1034,
+        "holds": true
+      },
+      "flips_equal_offdiagonal": {
+        "expected": 35,
+        "actual": 35,
+        "holds": true
+      },
+      "net_change_matches_pass_counts": {
+        "fail_to_pass_minus_pass_to_fail": 11,
+        "passes_b_minus_passes_a": 11,
+        "holds": true
+      }
+    },
+    "all_identities_hold": true
+  },
+  "termination_reason_churn": {
+    "definition": "Any change in termination_reason, INCLUDING fail-to-fail changes that did not alter the outcome. Strictly larger than the pass/fail flip count, and not a substitute for it.",
+    "total_reason_changes": 54,
+    "of_which_fail_to_fail": 19,
+    "of_which_changed_outcome": 35,
+    "transitions": {
+      "VERIFICATION_FAILED->SUCCESS": 21,
+      "VERIFICATION_FAILED->MAX_STEPS": 14,
+      "SUCCESS->MAX_STEPS": 7,
+      "SUCCESS->VERIFICATION_FAILED": 5,
+      "MAX_STEPS->VERIFICATION_FAILED": 3,
+      "MAX_STEPS->SUCCESS": 2,
+      "SQL_ERROR->VERIFICATION_FAILED": 1,
+      "VERIFICATION_FAILED->SQL_ERROR": 1
+    }
+  },
+  "flipped_task_ids": {
+    "pass_to_fail": [
+      "spider_dev_0024",
+      "spider_dev_0055",
+      "spider_dev_0215",
+      "spider_dev_0218",
+      "spider_dev_0244",
+      "spider_dev_0367",
+      "spider_dev_0606",
+      "spider_dev_0702",
+      "spider_dev_0775",
+      "spider_dev_0780",
+      "spider_dev_0833",
+      "spider_dev_1029"
+    ],
+    "fail_to_pass": [
+      "spider_dev_0147",
+      "spider_dev_0149",
+      "spider_dev_0161",
+      "spider_dev_0177",
+      "spider_dev_0236",
+      "spider_dev_0243",
+      "spider_dev_0293",
+      "spider_dev_0308",
+      "spider_dev_0329",
+      "spider_dev_0360",
+      "spider_dev_0479",
+      "spider_dev_0516",
+      "spider_dev_0551",
+      "spider_dev_0602",
+      "spider_dev_0626",
+      "spider_dev_0633",
+      "spider_dev_0651",
+      "spider_dev_0666",
+      "spider_dev_0799",
+      "spider_dev_0856",
+      "spider_dev_0921",
+      "spider_dev_0922",
+      "spider_dev_0954"
+    ]
+  },
+  "classification": {
+    "diagnostic_only": false,
+    "in_p1_variance_family": null
+  }
+}

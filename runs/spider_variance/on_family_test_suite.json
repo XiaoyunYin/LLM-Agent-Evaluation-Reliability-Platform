@@ -1,0 +1,664 @@
+{
+  "generated_at": "2026-08-13T09:32:58.866541+00:00",
+  "runs": [
+    "spider_rpt__on_1",
+    "spider_rpt__on_2",
+    "spider_rpt__on_3",
+    "spider_rpt__on_4"
+  ],
+  "repeat_set_validity": {
+    "identical_recorded_configuration": true,
+    "config_mismatches": {},
+    "identical_task_set": true,
+    "shared_tasks": 1034,
+    "same_commit_clean_tree": true,
+    "commits": {
+      "spider_rpt__on_1": "30595c20c6679bb66e4233e2a81889d7adaba84f",
+      "spider_rpt__on_2": "30595c20c6679bb66e4233e2a81889d7adaba84f",
+      "spider_rpt__on_3": "30595c20c6679bb66e4233e2a81889d7adaba84f",
+      "spider_rpt__on_4": "30595c20c6679bb66e4233e2a81889d7adaba84f"
+    },
+    "working_tree_dirty": {
+      "spider_rpt__on_1": false,
+      "spider_rpt__on_2": false,
+      "spider_rpt__on_3": false,
+      "spider_rpt__on_4": false
+    }
+  },
+  "per_run_metrics": [
+    {
+      "run_id": "spider_rpt__on_1",
+      "episodes": 1034,
+      "passed": 665,
+      "accuracy": 0.6431334622823984,
+      "mean_model_turns_per_success": 4.589473684210526,
+      "mean_trajectory_records_per_success": 9.178947368421053,
+      "sql_executions": 1405,
+      "sql_execution_errors": 16,
+      "sql_execution_error_rate": 0.011387900355871887,
+      "tool_calls": 5243,
+      "bad_argument_tool_calls": 21,
+      "tool_validity_rate": 0.9959946595460614,
+      "estimated_cost_total": 0.6502548,
+      "estimated_cost_per_success": 0.0009778267669172933,
+      "terminations": {
+        "SUCCESS": 665,
+        "VERIFICATION_FAILED": 317,
+        "SQL_ERROR": 0,
+        "MAX_STEPS": 52,
+        "MODEL_ERROR": 0,
+        "TOOL_ERROR": 0,
+        "NO_FINAL_SQL": 0,
+        "RATE_LIMITED": 0
+      }
+    },
+    {
+      "run_id": "spider_rpt__on_2",
+      "episodes": 1034,
+      "passed": 668,
+      "accuracy": 0.6460348162475822,
+      "mean_model_turns_per_success": 4.57185628742515,
+      "mean_trajectory_records_per_success": 9.1437125748503,
+      "sql_executions": 1374,
+      "sql_execution_errors": 8,
+      "sql_execution_error_rate": 0.005822416302765648,
+      "tool_calls": 5203,
+      "bad_argument_tool_calls": 21,
+      "tool_validity_rate": 0.9959638669998078,
+      "estimated_cost_total": 0.63273225,
+      "estimated_cost_per_success": 0.0009472039670658682,
+      "terminations": {
+        "SUCCESS": 668,
+        "VERIFICATION_FAILED": 319,
+        "SQL_ERROR": 1,
+        "MAX_STEPS": 46,
+        "MODEL_ERROR": 0,
+        "TOOL_ERROR": 0,
+        "NO_FINAL_SQL": 0,
+        "RATE_LIMITED": 0
+      }
+    },
+    {
+      "run_id": "spider_rpt__on_3",
+      "episodes": 1034,
+      "passed": 658,
+      "accuracy": 0.6363636363636364,
+      "mean_model_turns_per_success": 4.574468085106383,
+      "mean_trajectory_records_per_success": 9.148936170212766,
+      "sql_executions": 1373,
+      "sql_execution_errors": 17,
+      "sql_execution_error_rate": 0.012381646030589949,
+      "tool_calls": 5205,
+      "bad_argument_tool_calls": 20,
+      "tool_validity_rate": 0.9961575408261287,
+      "estimated_cost_total": 0.6312921,
+      "estimated_cost_per_success": 0.0009594104863221885,
+      "terminations": {
+        "SUCCESS": 658,
+        "VERIFICATION_FAILED": 330,
+        "SQL_ERROR": 1,
+        "MAX_STEPS": 45,
+        "MODEL_ERROR": 0,
+        "TOOL_ERROR": 0,
+        "NO_FINAL_SQL": 0,
+        "RATE_LIMITED": 0
+      }
+    },
+    {
+      "run_id": "spider_rpt__on_4",
+      "episodes": 1034,
+      "passed": 672,
+      "accuracy": 0.6499032882011605,
+      "mean_model_turns_per_success": 4.599702380952381,
+      "mean_trajectory_records_per_success": 9.199404761904763,
+      "sql_executions": 1364,
+      "sql_execution_errors": 9,
+      "sql_execution_error_rate": 0.006598240469208211,
+      "tool_calls": 5195,
+      "bad_argument_tool_calls": 16,
+      "tool_validity_rate": 0.996920115495669,
+      "estimated_cost_total": 0.63015765,
+      "estimated_cost_per_success": 0.0009377345982142857,
+      "terminations": {
+        "SUCCESS": 672,
+        "VERIFICATION_FAILED": 317,
+        "SQL_ERROR": 1,
+        "MAX_STEPS": 44,
+        "MODEL_ERROR": 0,
+        "TOOL_ERROR": 0,
+        "NO_FINAL_SQL": 0,
+        "RATE_LIMITED": 0
+      }
+    }
+  ],
+  "variance": {
+    "accuracy": {
+      "min": 0.6363636363636364,
+      "max": 0.6499032882011605,
+      "spread": 0.013539651837524147,
+      "mean": 0.6438588007736944,
+      "stdev": 0.005714731754105674
+    },
+    "mean_model_turns_per_success": {
+      "min": 4.57185628742515,
+      "max": 4.599702380952381,
+      "spread": 0.027846093527231552,
+      "mean": 4.5838751094236105,
+      "stdev": 0.013099500657477071
+    },
+    "mean_trajectory_records_per_success": {
+      "min": 9.1437125748503,
+      "max": 9.199404761904763,
+      "spread": 0.055692187054463105,
+      "mean": 9.167750218847221,
+      "stdev": 0.026199001314954142
+    },
+    "sql_execution_error_rate": {
+      "min": 0.005822416302765648,
+      "max": 0.012381646030589949,
+      "spread": 0.006559229727824301,
+      "mean": 0.009047550789608923,
+      "stdev": 0.0033163253093389795
+    },
+    "tool_validity_rate": {
+      "min": 0.9959638669998078,
+      "max": 0.996920115495669,
+      "spread": 0.0009562484958611783,
+      "mean": 0.9962590457169167,
+      "stdev": 0.00044883070958771736
+    },
+    "estimated_cost_per_success": {
+      "min": 0.0009377345982142857,
+      "max": 0.0009778267669172933,
+      "spread": 4.0092168703007654e-05,
+      "mean": 0.000955543954629909,
+      "stdev": 1.730320162348832e-05
+    }
+  },
+  "pairwise_churn": [
+    {
+      "run_a": "spider_rpt__on_1",
+      "run_b": "spider_rpt__on_2",
+      "pass_to_pass": 650,
+      "pass_to_fail": 15,
+      "fail_to_pass": 18,
+      "fail_to_fail": 351,
+      "total_pass_fail_flips": 33,
+      "flip_rate": 0.031914893617021274,
+      "termination_reason_changes": 50,
+      "identity_holds": true
+    },
+    {
+      "run_a": "spider_rpt__on_1",
+      "run_b": "spider_rpt__on_3",
+      "pass_to_pass": 646,
+      "pass_to_fail": 19,
+      "fail_to_pass": 12,
+      "fail_to_fail": 357,
+      "total_pass_fail_flips": 31,
+      "flip_rate": 0.029980657640232108,
+      "termination_reason_changes": 44,
+      "identity_holds": true
+    },
+    {
+      "run_a": "spider_rpt__on_1",
+      "run_b": "spider_rpt__on_4",
+      "pass_to_pass": 653,
+      "pass_to_fail": 12,
+      "fail_to_pass": 19,
+      "fail_to_fail": 350,
+      "total_pass_fail_flips": 31,
+      "flip_rate": 0.029980657640232108,
+      "termination_reason_changes": 45,
+      "identity_holds": true
+    },
+    {
+      "run_a": "spider_rpt__on_2",
+      "run_b": "spider_rpt__on_3",
+      "pass_to_pass": 642,
+      "pass_to_fail": 26,
+      "fail_to_pass": 16,
+      "fail_to_fail": 350,
+      "total_pass_fail_flips": 42,
+      "flip_rate": 0.04061895551257253,
+      "termination_reason_changes": 55,
+      "identity_holds": true
+    },
+    {
+      "run_a": "spider_rpt__on_2",
+      "run_b": "spider_rpt__on_4",
+      "pass_to_pass": 648,
+      "pass_to_fail": 20,
+      "fail_to_pass": 24,
+      "fail_to_fail": 342,
+      "total_pass_fail_flips": 44,
+      "flip_rate": 0.0425531914893617,
+      "termination_reason_changes": 56,
+      "identity_holds": true
+    },
+    {
+      "run_a": "spider_rpt__on_3",
+      "run_b": "spider_rpt__on_4",
+      "pass_to_pass": 645,
+      "pass_to_fail": 13,
+      "fail_to_pass": 27,
+      "fail_to_fail": 349,
+      "total_pass_fail_flips": 40,
+      "flip_rate": 0.03868471953578337,
+      "termination_reason_changes": 52,
+      "identity_holds": true
+    }
+  ],
+  "churn_summary": {
+    "pairs": 6,
+    "mean_pass_fail_flips": 36.833333333333336,
+    "max_pass_fail_flips": 44,
+    "mean_reason_changes": 50.333333333333336,
+    "all_identities_hold": true
+  },
+  "consistency": {
+    "repeats_k": 4,
+    "estimator": "pass^k(task) = C(c,k)/C(n,k), averaged over tasks",
+    "estimator_source": "docs/P1_PREREGISTRATION_V2.md (fixed before any run)",
+    "pass_pow_k_series": {
+      "pass^1": 0.6438588007736944,
+      "pass^2": 0.6260477111540942,
+      "pass^3": 0.6179883945841392,
+      "pass^4": 0.6131528046421664
+    },
+    "pass_pow_1_equals_mean_accuracy": true,
+    "definitions": {
+      "pass_pow_k": "Share of tasks passing in EVERY one of the k repeats.",
+      "pass_at_k": "Share of tasks passing in AT LEAST ONE of the k repeats.",
+      "flaky": "Share passing in some but not all repeats."
+    },
+    "pass_pow_k": 0.6131528046421664,
+    "pass_at_k": 0.6779497098646035,
+    "always_fail": 0.32205029013539654,
+    "flaky_share": 0.06479690522243714,
+    "counts": {
+      "always_pass": 634,
+      "always_fail": 333,
+      "flaky": 67,
+      "tasks": 1034
+    },
+    "pass_frequency_histogram": {
+      "0": 333,
+      "1": 27,
+      "2": 20,
+      "3": 20,
+      "4": 634
+    },
+    "gap_mean_accuracy_minus_pass_pow_k": 0.030705996131528024,
+    "flaky_task_ids": [
+      "spider_dev_0018",
+      "spider_dev_0043",
+      "spider_dev_0044",
+      "spider_dev_0054",
+      "spider_dev_0061",
+      "spider_dev_0063",
+      "spider_dev_0132",
+      "spider_dev_0147",
+      "spider_dev_0149",
+      "spider_dev_0151",
+      "spider_dev_0161",
+      "spider_dev_0171",
+      "spider_dev_0177",
+      "spider_dev_0185",
+      "spider_dev_0218",
+      "spider_dev_0235",
+      "spider_dev_0236",
+      "spider_dev_0243",
+      "spider_dev_0244",
+      "spider_dev_0249",
+      "spider_dev_0250",
+      "spider_dev_0255",
+      "spider_dev_0287",
+      "spider_dev_0293",
+      "spider_dev_0294",
+      "spider_dev_0308",
+      "spider_dev_0329",
+      "spider_dev_0360",
+      "spider_dev_0363",
+      "spider_dev_0364",
+      "spider_dev_0367",
+      "spider_dev_0397",
+      "spider_dev_0465",
+      "spider_dev_0480",
+      "spider_dev_0516",
+      "spider_dev_0518",
+      "spider_dev_0551",
+      "spider_dev_0602",
+      "spider_dev_0606",
+      "spider_dev_0626",
+      "spider_dev_0633",
+      "spider_dev_0645",
+      "spider_dev_0646",
+      "spider_dev_0651",
+      "spider_dev_0666",
+      "spider_dev_0667",
+      "spider_dev_0712",
+      "spider_dev_0737",
+      "spider_dev_0738",
+      "spider_dev_0757",
+      "spider_dev_0774",
+      "spider_dev_0789",
+      "spider_dev_0798",
+      "spider_dev_0799",
+      "spider_dev_0842",
+      "spider_dev_0856",
+      "spider_dev_0861",
+      "spider_dev_0862",
+      "spider_dev_0904",
+      "spider_dev_0908",
+      "spider_dev_0909",
+      "spider_dev_0912",
+      "spider_dev_0913",
+      "spider_dev_0921",
+      "spider_dev_0922",
+      "spider_dev_0954",
+      "spider_dev_1029"
+    ],
+    "high_churn_tasks": [
+      {
+        "task_id": "spider_dev_0043",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0044",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0061",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0063",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0147",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0185",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0236",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0244",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0287",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0293",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0480",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0666",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0667",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0737",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0738",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0774",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0856",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0909",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0922",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0954",
+        "passes": 2,
+        "of": 4,
+        "frequency": 0.5
+      },
+      {
+        "task_id": "spider_dev_0018",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0054",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0132",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0149",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0151",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0161",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0171",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0177",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0218",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0235",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0243",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0249",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0250",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0255",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0294",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0308",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0329",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0360",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      },
+      {
+        "task_id": "spider_dev_0363",
+        "passes": 3,
+        "of": 4,
+        "frequency": 0.75
+      },
+      {
+        "task_id": "spider_dev_0364",
+        "passes": 1,
+        "of": 4,
+        "frequency": 0.25
+      }
+    ]
+  },
+  "on_family_envelope": {
+    "definition": "Maximum paired discordance (PASS->FAIL + FAIL->PASS) across all ON<->ON pairs. The pre-registered ablation rule requires an OFF run to exceed this against EVERY family member.",
+    "pairwise_discordance": [
+      33,
+      31,
+      31,
+      42,
+      44,
+      40
+    ],
+    "max_discordance": 44,
+    "min_discordance": 31,
+    "mean_discordance": 36.833333333333336,
+    "median_discordance": 36.5
+  },
+  "substrate": "test_suite",
+  "ci_thresholds": {
+    "accuracy": {
+      "observed_spread": 0.013539651837524147,
+      "threshold": 0.027079303675048294,
+      "formula": "max(2.0 x spread, minimum_detectable_change)",
+      "units": "absolute difference in the metric"
+    },
+    "mean_model_turns_per_success": {
+      "observed_spread": 0.027846093527231552,
+      "threshold": 0.055692187054463105,
+      "formula": "max(2.0 x spread, minimum_detectable_change)",
+      "units": "absolute difference in the metric"
+    },
+    "mean_trajectory_records_per_success": {
+      "observed_spread": 0.055692187054463105,
+      "threshold": 0.11138437410892621,
+      "formula": "max(2.0 x spread, minimum_detectable_change)",
+      "units": "absolute difference in the metric"
+    },
+    "sql_execution_error_rate": {
+      "observed_spread": 0.006559229727824301,
+      "threshold": 0.013118459455648601,
+      "formula": "max(2.0 x spread, minimum_detectable_change)",
+      "units": "absolute difference in the metric"
+    },
+    "tool_validity_rate": {
+      "observed_spread": 0.0009562484958611783,
+      "threshold": 0.0019124969917223567,
+      "formula": "max(2.0 x spread, minimum_detectable_change)",
+      "units": "absolute difference in the metric"
+    },
+    "estimated_cost_per_success": {
+      "observed_spread": 4.0092168703007654e-05,
+      "threshold": 8.018433740601531e-05,
+      "formula": "max(2.0 x spread, minimum_detectable_change)",
+      "units": "absolute difference in the metric"
+    }
+  },
+  "threshold_policy": "max(2 x observed spread, minimum detectable change), fixed in docs/P1_PREREGISTRATION.md before these runs existed. A policy choice derived from a measured envelope, NOT a statistical guarantee.",
+  "not_claimed": [
+    "No confidence interval: k=4 repeats is a descriptive range, not a sample.",
+    "No distributional assumption about the accuracy of future runs."
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-08-13T09:27:41.547746+00:00",
+  "concurrency": 16,
+  "runs": [
+    {
+      "run_id": "spider_rpt__on_1",
+      "exit_code": 0,
+      "minutes": 5.125430270036062,
+      "healthy": true,
+      "reasons": [],
+      "episodes": 1034,
+      "passed": 746,
+      "accuracy": 0.7214700193423598,
+      "terminations": {
+        "SUCCESS": 746,
+        "VERIFICATION_FAILED": 236,
+        "MAX_STEPS": 52
+      }
+    },
+    {
+      "run_id": "spider_rpt__on_2",
+      "exit_code": 0,
+      "minutes": 5.716461479663849,
+      "healthy": true,
+      "reasons": [],
+      "episodes": 1034,
+      "passed": 753,
+      "accuracy": 0.7282398452611218,
+      "terminations": {
+        "SUCCESS": 753,
+        "VERIFICATION_FAILED": 234,
+        "MAX_STEPS": 46,
+        "SQL_ERROR": 1
+      }
+    },
+    {
+      "run_id": "spider_rpt__on_3",
+      "exit_code": 0,
+      "minutes": 6.015652763843536,
+      "healthy": true,
+      "reasons": [],
+      "episodes": 1034,
+      "passed": 751,
+      "accuracy": 0.7263056092843327,
+      "terminations": {
+        "SUCCESS": 751,
+        "VERIFICATION_FAILED": 237,
+        "MAX_STEPS": 45,
+        "SQL_ERROR": 1
+      }
+    },
+    {
+      "run_id": "spider_rpt__on_4",
+      "exit_code": 0,
+      "minutes": 6.451125053564708,
+      "healthy": true,
+      "reasons": [],
+      "episodes": 1034,
+      "passed": 760,
+      "accuracy": 0.7350096711798839,
+      "terminations": {
+        "SUCCESS": 760,
+        "VERIFICATION_FAILED": 229,
+        "MAX_STEPS": 44,
+        "SQL_ERROR": 1
+      }
+    },
+    {
+      "run_id": "spider_abl__off_1",
+      "exit_code": 0,
+      "minutes": 5.645948664347331,
+      "healthy": true,
+      "reasons": [],
+      "episodes": 1034,
+      "passed": 747,
+      "accuracy": 0.7224371373307543,
+      "terminations": {
+        "SUCCESS": 747,
+        "VERIFICATION_FAILED": 225,
+        "MAX_STEPS": 61,
+        "SQL_ERROR": 1
+      }
+    }
+  ],
+  "unhealthy": [],
+  "stopped_early": false,
+  "complete": true
+}
