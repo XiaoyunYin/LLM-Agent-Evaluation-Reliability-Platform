@@ -36,7 +36,7 @@ from backend.app.support.verifier import (
     TaskSpec,
 )
 
-TASK_FAMILY_VERSION = "support_tasks_v2"
+TASK_FAMILY_VERSION = "support_tasks_v3"
 
 CORE_FAMILIES = (
     "simple_update",
@@ -64,6 +64,12 @@ FAMILIES = CORE_FAMILIES + HARD_FAMILIES
 # the SAME predicate the agent must apply, so a task cannot encode an expectation
 # the policy does not actually state.
 POLICY_ACTIONS: dict[str, dict[str, Any]] = {
+    # The mandated end state for each policy, and the ONLY source of a
+    # policy-driven task's required changes. Hand-listing them per family is how
+    # SUP-noop-003/005 became unpassable: the policy says "assigned to the billing
+    # team AT NORMAL PRIORITY", the task required only the team, and an agent that
+    # followed the policy exactly was failed for an undeclared mutation.
+    "POL-002": {"priority": "normal", "team_id": "TEAM-billing"},
     "POL-001": {"priority": "urgent", "escalated": 1, "team_id": "TEAM-technical"},
     "POL-011": {"priority": "high", "team_id": "TEAM-technical"},
     "POL-012": {"priority": "normal", "team_id": "TEAM-technical"},
@@ -441,6 +447,13 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
         if len(distractors) < 3 or not _needs_change(target, "priority", "high"):
             continue
         customer = customers[target["customer_id"]]
+        # A "distractor" owned by the target customer is not a distractor, it is an
+        # ambiguity: the prompt says "the ticket belonging to <customer>" and two
+        # tickets answer to that, one of them forbidden. The fixture fix makes this
+        # impossible; asserting it here keeps it impossible.
+        distractors = [d for d in distractors if d["customer_id"] != target["customer_id"]]
+        if len(distractors) < 3:
+            continue
         hard.append({
             "spec": spec(
                 task_id=f"SUP-distract-{position + 1:03d}", family="distractor_resolution",
@@ -472,32 +485,41 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
     # -- noop_plus_mutation: decide NOT to change one thing, change another ---
     pairs = [t for t in tickets if signal_for_subject(t["subject"]) == "billing_dispute"]
     for position, ticket in enumerate(pairs[:8], start=1):
-        if not _needs_change(ticket, "team_id", "TEAM-billing"):
+        # Derived from the policy, never hand-listed - see POLICY_ACTIONS.
+        actions = POLICY_ACTIONS["POL-002"]
+        noop_required = [
+            _field_change("tickets", ticket["ticket_id"], field, value)
+            for field, value in actions.items()
+            if _needs_change(ticket, field, value)
+        ]
+        if not noop_required:
             continue
+        noop_reference = [("search_policy", {"query": "billing dispute"})]
+        if any(c.field == "team_id" for c in noop_required):
+            noop_reference.append(("list_reference_data", {}))
+            noop_reference.append(("assign_ticket", {"ticket_id": ticket["ticket_id"],
+                                                     "team_id": actions["team_id"]}))
+        if any(c.field == "priority" for c in noop_required):
+            noop_reference.append(("update_ticket", {"ticket_id": ticket["ticket_id"],
+                                                     "priority": actions["priority"]}))
         hard.append({
             "spec": spec(
                 task_id=f"SUP-noop-{position:03d}", family="noop_plus_mutation",
                 tier="hard", provenance="hard-calibration-derived",
-                attributes=attrs(reference_call_count=3, entities_involved=2,
-                                 required_mutations=1, retrieval_required=True,
+                attributes=attrs(reference_call_count=len(noop_reference), entities_involved=2,
+                                 required_mutations=len(noop_required), retrieval_required=True,
                                  requires_noop_decision=True, policy_reasoning_required=True),
                 prompt=(
                     f"Ticket {ticket['ticket_id']} is a billing dispute for 240. "
                     f"Look up the billing dispute policy and apply it. Note the "
                     f"policy's condition on escalation carefully."
                 ),
-                required_changes=[
-                    _field_change("tickets", ticket["ticket_id"], "team_id", "TEAM-billing")
-                ],
+                required_changes=noop_required,
                 forbidden_changes=[
                     _field_change("tickets", ticket["ticket_id"], "escalated", 1)
                 ],
             ),
-            "reference": [
-                ("search_policy", {"query": "billing dispute"}),
-                ("list_reference_data", {}),
-                ("assign_ticket", {"ticket_id": ticket["ticket_id"], "team_id": "TEAM-billing"}),
-            ],
+            "reference": noop_reference,
         })
 
     # -- multi_ticket_conditional: several tickets, per-ticket branch ---------

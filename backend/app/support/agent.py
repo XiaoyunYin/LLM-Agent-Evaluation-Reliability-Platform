@@ -81,7 +81,8 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "parameters": {"type": "object", "properties": {
             "status": {"type": "string"}, "priority": {"type": "string"},
             "customer_id": {"type": "string"}, "team_id": {"type": "string"},
-            "customer_name": {"type": "string"},
+            "customer_name": {"type": "string",
+                                   "description": "Case-insensitive substring of the customer name."},
             "query": {"type": "string"}}, "required": []}}},
     {"type": "function", "function": {
         "name": "get_ticket",
