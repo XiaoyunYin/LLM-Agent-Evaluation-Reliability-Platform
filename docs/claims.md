@@ -687,6 +687,45 @@ tighten the metric's blind spot by an unquantified amount.
 
 ---
 
+## 7. Stateful agentic evaluation with declarative state verification (P3)
+
+**Full results: [`docs/results/p3-frozen.md`](results/p3-frozen.md).** Frozen at
+suite `2cfcaedbb400`, 80 tasks, budget 20 turns, model `gpt-4o-mini`.
+
+| Claim | Measured | Artifact |
+|---|---|---|
+| 80-task stateful support-ticket agent benchmark, declarative state verification | 80 tasks, 35 core / 45 hard | `config/p3_frozen_manifest.json` |
+| verifier QA with adversarial known-bad cases | **452/452** | `runs/support_verifier_qa/verifier_qa.json` |
+| all reference solutions replay through the real runtime | **80/80**, zero model calls | `runs/support_reference_replay/` |
+| baseline over 10 repeats | **90.25%**, sd 1.75% | `runs/support_baseline/frozen_baseline.json` |
+| core / hard tiers (roles declared before baselines) | 97.7% / **84.4%** | same |
+| invalid typed calls | 235/4,545 = **5.2%**, in 29.4% of episodes | same |
+| pre-registered intervention run to a verdict | **NO EFFECT** | `runs/support_baseline/repair_experiment.json` |
+| P3 episodes executed | **3,439** across 51 runs, $2.55 | `runs/support_benchmark/` |
+
+### What must not be claimed
+
+- **Do not** claim the schema-repair intervention improved anything. It did not.
+  The pre-registered primary metric was **degenerate in both arms** - zero episodes
+  ever emitted a second invalid call. Global success 90.25% -> 90.31%.
+- **Do not** claim this benchmark discriminates between frontier models. It was
+  measured against **one** model, and seven of eleven families sit at 100%.
+- **Do not** quote the hard tier's earlier 49.2%. That figure was produced by
+  three benchmark defects; after fixing them the same tasks measured 96.2%, and
+  the suite was later expanded and re-frozen. The published hard-tier number is
+  **84.4%** on the frozen 80-task suite.
+- **Do** state that six benchmark defects were found and fixed, and that all were
+  caught by repeats plus trajectory reading rather than by an aggregate score.
+
+### The defensible headline
+
+> Built an 80-task stateful agent benchmark where correctness is a verified state
+> diff, not a judged answer. Ten repeats, 800 episodes, 90.25% +/- 1.75%. Found and
+> fixed six benchmark defects that an aggregate score could not see, and ran a
+> pre-registered intervention to a **null** verdict rather than to a number.
+
+---
+
 ## Cross-cutting
 
 Two claims that hold across every bullet and are worth making explicitly:

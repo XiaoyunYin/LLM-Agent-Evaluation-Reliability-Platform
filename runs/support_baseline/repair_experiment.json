@@ -1,0 +1,514 @@
+{
+  "arms": {
+    "BASELINE (OFF)": {
+      "episodes": 250,
+      "runs": 10,
+      "invalid_calls": 235,
+      "episodes_with_invalid": 235,
+      "episodes_with_two_or_more": 0,
+      "repeat_invalid_rate": 0.0,
+      "degenerate": true,
+      "success": 0.96,
+      "mean_turns": 5.292,
+      "mean_cost": 0.0007139946,
+      "tool_calls": 1323,
+      "per_run": [
+        {
+          "run_id": "support_b3_01",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.96,
+          "mean_turns": 5.36,
+          "mean_cost": 0.0007388640000000001
+        },
+        {
+          "run_id": "support_b3_02",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 1.0,
+          "mean_turns": 5.28,
+          "mean_cost": 0.0007164539999999999
+        },
+        {
+          "run_id": "support_b3_03",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.92,
+          "mean_turns": 5.32,
+          "mean_cost": 0.00071724
+        },
+        {
+          "run_id": "support_b3_04",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.96,
+          "mean_turns": 5.24,
+          "mean_cost": 0.0007314180000000001
+        },
+        {
+          "run_id": "support_b3_05",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.96,
+          "mean_turns": 5.2,
+          "mean_cost": 0.0006632159999999999
+        },
+        {
+          "run_id": "support_b3_06",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.92,
+          "mean_turns": 5.32,
+          "mean_cost": 0.0007259580000000001
+        },
+        {
+          "run_id": "support_b3_07",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.96,
+          "mean_turns": 5.28,
+          "mean_cost": 0.0007028039999999999
+        },
+        {
+          "run_id": "support_b3_08",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.96,
+          "mean_turns": 5.24,
+          "mean_cost": 0.000696234
+        },
+        {
+          "run_id": "support_b3_09",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.96,
+          "mean_turns": 5.32,
+          "mean_cost": 0.000705504
+        },
+        {
+          "run_id": "support_b3_10",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 22,
+          "success": 1.0,
+          "mean_turns": 5.36,
+          "mean_cost": 0.0007422539999999999
+        }
+      ]
+    },
+    "BASELINE (OFF) / global": {
+      "episodes": 800,
+      "runs": 10,
+      "invalid_calls": 235,
+      "episodes_with_invalid": 235,
+      "episodes_with_two_or_more": 0,
+      "repeat_invalid_rate": 0.0,
+      "degenerate": true,
+      "success": 0.9025,
+      "mean_turns": 5.68125,
+      "mean_cost": 0.000766871625,
+      "tool_calls": 4545,
+      "per_run": [
+        {
+          "run_id": "support_b3_01",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.8875,
+          "mean_turns": 5.7,
+          "mean_cost": 0.00076446
+        },
+        {
+          "run_id": "support_b3_02",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.9375,
+          "mean_turns": 5.6625,
+          "mean_cost": 0.000759193125
+        },
+        {
+          "run_id": "support_b3_03",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.9,
+          "mean_turns": 5.75,
+          "mean_cost": 0.0007822912499999999
+        },
+        {
+          "run_id": "support_b3_04",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.8875,
+          "mean_turns": 5.6625,
+          "mean_cost": 0.000785565
+        },
+        {
+          "run_id": "support_b3_05",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.8875,
+          "mean_turns": 5.6875,
+          "mean_cost": 0.000755428125
+        },
+        {
+          "run_id": "support_b3_06",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.9,
+          "mean_turns": 5.6625,
+          "mean_cost": 0.0007806149999999999
+        },
+        {
+          "run_id": "support_b3_07",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.8875,
+          "mean_turns": 5.675,
+          "mean_cost": 0.000762005625
+        },
+        {
+          "run_id": "support_b3_08",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.9125,
+          "mean_turns": 5.625,
+          "mean_cost": 0.0007595249999999999
+        },
+        {
+          "run_id": "support_b3_09",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 24,
+          "success": 0.9,
+          "mean_turns": 5.6875,
+          "mean_cost": 0.000747598125
+        },
+        {
+          "run_id": "support_b3_10",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 22,
+          "success": 0.925,
+          "mean_turns": 5.7,
+          "mean_cost": 0.000772035
+        }
+      ]
+    },
+    "BRIDGE (OFF, treatment commit)": {
+      "episodes": 25,
+      "runs": 1,
+      "invalid_calls": 25,
+      "episodes_with_invalid": 25,
+      "episodes_with_two_or_more": 0,
+      "repeat_invalid_rate": 0.0,
+      "degenerate": true,
+      "success": 0.96,
+      "mean_turns": 5.44,
+      "mean_cost": 0.00074139,
+      "tool_calls": 136,
+      "per_run": [
+        {
+          "run_id": "support_p3_bridge",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 25,
+          "success": 0.96,
+          "mean_turns": 5.44,
+          "mean_cost": 0.00074139
+        }
+      ]
+    },
+    "BRIDGE (OFF, treatment commit) / global": {
+      "episodes": 80,
+      "runs": 1,
+      "invalid_calls": 25,
+      "episodes_with_invalid": 25,
+      "episodes_with_two_or_more": 0,
+      "repeat_invalid_rate": 0.0,
+      "degenerate": true,
+      "success": 0.925,
+      "mean_turns": 5.65,
+      "mean_cost": 0.0007399762499999999,
+      "tool_calls": 452,
+      "per_run": [
+        {
+          "run_id": "support_p3_bridge",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 25,
+          "success": 0.925,
+          "mean_turns": 5.65,
+          "mean_cost": 0.0007399762499999999
+        }
+      ]
+    },
+    "TREATMENT (ON)": {
+      "episodes": 100,
+      "runs": 4,
+      "invalid_calls": 96,
+      "episodes_with_invalid": 96,
+      "episodes_with_two_or_more": 0,
+      "repeat_invalid_rate": 0.0,
+      "degenerate": true,
+      "success": 0.93,
+      "mean_turns": 5.18,
+      "mean_cost": 0.0007299825,
+      "tool_calls": 518,
+      "per_run": [
+        {
+          "run_id": "support_p3_on_1",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.96,
+          "mean_turns": 5.2,
+          "mean_cost": 0.000764376
+        },
+        {
+          "run_id": "support_p3_on_2",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 25,
+          "success": 0.92,
+          "mean_turns": 5.2,
+          "mean_cost": 0.000721314
+        },
+        {
+          "run_id": "support_p3_on_3",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 25,
+          "success": 0.92,
+          "mean_turns": 5.28,
+          "mean_cost": 0.000764412
+        },
+        {
+          "run_id": "support_p3_on_4",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.92,
+          "mean_turns": 5.04,
+          "mean_cost": 0.0006698279999999999
+        }
+      ]
+    },
+    "TREATMENT (ON) / global": {
+      "episodes": 320,
+      "runs": 4,
+      "invalid_calls": 96,
+      "episodes_with_invalid": 96,
+      "episodes_with_two_or_more": 0,
+      "repeat_invalid_rate": 0.0,
+      "degenerate": true,
+      "success": 0.903125,
+      "mean_turns": 5.6125,
+      "mean_cost": 0.00076485328125,
+      "tool_calls": 1796,
+      "per_run": [
+        {
+          "run_id": "support_p3_on_1",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.9125,
+          "mean_turns": 5.6,
+          "mean_cost": 0.0007594162499999999
+        },
+        {
+          "run_id": "support_p3_on_2",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 25,
+          "success": 0.9125,
+          "mean_turns": 5.5875,
+          "mean_cost": 0.000772351875
+        },
+        {
+          "run_id": "support_p3_on_3",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 25,
+          "success": 0.9125,
+          "mean_turns": 5.65,
+          "mean_cost": 0.000773488125
+        },
+        {
+          "run_id": "support_p3_on_4",
+          "repeat_invalid_rate": 0.0,
+          "invalid_calls": 23,
+          "success": 0.875,
+          "mean_turns": 5.6125,
+          "mean_cost": 0.0007541568749999999
+        }
+      ]
+    }
+  },
+  "cohort": {
+    "frozen_from_runs": [
+      "support_b3_01",
+      "support_b3_02",
+      "support_b3_03",
+      "support_b3_04",
+      "support_b3_05",
+      "support_b3_06",
+      "support_b3_07",
+      "support_b3_08",
+      "support_b3_09",
+      "support_b3_10"
+    ],
+    "suite_sha256": "2cfcaedbb4005e6d2ff52bcc69396dfffbb9ce1758c48b04945335d6478f396b",
+    "rule": ">=1 invalid typed call in >= 3 of 10 baseline runs",
+    "min_cohort_size": 8,
+    "underpowered": false,
+    "cohort_size": 25,
+    "cohort": [
+      "SUP-chain-001",
+      "SUP-chain-002",
+      "SUP-chain-003",
+      "SUP-chain-004",
+      "SUP-chain-005",
+      "SUP-chain-006",
+      "SUP-chain-007",
+      "SUP-chain-008",
+      "SUP-chain-009",
+      "SUP-chain-010",
+      "SUP-distract-001",
+      "SUP-distract-002",
+      "SUP-distract-003",
+      "SUP-distract-004",
+      "SUP-distract-006",
+      "SUP-distract-007",
+      "SUP-distract-008",
+      "SUP-distract-009",
+      "SUP-distract-010",
+      "SUP-lookup-002",
+      "SUP-lookup-003",
+      "SUP-lookup-004",
+      "SUP-lookup-005",
+      "SUP-lookup-007",
+      "SUP-mtcond-008"
+    ],
+    "baseline_counts": {
+      "SUP-chain-001": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-002": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-003": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-004": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-005": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-006": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-007": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-008": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-009": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-chain-010": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-001": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-002": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-003": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-004": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-006": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-007": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-008": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-009": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-distract-010": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-lookup-002": {
+        "runs_with_invalid": 8,
+        "invalid_calls": 8
+      },
+      "SUP-lookup-003": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-lookup-004": {
+        "runs_with_invalid": 10,
+        "invalid_calls": 10
+      },
+      "SUP-lookup-005": {
+        "runs_with_invalid": 5,
+        "invalid_calls": 5
+      },
+      "SUP-lookup-007": {
+        "runs_with_invalid": 8,
+        "invalid_calls": 8
+      },
+      "SUP-mtcond-008": {
+        "runs_with_invalid": 4,
+        "invalid_calls": 4
+      }
+    },
+    "all_tasks_with_any_invalid": {
+      "SUP-chain-001": 10,
+      "SUP-chain-002": 10,
+      "SUP-chain-003": 10,
+      "SUP-chain-004": 10,
+      "SUP-chain-005": 10,
+      "SUP-chain-006": 10,
+      "SUP-chain-007": 10,
+      "SUP-chain-008": 10,
+      "SUP-chain-009": 10,
+      "SUP-chain-010": 10,
+      "SUP-distract-001": 10,
+      "SUP-distract-002": 10,
+      "SUP-distract-003": 10,
+      "SUP-distract-004": 10,
+      "SUP-distract-006": 10,
+      "SUP-distract-007": 10,
+      "SUP-distract-008": 10,
+      "SUP-distract-009": 10,
+      "SUP-distract-010": 10,
+      "SUP-lookup-002": 8,
+      "SUP-lookup-003": 10,
+      "SUP-lookup-004": 10,
+      "SUP-lookup-005": 5,
+      "SUP-lookup-007": 8,
+      "SUP-mtcond-008": 4
+    }
+  },
+  "verdict": [
+    "BRIDGE: success 0.9250 vs baseline range 0.8875-0.9375 -> ACCEPTED",
+    "PRIMARY: DEGENERATE in both arms - zero episodes emitted a second invalid call either way. Verdict NO EFFECT ON THE PRIMARY METRIC, per amendment 1. The publishable finding is the recovery rate itself: a structured validation error is already sufficient for one-shot recovery in 100% of observed cases.",
+    "SECONDARY (reported, not promoted): turns 5.29 -> 5.18; cost $0.000714 -> $0.000730; success 0.9600 -> 0.9300"
+  ]
+}
