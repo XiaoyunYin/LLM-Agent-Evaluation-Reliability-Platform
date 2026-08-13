@@ -9,6 +9,10 @@ run to a verdict.
 **Suite hash:** `2cfcaedbb400…`  ·  **80 tasks**  ·  **budget 20 model turns**
 **Model:** `gpt-4o-mini`  ·  **Verified by:** `scripts/assert_p3_frozen.py` before every paid run
 
+Final task IDs, full family denominators, intervention arm sizes, and the
+post-P3 intervention-selection doctrine are pinned in
+[`docs/P3_CLOSING_FACTS.md`](../P3_CLOSING_FACTS.md).
+
 ---
 
 ## 1. What is measured
