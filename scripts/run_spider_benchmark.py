@@ -46,6 +46,20 @@ from dotenv import load_dotenv  # noqa: E402
 load_dotenv(REPO_ROOT / ".env")
 
 from backend.app.spider.adapter import ADAPTER_VERSION, build_task_set  # noqa: E402
+
+ADOPTED_FLAGS_PATH = REPO_ROOT / "config" / "adopted_agent_flags.json"
+
+
+def adopted_flags() -> dict:
+    """Behaviour adopted by a frozen experiment, which later runs inherit.
+
+    Loaded rather than hardcoded so the adopted set has one home, and so a run
+    config records where its defaults came from.
+    """
+    if not ADOPTED_FLAGS_PATH.exists():
+        return {}
+    document = json.loads(ADOPTED_FLAGS_PATH.read_text(encoding="utf-8"))
+    return {name: entry["value"] for name, entry in document.get("adopted", {}).items()}
 from backend.app.spider.agent import (  # noqa: E402
     AGENT_VERSION,
     MODEL_PRICING,
@@ -211,13 +225,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--empty-result-policy",
-        default="baseline",
+        default=None,
         choices=["baseline", "accept_empty"],
         help=(
-            "P2 Intervention A. 'baseline' reproduces prior runs byte-for-byte; "
-            "'accept_empty' labels execution outcomes explicitly and stops an "
-            "empty result reading as evidence of wrong SQL. Recorded in the run "
-            "config so control and treatment share one commit."
+            "P2 Intervention A. Defaults to the ADOPTED value in "
+            "config/adopted_agent_flags.json ('accept_empty'). Pass 'baseline' "
+            "only to reproduce a pre-adoption run; a new benchmark that does so "
+            "is measuring an older agent than the one that exists."
         ),
     )
     parser.add_argument(
@@ -239,6 +253,22 @@ def main() -> int:
 
     if args.mock and args.stage == "full":
         raise SystemExit("Refusing to record a mock run as the full benchmark.")
+
+    adopted = adopted_flags()
+    empty_result_policy = args.empty_result_policy
+    if empty_result_policy is None:
+        empty_result_policy = adopted.get("empty_result_policy", "baseline")
+    # Recorded so a reader can tell an inherited default from a deliberate
+    # override without diffing against the adopted-flags file.
+    empty_policy_source = (
+        "explicit --empty-result-policy"
+        if args.empty_result_policy is not None
+        else "adopted default (config/adopted_agent_flags.json)"
+    )
+    deviates_from_adopted = (
+        "empty_result_policy" in adopted
+        and empty_result_policy != adopted["empty_result_policy"]
+    )
 
     if not args.trace_console:
         os.environ.setdefault("OTEL_CONSOLE_EXPORTER", "false")
@@ -282,7 +312,7 @@ def main() -> int:
         max_steps=args.max_steps,
         temperature=args.temperature,
         validate_tool_arguments_enabled=not args.disable_tool_validation,
-        empty_result_policy=args.empty_result_policy,
+        empty_result_policy=empty_result_policy,
     )
     effective_tool_schema = (
         TOOL_SCHEMA_VERSION
@@ -302,6 +332,9 @@ def main() -> int:
         "tool_schema_version": effective_tool_schema,
         "tool_argument_validation": agent_config.validate_tool_arguments_enabled,
         "empty_result_policy": agent_config.empty_result_policy,
+        "empty_result_policy_source": empty_policy_source,
+        "adopted_flags": adopted,
+        "deviates_from_adopted_flags": deviates_from_adopted,
         "adapter_version": ADAPTER_VERSION,
         "top_p": agent_config.top_p,
         "seed": agent_config.seed,
@@ -325,6 +358,10 @@ def main() -> int:
     print(f"Run {run_id} [{label}]")
     print(f"  model            {args.model} (prompt {args.prompt_version}, max_steps {args.max_steps})")
     print(f"  concurrency      {args.concurrency}")
+    print(f"  empty_result     {empty_result_policy}  ({empty_policy_source})")
+    if deviates_from_adopted:
+        print("  *** WARNING: this run DEVIATES from adopted behaviour. It is only "
+              "comparable to other runs sharing this deviation. ***")
     print(f"  dataset          {task_set.dataset_version}")
     print(f"  valid tasks      {len(task_set):,}  excluded {len(task_set.excluded)}")
     print(f"  selected         {len(tasks):,}  already done {len(already_done):,}  to run {len(pending):,}")
