@@ -91,9 +91,13 @@ which is the size of error that hand-waving between the two would have introduce
 
 ### Which metric to quote
 
-Both, always paired. The single-database figure remains the P0 headline because it
-is what the frozen baseline was measured and audited under; the test-suite figure
-is the tighter one and is now available beside it. Neither replaces the other, and
+**Stricter first, always paired:** "65.4% test-suite execution accuracy (73.3%
+single-database)". The test-suite figure leads because it is the tighter and more
+defensible one; leading with the looser number invites a reader to assume it is the
+only one. The single-database figure stays attached because it is what the frozen
+baseline was audited under and what the P0 artifacts recompute.
+
+Neither replaces the other and neither is ever called by the other'''s name.
 `docs/RESUME_COPY.md` carries the exact permitted wording.
 
 ---
