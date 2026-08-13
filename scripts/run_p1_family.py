@@ -60,6 +60,11 @@ EXPECTED_TASKS = 1034
 # cannot finish just burns the quota that would have finished it.
 REQUESTS_PER_RUN = 5400
 
+# Headroom required before starting. Deliberately far below REQUESTS_PER_RUN: on a
+# per-minute limit the counter refills continuously, and the halt-and-resume path
+# covers running out mid-run.
+MIN_REQUESTS_TO_START = 500
+
 
 def quota_headroom() -> dict[str, Any]:
     """Probe the provider's enforced limits. One request."""
@@ -92,11 +97,22 @@ def quota_headroom() -> dict[str, Any]:
 
 
 def has_headroom(status: dict[str, Any]) -> bool:
+    """Enough quota to make real progress.
+
+    The remaining-requests header is per-window, and the window depends on the
+    account tier: a daily cap reports the day's remainder, a per-minute cap
+    reports the minute's. Requiring a whole run's worth would therefore wait
+    forever on a per-minute limit that refills every 60s.
+
+    So this only checks there is meaningful headroom right now. Running out
+    mid-run is already handled: the runner halts cleanly, checkpoints, and the
+    next attempt resumes.
+    """
     if not status.get("available"):
         return False
     remaining = status.get("remaining_requests")
     # No header is not evidence of headroom; treat it as unknown and wait.
-    return remaining is not None and remaining >= REQUESTS_PER_RUN
+    return remaining is not None and remaining >= MIN_REQUESTS_TO_START
 
 
 def health_check(run_id: str, root: Path) -> dict[str, Any]:
