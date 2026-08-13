@@ -61,6 +61,9 @@ aggregate, but with **34 of 1,034 tasks (3.29%) changing pass/fail outcome** (19
 PASS→FAIL, 15 FAIL→PASS). A controlled delta smaller than that is not resolvable by
 a single pair of runs.
 
+Those two runs differed by observability-only working-tree changes, so they bound
+the noise floor only approximately. Same-commit repeats from a clean tree are P1.
+
 No seed was sent to the model, so these are repeated runs under an identical
 recorded configuration, not seeded runs.
 

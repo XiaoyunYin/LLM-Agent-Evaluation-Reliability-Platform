@@ -621,7 +621,14 @@ a total. All three are fixed with regression tests.
 ### Two identical runs
 
 `spider_full__p0_v1` (repeat) and `spider_full__p0_v2` (**canonical baseline**)
-have **zero differing identity fields**; only `run_id` and `started_at` differ.
+have **zero differing recorded identity fields**; only `run_id` and `started_at`
+differ in the config.
+
+Both runs recorded commit `ff9a4945` with a **dirty working tree**, and the changes
+between them were observability-only (span placement, persisted fields) — provably
+unable to alter agent behaviour, but they mean this is **not a same-commit
+comparison**. It is two runs of an identical *recorded configuration* whose working
+trees differed. A true same-commit repeat measurement is P1 (`docs/P1_PREREGISTRATION.md`).
 
 | | Run B: PASS | Run B: FAIL |
 |---|---:|---:|

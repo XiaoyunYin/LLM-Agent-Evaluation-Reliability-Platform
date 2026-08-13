@@ -153,6 +153,10 @@ class AgentEpisode(BaseModel):
     schema_inspections: int = 0
     sql_executions: int = 0
     sql_execution_errors: int = 0
+    # Tool calls whose arguments did not match the declared schema. Counted whether
+    # or not validation was enabled, so the ablation measures the same quantity on
+    # both sides.
+    bad_argument_tool_calls: int = 0
 
     input_tokens: int = 0
     cached_input_tokens: int = 0

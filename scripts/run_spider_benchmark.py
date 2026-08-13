@@ -190,6 +190,15 @@ def main() -> int:
     )
     parser.add_argument("--workspace", default=None, help="Where episode DB copies go.")
     parser.add_argument(
+        "--disable-tool-validation",
+        action="store_true",
+        help=(
+            "ABLATION: revert inspect_schema to silently ignoring unknown "
+            "arguments (the spider_tools_v1 defect). Recorded under a distinct "
+            "tool_schema_version so it cannot be confused with a normal run."
+        ),
+    )
+    parser.add_argument(
         "--trace-console",
         action="store_true",
         help="Print every span to stdout. Off by default: a full run emits ~10k spans.",
@@ -236,6 +245,12 @@ def main() -> int:
         prompt_version=args.prompt_version,
         max_steps=args.max_steps,
         temperature=args.temperature,
+        validate_tool_arguments_enabled=not args.disable_tool_validation,
+    )
+    effective_tool_schema = (
+        TOOL_SCHEMA_VERSION
+        if agent_config.validate_tool_arguments_enabled
+        else f"{TOOL_SCHEMA_VERSION}__validation_off_ablation"
     )
     client = build_client(args.model, args.mock, answers)
     agent = SpiderSQLAgent(client=client, config=agent_config)
@@ -247,8 +262,11 @@ def main() -> int:
         "started_at": datetime.now(timezone.utc).isoformat(),
         "agent_version": AGENT_VERSION,
         "prompt_version": args.prompt_version,
-        "tool_schema_version": TOOL_SCHEMA_VERSION,
+        "tool_schema_version": effective_tool_schema,
+        "tool_argument_validation_enabled": agent_config.validate_tool_arguments_enabled,
         "adapter_version": ADAPTER_VERSION,
+        "top_p": agent_config.top_p,
+        "seed": agent_config.seed,
         "model_version": args.model,
         "model_pricing_usd_per_1m": MODEL_PRICING.get(args.model),
         "max_steps": args.max_steps,
