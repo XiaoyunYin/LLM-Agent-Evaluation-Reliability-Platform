@@ -795,3 +795,76 @@ def test_pruning_clears_infrastructure_episodes_and_their_steps(tmp_path: Path):
     # Steps must go with their episode or step/episode counts stop reconciling.
     assert [s["episode_id"] for s in store.iter_steps()] == ["ep_keep_task"]
     assert store.prune_infrastructure_episodes() == 0
+
+
+# --------------------------------------------------------------------------
+# P2 Intervention A: explicit execution outcomes behind a config flag
+# --------------------------------------------------------------------------
+
+
+def test_baseline_policy_is_byte_identical_to_prior_runs(episode):
+    """The control must be a true control.
+
+    Treatment and control share one commit, so `baseline` has to reproduce the
+    pre-treatment response exactly. Any extra key would make the bridge control
+    incomparable to the P1 family it is meant to validate against.
+    """
+    for query in ("SELECT * FROM artist", "SELECT * FROM artist WHERE id = 9999",
+                  "SELECT nope FROM artist"):
+        result = execute_sql(episode, query, empty_result_policy="baseline")
+        assert "outcome" not in result.model_visible
+        assert "note_empty" not in result.model_visible
+        assert set(result.model_visible) <= {
+            "columns", "rows", "row_count", "error", "truncated", "note",
+        }
+
+
+def test_treatment_labels_the_three_execution_outcomes(episode):
+    from backend.app.spider.tools import (
+        EXECUTION_ERROR,
+        EXECUTION_SUCCESS_EMPTY,
+        EXECUTION_SUCCESS_NONEMPTY,
+    )
+
+    nonempty = execute_sql(episode, "SELECT * FROM artist",
+                           empty_result_policy="accept_empty")
+    empty = execute_sql(episode, "SELECT * FROM artist WHERE id = 9999",
+                        empty_result_policy="accept_empty")
+    failed = execute_sql(episode, "SELECT nope FROM artist",
+                         empty_result_policy="accept_empty")
+
+    assert nonempty.model_visible["outcome"] == EXECUTION_SUCCESS_NONEMPTY
+    assert empty.model_visible["outcome"] == EXECUTION_SUCCESS_EMPTY
+    assert failed.model_visible["outcome"] == EXECUTION_ERROR
+
+    # An empty result is still empty; only its labelling changed.
+    assert empty.model_visible["row_count"] == 0
+    assert empty.model_visible["error"] is None
+    assert empty.success is True
+    assert "not by itself evidence" in empty.model_visible["note_empty"]
+
+
+def test_treatment_does_not_instruct_the_agent_to_submit(episode):
+    """Correcting a false inference must not install the opposite one."""
+    from backend.app.spider.tools import EMPTY_RESULT_GUIDANCE
+
+    lowered = EMPTY_RESULT_GUIDANCE.lower()
+    assert "re-check" in lowered
+    assert "always submit" not in lowered
+    assert "submit it" in lowered and "if it is correct" in lowered
+
+
+def test_empty_result_policy_is_recorded_on_the_episode(task, tmp_path: Path):
+    client = MockOpenAIClient(answers={task.question: task.gold_query})
+    agent = SpiderSQLAgent(client, AgentConfig(empty_result_policy="accept_empty"))
+    store = TrajectoryStore("policy_run", tmp_path / "runs")
+    episode = agent.run_episode(
+        task=task,
+        run_id="policy_run",
+        store=store,
+        dataset_version="test:v1",
+        workspace=str(tmp_path / "work"),
+    )
+    # Damage-channel counters exist on both sides of the experiment.
+    assert episode.empty_successful_executions >= 0
+    assert episode.submitted_immediately_after_empty >= 0

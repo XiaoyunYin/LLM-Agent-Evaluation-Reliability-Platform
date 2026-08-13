@@ -23,6 +23,31 @@ from pydantic import BaseModel, Field
 
 from backend.app.spider.environment import EpisodeDatabase, ReadOnlyViolation
 
+# Explicit execution outcomes (P2, Intervention A).
+#
+# The baseline response said `error: null` and `rows: []` for a valid query that
+# matched nothing, which is accurate but reads as failure: measured across five
+# baseline runs, agents that had already executed a passing query abandoned it in
+# 24-32 episodes per run, and in 26 of the 39 affected tasks the passing query
+# returned zero rows.
+#
+# Naming the outcome removes the ambiguity without changing what is true. An empty
+# result is still an empty result; it is simply labelled as a successful execution
+# rather than left to be inferred from an absent error.
+EXECUTION_SUCCESS_NONEMPTY = "EXECUTION_SUCCESS_NONEMPTY"
+EXECUTION_SUCCESS_EMPTY = "EXECUTION_SUCCESS_EMPTY"
+EXECUTION_ERROR = "EXECUTION_ERROR"
+
+# Guidance attached to an empty successful execution under the treatment policy.
+# Deliberately not an instruction to submit: it corrects a false inference without
+# replacing it with the opposite false inference.
+EMPTY_RESULT_GUIDANCE = (
+    "The query executed successfully and matched no rows. An empty result is a "
+    "valid answer when the question genuinely has no matching rows - it is not by "
+    "itself evidence that the SQL is wrong. Re-check the query against the schema "
+    "and the question; if it is correct, submit it."
+)
+
 # Bumped whenever a tool's name, arguments, or response shape changes. Persisted
 # on every episode so a measured accuracy delta can be attributed to a tool-schema
 # change rather than silently absorbed.
@@ -172,7 +197,11 @@ def inspect_schema(
         )
 
 
-def execute_sql(database: EpisodeDatabase, query: str) -> ToolResult:
+def execute_sql(
+    database: EpisodeDatabase,
+    query: str,
+    empty_result_policy: str = "baseline",
+) -> ToolResult:
     """Run a read-only query and return a capped, structured result.
 
     Errors are returned, not raised. An agent that writes `no such column: foo`
@@ -197,10 +226,10 @@ def execute_sql(database: EpisodeDatabase, query: str) -> ToolResult:
         )
 
     def failure(message: str) -> ToolResult:
-        return finish(
-            {"columns": [], "rows": [], "row_count": 0, "error": message},
-            error=message,
-        )
+        visible = {"columns": [], "rows": [], "row_count": 0, "error": message}
+        if empty_result_policy != "baseline":
+            visible["outcome"] = EXECUTION_ERROR
+        return finish(visible, error=message)
 
     if not isinstance(query, str) or not query.strip():
         return failure("execute_sql requires a non-empty 'query' argument.")
@@ -219,6 +248,16 @@ def execute_sql(database: EpisodeDatabase, query: str) -> ToolResult:
         "row_count": len(rows),
         "error": None,
     }
+
+    if empty_result_policy != "baseline":
+        # The only behavioural change in Intervention A. Under `baseline` the
+        # response is byte-identical to every prior run, so a control run on this
+        # commit is a true control.
+        if rows:
+            visible["outcome"] = EXECUTION_SUCCESS_NONEMPTY
+        else:
+            visible["outcome"] = EXECUTION_SUCCESS_EMPTY
+            visible["note_empty"] = EMPTY_RESULT_GUIDANCE
     if len(rows) > MAX_VISIBLE_ROWS:
         visible["truncated"] = True
         visible["note"] = (

@@ -210,6 +210,17 @@ def main() -> int:
         ),
     )
     parser.add_argument(
+        "--empty-result-policy",
+        default="baseline",
+        choices=["baseline", "accept_empty"],
+        help=(
+            "P2 Intervention A. 'baseline' reproduces prior runs byte-for-byte; "
+            "'accept_empty' labels execution outcomes explicitly and stops an "
+            "empty result reading as evidence of wrong SQL. Recorded in the run "
+            "config so control and treatment share one commit."
+        ),
+    )
+    parser.add_argument(
         "--disable-tool-validation",
         action="store_true",
         help=(
@@ -271,6 +282,7 @@ def main() -> int:
         max_steps=args.max_steps,
         temperature=args.temperature,
         validate_tool_arguments_enabled=not args.disable_tool_validation,
+        empty_result_policy=args.empty_result_policy,
     )
     effective_tool_schema = (
         TOOL_SCHEMA_VERSION
@@ -289,6 +301,7 @@ def main() -> int:
         "prompt_version": args.prompt_version,
         "tool_schema_version": effective_tool_schema,
         "tool_argument_validation": agent_config.validate_tool_arguments_enabled,
+        "empty_result_policy": agent_config.empty_result_policy,
         "adapter_version": ADAPTER_VERSION,
         "top_p": agent_config.top_p,
         "seed": agent_config.seed,

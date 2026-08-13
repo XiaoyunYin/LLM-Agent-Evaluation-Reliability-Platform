@@ -178,6 +178,9 @@ class AgentEpisode(BaseModel):
     # or not validation was enabled, so the ablation measures the same quantity on
     # both sides.
     bad_argument_tool_calls: int = 0
+    # P2 damage channel, counted on control and treatment alike.
+    empty_successful_executions: int = 0
+    submitted_immediately_after_empty: int = 0
 
     input_tokens: int = 0
     cached_input_tokens: int = 0
