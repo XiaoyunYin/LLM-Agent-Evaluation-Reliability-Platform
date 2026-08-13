@@ -1,0 +1,175 @@
+{
+  "frozen_from_runs": [
+    "support_b3_01",
+    "support_b3_02",
+    "support_b3_03",
+    "support_b3_04",
+    "support_b3_05",
+    "support_b3_06",
+    "support_b3_07",
+    "support_b3_08",
+    "support_b3_09",
+    "support_b3_10"
+  ],
+  "suite_sha256": "2cfcaedbb4005e6d2ff52bcc69396dfffbb9ce1758c48b04945335d6478f396b",
+  "rule": ">=1 invalid typed call in >= 3 of 10 baseline runs",
+  "min_cohort_size": 8,
+  "underpowered": false,
+  "cohort_size": 25,
+  "cohort": [
+    "SUP-chain-001",
+    "SUP-chain-002",
+    "SUP-chain-003",
+    "SUP-chain-004",
+    "SUP-chain-005",
+    "SUP-chain-006",
+    "SUP-chain-007",
+    "SUP-chain-008",
+    "SUP-chain-009",
+    "SUP-chain-010",
+    "SUP-distract-001",
+    "SUP-distract-002",
+    "SUP-distract-003",
+    "SUP-distract-004",
+    "SUP-distract-006",
+    "SUP-distract-007",
+    "SUP-distract-008",
+    "SUP-distract-009",
+    "SUP-distract-010",
+    "SUP-lookup-002",
+    "SUP-lookup-003",
+    "SUP-lookup-004",
+    "SUP-lookup-005",
+    "SUP-lookup-007",
+    "SUP-mtcond-008"
+  ],
+  "baseline_counts": {
+    "SUP-chain-001": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-002": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-003": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-004": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-005": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-006": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-007": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-008": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-009": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-chain-010": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-001": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-002": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-003": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-004": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-006": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-007": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-008": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-009": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-distract-010": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-lookup-002": {
+      "runs_with_invalid": 8,
+      "invalid_calls": 8
+    },
+    "SUP-lookup-003": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-lookup-004": {
+      "runs_with_invalid": 10,
+      "invalid_calls": 10
+    },
+    "SUP-lookup-005": {
+      "runs_with_invalid": 5,
+      "invalid_calls": 5
+    },
+    "SUP-lookup-007": {
+      "runs_with_invalid": 8,
+      "invalid_calls": 8
+    },
+    "SUP-mtcond-008": {
+      "runs_with_invalid": 4,
+      "invalid_calls": 4
+    }
+  },
+  "all_tasks_with_any_invalid": {
+    "SUP-chain-001": 10,
+    "SUP-chain-002": 10,
+    "SUP-chain-003": 10,
+    "SUP-chain-004": 10,
+    "SUP-chain-005": 10,
+    "SUP-chain-006": 10,
+    "SUP-chain-007": 10,
+    "SUP-chain-008": 10,
+    "SUP-chain-009": 10,
+    "SUP-chain-010": 10,
+    "SUP-distract-001": 10,
+    "SUP-distract-002": 10,
+    "SUP-distract-003": 10,
+    "SUP-distract-004": 10,
+    "SUP-distract-006": 10,
+    "SUP-distract-007": 10,
+    "SUP-distract-008": 10,
+    "SUP-distract-009": 10,
+    "SUP-distract-010": 10,
+    "SUP-lookup-002": 8,
+    "SUP-lookup-003": 10,
+    "SUP-lookup-004": 10,
+    "SUP-lookup-005": 5,
+    "SUP-lookup-007": 8,
+    "SUP-mtcond-008": 4
+  }
+}

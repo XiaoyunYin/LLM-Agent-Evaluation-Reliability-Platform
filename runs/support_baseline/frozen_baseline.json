@@ -1,39 +1,39 @@
 {
   "label": "frozen_baseline",
   "runs": [
-    "support_b2_01",
-    "support_b2_02",
-    "support_b2_03",
-    "support_b2_04",
-    "support_b2_05",
-    "support_b2_06",
-    "support_b2_07",
-    "support_b2_08",
-    "support_b2_09",
-    "support_b2_10"
+    "support_b3_01",
+    "support_b3_02",
+    "support_b3_03",
+    "support_b3_04",
+    "support_b3_05",
+    "support_b3_06",
+    "support_b3_07",
+    "support_b3_08",
+    "support_b3_09",
+    "support_b3_10"
   ],
   "episodes": 800,
   "per_run_success": {
-    "support_b2_01": 0.875,
-    "support_b2_02": 0.8625,
-    "support_b2_03": 0.875,
-    "support_b2_04": 0.9,
-    "support_b2_05": 0.8625,
-    "support_b2_06": 0.8875,
-    "support_b2_07": 0.8875,
-    "support_b2_08": 0.875,
-    "support_b2_09": 0.875,
-    "support_b2_10": 0.8875
+    "support_b3_01": 0.8875,
+    "support_b3_02": 0.9375,
+    "support_b3_03": 0.9,
+    "support_b3_04": 0.8875,
+    "support_b3_05": 0.8875,
+    "support_b3_06": 0.9,
+    "support_b3_07": 0.8875,
+    "support_b3_08": 0.9125,
+    "support_b3_09": 0.9,
+    "support_b3_10": 0.925
   },
-  "mean_success": 0.87875,
-  "sd_success": 0.011858541225631403,
+  "mean_success": 0.9025,
+  "sd_success": 0.017480147469502546,
   "tier": {
     "core": {
-      "passed": 337,
+      "passed": 342,
       "total": 350
     },
     "hard": {
-      "passed": 366,
+      "passed": 380,
       "total": 450
     }
   },
@@ -55,11 +55,11 @@
       "total": 60
     },
     "multi_ticket": {
-      "passed": 28,
+      "passed": 30,
       "total": 30
     },
     "conditional_escalation": {
-      "passed": 49,
+      "passed": 52,
       "total": 60
     },
     "chained_resolution": {
@@ -71,7 +71,7 @@
       "total": 100
     },
     "distractor_resolution": {
-      "passed": 66,
+      "passed": 82,
       "total": 90
     },
     "noop_plus_mutation": {
@@ -79,82 +79,73 @@
       "total": 80
     },
     "multi_ticket_conditional": {
-      "passed": 20,
+      "passed": 18,
       "total": 80
     }
   },
   "provenance": {
     "calibrated-core": {
-      "passed": 337,
+      "passed": 342,
       "total": 350
     },
     "hard-calibration-derived": {
-      "passed": 366,
+      "passed": 380,
       "total": 450
     }
   },
   "consistency": {
-    "always": 65,
-    "never": 7,
-    "intermittent": 8
+    "always": 68,
+    "never": 5,
+    "intermittent": 7
   },
   "calls": {
-    "tool_calls": 4597,
-    "invalid_calls": 236,
-    "episodes_with_invalid": 236,
+    "tool_calls": 4545,
+    "invalid_calls": 235,
+    "episodes_with_invalid": 235,
     "episodes": 800
   },
-  "cost_usd": 0.6295706999999999,
+  "cost_usd": 0.6134973,
   "taxonomy": {
-    "forbidden_mutation_made": 11,
-    "wrong_entity": 24,
-    "incomplete_workflow": 47,
-    "undeclared_mutation": 15
+    "forbidden_mutation_made": 8,
+    "wrong_entity": 8,
+    "incomplete_workflow": 44,
+    "undeclared_mutation": 18
   },
   "failing_tasks": {
-    "SUP-cond-001": {
-      "forbidden_mutation_made": 1
+    "SUP-cond-002": {
+      "forbidden_mutation_made": 4
     },
     "SUP-cond-004": {
-      "forbidden_mutation_made": 5
+      "forbidden_mutation_made": 4
     },
     "SUP-distract-001": {
-      "wrong_entity": 10
+      "wrong_entity": 7
     },
-    "SUP-distract-002": {
-      "wrong_entity": 10
-    },
-    "SUP-distract-003": {
-      "wrong_entity": 4
-    },
-    "SUP-mtcond-001": {
+    "SUP-mtcond-002": {
       "incomplete_workflow": 10
     },
     "SUP-mtcond-003": {
       "incomplete_workflow": 10
     },
-    "SUP-mtcond-002": {
+    "SUP-mtcond-001": {
       "incomplete_workflow": 10
     },
     "SUP-mtcond-004": {
       "incomplete_workflow": 10
     },
+    "SUP-mtcond-005": {
+      "undeclared_mutation": 8
+    },
     "SUP-mtcond-007": {
       "undeclared_mutation": 10
     },
-    "SUP-cond-002": {
-      "forbidden_mutation_made": 5
-    },
-    "SUP-mtcond-005": {
-      "undeclared_mutation": 5
-    },
-    "SUP-mtcond-008": {
-      "incomplete_workflow": 3
-    },
-    "SUP-multiticket-001": {
-      "incomplete_workflow": 2
+    "SUP-distract-002": {
+      "wrong_entity": 1
     },
     "SUP-mtcond-006": {
+      "incomplete_workflow": 2
+    },
+    "SUP-mtcond-008": {
       "incomplete_workflow": 2
     }
   }
