@@ -1,0 +1,170 @@
+{
+  "generated_at": "2026-08-13T10:08:16.133061+00:00",
+  "run_a": "spider_rpt__on_1",
+  "run_b": "spider_p2__bridge_control",
+  "substrate": "test_suite",
+  "verdict_source": "rescore__test_suite.json (offline, no model re-run)",
+  "task_sets": {
+    "shared": 1034,
+    "only_in_a": [],
+    "only_in_b": [],
+    "identical": true
+  },
+  "configuration": {
+    "identity_field_differences": {},
+    "same_experiment": true,
+    "expected_differences": {
+      "run_id": {
+        "a": "spider_rpt__on_1",
+        "b": "spider_p2__bridge_control"
+      },
+      "started_at": {
+        "a": "2026-08-13T08:55:03.003153+00:00",
+        "b": "2026-08-13T10:01:47.097600+00:00"
+      },
+      "code_commit_sha": {
+        "a": "30595c20c6679bb66e4233e2a81889d7adaba84f",
+        "b": "133f5142fda0f8f5ed8977f116e85b2aadbbf2c6"
+      }
+    },
+    "other_differences": {
+      "empty_result_policy": {
+        "a": null,
+        "b": "baseline"
+      }
+    },
+    "fields_compared": [
+      "dataset",
+      "dataset_version",
+      "split",
+      "archive_sha256",
+      "dev_json_sha256",
+      "model_version",
+      "prompt_version",
+      "tool_schema_version",
+      "adapter_version",
+      "agent_version",
+      "max_steps",
+      "temperature",
+      "max_visible_rows",
+      "valid_task_count",
+      "excluded_task_ids",
+      "sampled",
+      "sample_seed"
+    ]
+  },
+  "sampling": {
+    "run_a": {
+      "temperature": 0.0,
+      "top_p": null,
+      "seed": null,
+      "requested_model_alias": "gpt-4o-mini",
+      "resolved_model_revision": "not captured for this run; the alias above was requested",
+      "determinism_note": "No seed was sent. These are repeated runs under an identical recorded configuration, NOT seeded runs. OpenAI's seed parameter is best-effort and would not make them deterministic either."
+    },
+    "run_b": {
+      "temperature": 0.0,
+      "top_p": null,
+      "seed": null,
+      "requested_model_alias": "gpt-4o-mini",
+      "resolved_model_revision": "not captured for this run; the alias above was requested",
+      "determinism_note": "No seed was sent. These are repeated runs under an identical recorded configuration, NOT seeded runs. OpenAI's seed parameter is best-effort and would not make them deterministic either."
+    }
+  },
+  "accuracy": {
+    "run_a": {
+      "passes": 665,
+      "total": 1034,
+      "rate": 0.6431334622823984
+    },
+    "run_b": {
+      "passes": 663,
+      "total": 1034,
+      "rate": 0.6411992263056093
+    },
+    "net_change_tasks": -2,
+    "net_change_rate": -0.0019342359767891683
+  },
+  "pass_fail_ledger": {
+    "definition": "PASS means termination_reason == SUCCESS. Counted per task, joined on task_id across the two runs.",
+    "pass_to_pass": 649,
+    "pass_to_fail": 16,
+    "fail_to_pass": 14,
+    "fail_to_fail": 355,
+    "total_pass_fail_flips": 30,
+    "flip_rate": 0.029013539651837523,
+    "identities": {
+      "cells_sum_to_shared_tasks": {
+        "expected": 1034,
+        "actual": 1034,
+        "holds": true
+      },
+      "flips_equal_offdiagonal": {
+        "expected": 30,
+        "actual": 30,
+        "holds": true
+      },
+      "net_change_matches_pass_counts": {
+        "fail_to_pass_minus_pass_to_fail": -2,
+        "passes_b_minus_passes_a": -2,
+        "holds": true
+      }
+    },
+    "all_identities_hold": true
+  },
+  "termination_reason_churn": {
+    "definition": "Any change in termination_reason, INCLUDING fail-to-fail changes that did not alter the outcome. Strictly larger than the pass/fail flip count, and not a substitute for it.",
+    "total_reason_changes": 46,
+    "of_which_fail_to_fail": 16,
+    "of_which_changed_outcome": 30,
+    "transitions": {
+      "SUCCESS->VERIFICATION_FAILED": 15,
+      "VERIFICATION_FAILED->SUCCESS": 11,
+      "MAX_STEPS->VERIFICATION_FAILED": 9,
+      "VERIFICATION_FAILED->MAX_STEPS": 6,
+      "MAX_STEPS->SUCCESS": 3,
+      "SUCCESS->MAX_STEPS": 1,
+      "VERIFICATION_FAILED->SQL_ERROR": 1
+    }
+  },
+  "flipped_task_ids": {
+    "pass_to_fail": [
+      "spider_dev_0171",
+      "spider_dev_0185",
+      "spider_dev_0215",
+      "spider_dev_0245",
+      "spider_dev_0367",
+      "spider_dev_0410",
+      "spider_dev_0518",
+      "spider_dev_0551",
+      "spider_dev_0606",
+      "spider_dev_0626",
+      "spider_dev_0667",
+      "spider_dev_0757",
+      "spider_dev_0789",
+      "spider_dev_0799",
+      "spider_dev_0922",
+      "spider_dev_0924"
+    ],
+    "fail_to_pass": [
+      "spider_dev_0036",
+      "spider_dev_0044",
+      "spider_dev_0063",
+      "spider_dev_0161",
+      "spider_dev_0212",
+      "spider_dev_0294",
+      "spider_dev_0329",
+      "spider_dev_0364",
+      "spider_dev_0403",
+      "spider_dev_0480",
+      "spider_dev_0652",
+      "spider_dev_0904",
+      "spider_dev_0909",
+      "spider_dev_0954"
+    ]
+  },
+  "classification": {
+    "diagnostic_only": false,
+    "in_p1_variance_family": null
+  }
+}

@@ -1,0 +1,459 @@
+{
+  "generated_at": "2026-08-13T10:35:50.163314+00:00",
+  "preregistration": "docs/P2_PREREGISTRATION.md",
+  "substrate": "test_suite",
+  "cohort_size": 39,
+  "primary": {
+    "metric": "recoverable_cohort_conversion_rate",
+    "baseline_rates_on": {
+      "spider_rpt__on_1": 0.10256410256410256,
+      "spider_rpt__on_2": 0.20512820512820512,
+      "spider_rpt__on_3": 0.1794871794871795,
+      "spider_rpt__on_4": 0.28205128205128205
+    },
+    "pooled_baseline": 0.1923076923076923,
+    "bridge_rate": 0.1282051282051282,
+    "treatment_rates": {
+      "spider_p2__treat_1": 0.7435897435897436,
+      "spider_p2__treat_2": 0.6923076923076923,
+      "spider_p2__treat_3": 0.717948717948718
+    },
+    "pooled_treatment": 0.717948717948718,
+    "absolute_change": 0.5256410256410257,
+    "on_max_bar": 0.2821
+  },
+  "paired_cells": {
+    "converted_tasks": 29,
+    "regressed_tasks": 1,
+    "unchanged_tasks": 9,
+    "net": 28,
+    "per_task": [
+      {
+        "task_id": "spider_dev_0043",
+        "baseline_passes": "2/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.5,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0044",
+        "baseline_passes": "2/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.5,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0161",
+        "baseline_passes": "1/4",
+        "treatment_passes": "2/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 0.6666666666666666,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0162",
+        "baseline_passes": "0/4",
+        "treatment_passes": "1/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.3333333333333333,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0169",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0170",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0185",
+        "baseline_passes": "2/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.5,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0186",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0197",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0198",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0201",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0202",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0210",
+        "baseline_passes": "0/4",
+        "treatment_passes": "1/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.3333333333333333,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0215",
+        "baseline_passes": "4/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 1.0,
+        "treatment_rate": 1.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0218",
+        "baseline_passes": "1/4",
+        "treatment_passes": "2/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 0.6666666666666666,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0228",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0233",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0235",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0236",
+        "baseline_passes": "2/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.5,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0247",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0249",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0250",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0252",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0254",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0255",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0293",
+        "baseline_passes": "2/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.5,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0294",
+        "baseline_passes": "1/4",
+        "treatment_passes": "2/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 0.6666666666666666,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0397",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0398",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0521",
+        "baseline_passes": "0/4",
+        "treatment_passes": "0/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 0.0,
+        "direction": "unchanged"
+      },
+      {
+        "task_id": "spider_dev_0532",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0606",
+        "baseline_passes": "3/4",
+        "treatment_passes": "1/3",
+        "baseline_rate": 0.75,
+        "treatment_rate": 0.3333333333333333,
+        "direction": "regressed"
+      },
+      {
+        "task_id": "spider_dev_0809",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0842",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0843",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0860",
+        "baseline_passes": "0/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.0,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0861",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0908",
+        "baseline_passes": "1/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.25,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      },
+      {
+        "task_id": "spider_dev_0909",
+        "baseline_passes": "2/4",
+        "treatment_passes": "3/3",
+        "baseline_rate": 0.5,
+        "treatment_rate": 1.0,
+        "direction": "converted"
+      }
+    ]
+  },
+  "damage_channel": {
+    "non_target_cohort_size": 65,
+    "baseline_rates": {
+      "spider_rpt__on_1": 0.26153846153846155,
+      "spider_rpt__on_2": 0.23076923076923078,
+      "spider_rpt__on_3": 0.23076923076923078,
+      "spider_rpt__on_4": 0.26153846153846155
+    },
+    "pooled_baseline": 0.24615384615384617,
+    "treatment_rates": {
+      "spider_p2__treat_1": 0.2153846153846154,
+      "spider_p2__treat_2": 0.23076923076923078,
+      "spider_p2__treat_3": 0.23076923076923078
+    },
+    "floor": 0.1846,
+    "breaches": {},
+    "holds": true,
+    "premature_empty_submissions": {
+      "baseline": {
+        "spider_rpt__on_1": 0,
+        "spider_rpt__on_2": 0,
+        "spider_rpt__on_3": 0,
+        "spider_rpt__on_4": 0
+      },
+      "treatment": {
+        "spider_p2__treat_1": 62,
+        "spider_p2__treat_2": 62,
+        "spider_p2__treat_3": 62
+      }
+    }
+  },
+  "guards": {
+    "test_suite_task_success": {
+      "threshold": 0.027079,
+      "baseline_worst": 0.6363636363636364,
+      "treatment_values": {
+        "spider_p2__treat_1": 0.6624758220502901,
+        "spider_p2__treat_2": 0.6634429400386848,
+        "spider_p2__treat_3": 0.6653771760154739
+      },
+      "breaches": {},
+      "holds": true
+    },
+    "mean_model_turns_per_success": {
+      "threshold": 0.055692,
+      "baseline_worst": 4.599702380952381,
+      "treatment_values": {
+        "spider_p2__treat_1": 4.56058394160584,
+        "spider_p2__treat_2": 4.577259475218659,
+        "spider_p2__treat_3": 4.594476744186046
+      },
+      "breaches": {},
+      "holds": true
+    },
+    "tool_validity_rate": {
+      "threshold": 0.001912,
+      "baseline_worst": 0.9959638669998078,
+      "treatment_values": {
+        "spider_p2__treat_1": 0.9981945837512538,
+        "spider_p2__treat_2": 0.995794111756459,
+        "spider_p2__treat_3": 0.9944022391043582
+      },
+      "breaches": {},
+      "holds": true
+    },
+    "estimated_cost_per_success": {
+      "threshold": 8e-05,
+      "baseline_worst": 0.0009778267669172933,
+      "treatment_values": {
+        "spider_p2__treat_1": 0.0008672071532846715,
+        "spider_p2__treat_2": 0.0008674978862973759,
+        "spider_p2__treat_3": 0.000866935465116279
+      },
+      "breaches": {},
+      "holds": true
+    }
+  },
+  "infrastructure_clean": true,
+  "secondary": {
+    "max_steps": {
+      "baseline": {
+        "spider_rpt__on_1": 52,
+        "spider_rpt__on_2": 46,
+        "spider_rpt__on_3": 45,
+        "spider_rpt__on_4": 44
+      },
+      "treatment": {
+        "spider_p2__treat_1": 11,
+        "spider_p2__treat_2": 10,
+        "spider_p2__treat_3": 9
+      }
+    },
+    "full_suite_accuracy": {
+      "baseline": {
+        "spider_rpt__on_1": 0.6431334622823984,
+        "spider_rpt__on_2": 0.6460348162475822,
+        "spider_rpt__on_3": 0.6363636363636364,
+        "spider_rpt__on_4": 0.6499032882011605
+      },
+      "bridge": 0.6411992263056093,
+      "treatment": {
+        "spider_p2__treat_1": 0.6624758220502901,
+        "spider_p2__treat_2": 0.6634429400386848,
+        "spider_p2__treat_3": 0.6653771760154739
+      }
+    }
+  },
+  "conditions": {
+    "1_every_treatment_run_clears_on_max": true,
+    "2_pooled_conversions_exceed_regressions": true,
+    "3_no_regression_guards_hold": true,
+    "4_damage_within_threshold": true
+  },
+  "verdict": "ADOPT"
+}
