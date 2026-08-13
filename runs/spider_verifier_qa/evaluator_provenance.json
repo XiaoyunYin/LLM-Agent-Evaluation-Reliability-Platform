@@ -1,0 +1,45 @@
+{
+  "evaluator_source": "https://raw.githubusercontent.com/taoyds/test-suite-sql-eval/master/",
+  "vendored_file_sha256": {
+    "evaluation.py": "7401e4014a8955376a7919c06903a7f0ab403c99e89f94204cd8f4c8e32ae779",
+    "exec_eval.py": "29d034db28904490c28037537a14fbb0150b6e86cef0049076c0511d6b6b77f7",
+    "process_sql.py": "927fc564f7a8e34f09f009a2f5564a83fdf95226440dde84c87871fd65fe55a1",
+    "parse.py": "ef04211a6e1c1e142571157f5c1999613e3451084c044083b2de1977f1f622c5"
+  },
+  "local_execution_driver": {
+    "file": "backend/app/spider/interruptible_eval.py",
+    "sha256": "8d5401a86000f9cff0a28105875243d359aed3a84bbae72c0185b3b64fa42c38",
+    "why": "vendored timeout wraps a blocking cursor.execute in asyncio.wait_for and cannot cancel it",
+    "comparison_semantics": "unchanged - result_eq, remove_distinct, postprocess imported from vendored source",
+    "verdict_parity": "120/120 identical to the vendored driver (60 tasks x {gold, wrong}, single-DB substrate)",
+    "applies_to": "test_suite substrate only; single_db still uses the vendored driver verbatim"
+  },
+  "timeout_rule": {
+    "per_query_budget_seconds": 15,
+    "applies_to": "gold and prediction symmetrically",
+    "prediction_timeout": "FAIL",
+    "gold_timeout": "substrate exclusion (GOLD_ERROR) - a task whose gold cannot run is a benchmark defect, not an agent failure"
+  },
+  "gold_pass_qa": {
+    "single_db": "1034/1034",
+    "test_suite": "1034/1034",
+    "exclusions_single_db": 0,
+    "exclusions_test_suite": 0
+  },
+  "adversarial_qa": {
+    "mutations_attempted": 166,
+    "single_db": {
+      "collisions": 30,
+      "collision_rate": 0.18072289156626506,
+      "detected": 136
+    },
+    "test_suite": {
+      "collisions": 20,
+      "collision_rate": 0.12048192771084337,
+      "detected": 146,
+      "leaks": 0
+    },
+    "collision_rate_reduction_pp": 6.024096385542169
+  },
+  "metric_separation": "single_database_execution_accuracy and test_suite_execution_accuracy are permanently separate metric ids; neither is ever renamed to the other"
+}

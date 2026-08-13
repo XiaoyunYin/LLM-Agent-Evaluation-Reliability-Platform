@@ -4,6 +4,11 @@ P1 was pre-registered in [`docs/P1_PREREGISTRATION.md`](../P1_PREREGISTRATION.md
 before any run executed. This records what has been measured and what is blocked,
 without letting the second borrow credibility from the first.
 
+**P2 headroom is now the stricter figure: 1.74pp** (18 of the 48 max-step episodes
+ever produced a test-suite-passing query), superseding the single-database 2.42pp,
+which is retained as historical diagnostic data only. 7 of the 25 queries the
+looser metric called correct were themselves single-database false positives.
+
 **Blocked:** everything requiring new agent runs — same-commit repeat variability,
 the validation-OFF ablation, consistency metrics, and therefore CI thresholds.
 **Cause:** OpenAI requests-per-day quota. See §4.
@@ -204,6 +209,60 @@ not a measurement, and the repeats will be internally consistent regardless sinc
 all of them will use the same setting.
 
 ---
+
+## 4b. P1 execution commit and pre-registration v2
+
+Tag **`p1-runner`** (commit `89bb102`) is the execution commit. The P1 variance
+family is defined as runs from that tag with an identical recorded configuration.
+The canonical P0 run `spider_full__p0_v2` sits **outside** the family — different
+commit, sequential execution, no `tool_argument_validation` field — and is a
+diagnostic reference baseline only.
+
+Runner hardening in that commit, verified to leave every behaviour-defining input
+unchanged (prompt sha256, tool-spec sha256, versions, caps, and pricing all still
+match the frozen manifest):
+
+- `RATE_LIMITED` is a distinct termination reason, classified structurally, and is
+  in both `INFRASTRUCTURE_TERMINATIONS` and a new `HALTING_TERMINATIONS`.
+- 429s are never retried in benchmark mode; transient errors still are. The client
+  is built with `max_retries=0` so the SDK cannot retry behind our back.
+- Latency is split: `api_latency_ms` (provider) vs `retry_wait_ms` (our backoff).
+  Latency metrics use the former, so rate-limit waiting cannot inflate it.
+- The run halts on the first `RATE_LIMITED`, skips in-flight episodes rather than
+  recording quota artefacts, and exits 75 with resume instructions.
+- `tool_argument_validation: true|false` is a recorded config field, so the OFF
+  ablation is a config change on the same commit rather than a code change.
+
+Six regression tests pin this behaviour.
+
+`docs/P1_PREREGISTRATION_V2.md` supersedes the v1 decision rules:
+
+- **Primary metric is test-suite execution accuracy**; single-database is a
+  diagnostic companion and never a gate.
+- **`pass^k` estimator pinned**: `pass^k(task) = C(c,k)/C(n,k)`, averaged over
+  tasks, reported for k = 1..4 with the per-task histogram. Validated on a
+  synthetic family: `pass^1` equals mean accuracy and `pass^4` equals the 4/4
+  share.
+- **Ablation rule tightened**: an effect is reported only if OFF-vs-ON discordance
+  exceeds the maximum ON-to-ON pairwise discordance against **every** family
+  member, **and** PASS-to-FAIL strictly dominates in each comparison. Otherwise
+  the published result is "inconclusive at one OFF run."
+- **Cost gates are token-derived** from the pinned price snapshot travelling with
+  the run, so provider repricing cannot retroactively change a CI verdict.
+
+## 4c. Evaluator provenance — pinned
+
+`runs/spider_verifier_qa/evaluator_provenance.json` records the vendored file
+hashes, the local execution driver and why it exists, the 120/120 verdict parity,
+gold-pass QA on both substrates (1,034/1,034 each, zero exclusions), the
+adversarial before/after, and the timeout rule:
+
+- per-query budget 15s, applied symmetrically to gold and prediction
+- **prediction timeout → FAIL**
+- **gold timeout → substrate exclusion**, because a task whose gold cannot run is a
+  benchmark defect rather than an agent failure
+
+The two metric ids stay permanently separate; neither is ever renamed to the other.
 
 ## 5. Gate / monitor split — defined, unarmed
 
