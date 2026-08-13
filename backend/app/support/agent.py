@@ -37,6 +37,7 @@ from backend.app.spider.trajectory import (
     TrajectoryStore,
 )
 from backend.app.support.environment import SupportEnvironment
+import backend.app.support.tools as tools_module  # noqa: E402
 from backend.app.support.tools import (
     EFFECTFUL_TOOLS,
     TOOL_SCHEMA_VERSION,
@@ -153,6 +154,10 @@ class SupportAgentConfig:
     request_timeout_seconds: float = 120.0
     empty_result_policy: str = "accept_empty"
     # P3 treatment flag, OFF here. Same commit serves control and treatment.
+    # P3 treatment flag. ON adds the tool's argument schema and one valid example
+    # call to an INVALID_ARGUMENTS payload, and changes nothing else - so a
+    # treatment run differs from baseline in exactly one field, which is what
+    # assert_p3_frozen relies on to keep the comparison paired.
     schema_repair_enabled: bool = False
 
 
@@ -406,6 +411,7 @@ def _tool_node(state: SupportAgentState, config: RunnableConfig) -> dict[str, An
                     result = call_tool(
                         context.environment, name, arguments, identity,
                         empty_result_policy=context.config.empty_result_policy,
+                        schema_repair=context.config.schema_repair_enabled,
                     )
                 result_payload = result.model_visible
                 success, error_kind = result.success, result.error_kind
@@ -486,3 +492,22 @@ def build_graph():
     graph.add_edge("max_steps", "finish")
     graph.add_edge("finish", END)
     return graph.compile()
+
+
+# Bind the wire-format schemas into the tool layer for the schema-repair treatment.
+# Sourced from TOOL_SPECS itself so the hint can never drift from what the model
+# was told at bind time.
+tools_module.ARGUMENT_SCHEMAS.update(
+    {spec["function"]["name"]: spec["function"]["parameters"] for spec in TOOL_SPECS}
+)
+tools_module.EXAMPLE_CALLS.update({
+    "search_tickets": {"customer_name": "Customer 007", "query": "refund"},
+    "get_ticket": {"ticket_id": "TKT-0001"},
+    "search_policy": {"query": "billing dispute"},
+    "list_reference_data": {},
+    "update_ticket": {"ticket_id": "TKT-0001", "priority": "high"},
+    "assign_ticket": {"ticket_id": "TKT-0001", "team_id": "TEAM-billing"},
+    "add_comment": {"ticket_id": "TKT-0001", "body": "Verified identity.",
+                    "reason_code": "IDENTITY_CHECK"},
+    "finish_task": {},
+})

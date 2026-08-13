@@ -144,3 +144,70 @@ does not cover the frozen suite exactly once is **quarantined, not deleted**: a
 tombstone records the run id, the contamination reason, the detection mechanism,
 and its exclusion status. `analyze_p3_baseline.py` excludes such runs loudly
 rather than silently.
+
+---
+
+# Amendment 1 — the primary metric may be degenerate
+
+Written **after** the quarantined baseline runs were analysed and **before** the
+replacement baselines were read, so this is still a plan and not a result.
+
+## What was measured
+
+On the 10 quarantined baseline runs (`support_base_01..10`, superseded suite),
+recomputed independently from the persisted tool payloads rather than from the
+episode counters:
+
+| | |
+|---|---:|
+| invalid typed calls | 224 |
+| episodes containing ≥1 invalid call | 224 |
+| **episodes containing ≥2 invalid calls** | **0** |
+| invalid calls that were never recovered from | **0 / 224** |
+
+**No episode ever emitted a second invalid call.** Every one of the 224 was the
+same semantic mistake — a customer name or number passed into `customer_id` — and
+the existing error message already says, in words, `if you have the customer's
+NAME, use customer_name instead`. The agent read it and corrected on the next turn
+every single time.
+
+## What that means for the pre-registration
+
+The primary metric defined in §4 — repeat-invalid rate — is **identically zero in
+the baseline arm**. A metric with no variance cannot be improved, so as written
+the experiment is guaranteed to return "no effect" for structural reasons rather
+than empirical ones.
+
+It also exposes a flaw in the §1 selection rule, which is worth stating plainly
+because it is the transferable lesson: **the rule triggered on the frequency of
+invalid calls, when what matters is the frequency of invalid calls the agent
+cannot recover from.** Frequency was a proxy chosen before there was evidence
+about recovery; recovery turned out to be perfect. By the corrected trigger,
+schema repair would **not** have been selected — 0% unrecovered.
+
+The rule is not being rewritten retroactively to change the verdict. It fired, and
+that is recorded as it happened. The correction is logged as a lesson for the next
+pre-registration, not applied backwards to manufacture a different history.
+
+## Revised plan, fixed before reading the replacement baselines
+
+1. The experiment still **runs**. It is cheap (~$0.06 per full pass), and a
+   measured null is worth more than an argued one. Declining to run and asserting
+   the outcome would be exactly the habit this project exists to avoid.
+2. **If the replacement baselines also show zero episodes with ≥2 invalid calls**,
+   the primary metric is reported as **DEGENERATE**, the verdict is **NO EFFECT
+   ON THE PRIMARY METRIC**, and the finding published is the recovery rate itself
+   — a structured, actionable validation error is sufficient for one-shot recovery
+   in 100% of observed cases, so adding the schema on top has nothing left to fix.
+3. **If they show a non-zero repeat-invalid rate**, §4 stands unamended and the
+   original verdict rule in §9 applies unchanged.
+4. Secondary metrics in §5 are measured and reported either way. They are not
+   promoted to primary — promoting a secondary metric after the primary fails is
+   how a null result gets dressed up as a finding.
+5. The §7 bridge rule and §10 contamination rule are unchanged.
+
+## Cohort note
+
+§6 freezes the cohort as tasks producing ≥1 invalid call in ≥3 of 10 baseline
+runs, with a floor of 8 tasks or the experiment is reported underpowered. That
+rule is unchanged and is applied to the replacement baselines.

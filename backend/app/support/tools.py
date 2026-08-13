@@ -499,12 +499,35 @@ def apply_empty_result_policy(result: ToolResult, policy: str) -> ToolResult:
     return result.model_copy(update={"model_visible": visible})
 
 
+# Filled in by the agent module, which owns the wire-format tool specs. Kept as a
+# late binding so tools.py does not import the agent and create a cycle.
+ARGUMENT_SCHEMAS: dict[str, dict[str, Any]] = {}
+EXAMPLE_CALLS: dict[str, dict[str, Any]] = {}
+
+
+def _repair_hint(name: str) -> dict[str, Any]:
+    """The schema-repair treatment payload: the tool's schema and one valid call.
+
+    Deliberately additive. It tells the agent more about what it got wrong; it
+    never coerces arguments and never converts a rejected call into a successful
+    one. Auto-coercion was rejected as a design because silently fixing a
+    malformed call is the same failure class as docs/SILENT_TOOL_FAILURE.md.
+    """
+    hint: dict[str, Any] = {}
+    if name in ARGUMENT_SCHEMAS:
+        hint["argument_schema"] = ARGUMENT_SCHEMAS[name]
+    if name in EXAMPLE_CALLS:
+        hint["example_call"] = {"tool": name, "arguments": EXAMPLE_CALLS[name]}
+    return hint
+
+
 def call_tool(
     environment,
     name: str,
     arguments: dict[str, Any],
     identity: ToolCallIdentity | None = None,
     empty_result_policy: str = "accept_empty",
+    schema_repair: bool = False,
 ) -> ToolResult:
     """The single entry point the runtime uses.
 
@@ -527,6 +550,11 @@ def call_tool(
         )
     else:
         result = handler(environment, dict(arguments))
+
+    if schema_repair and result.error_kind == "INVALID_ARGUMENTS":
+        hint = _repair_hint(name)
+        if hint:
+            result.model_visible = {**result.model_visible, **hint}
 
     result = apply_empty_result_policy(result, empty_result_policy)
     if identity is not None:
