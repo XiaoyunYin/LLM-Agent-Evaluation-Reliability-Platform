@@ -1,0 +1,1038 @@
+{
+  "frozen_at": "2026-08-13T09:58:00.694591+00:00",
+  "substrate": "test_suite",
+  "baseline_runs": [
+    "spider_rpt__on_1",
+    "spider_rpt__on_2",
+    "spider_rpt__on_3",
+    "spider_rpt__on_4",
+    "spider_abl__off_1"
+  ],
+  "note_on_off_run": "spider_abl__off_1 ran with tool_argument_validation=false. It precedes treatment so it contributes to cohort discovery, but pass frequency is reported over both the 5-run and the clean 4-run ON groupings.",
+  "cohort_definition": "Union of tasks that showed a recoverable failure - a failed episode that had already executed a query passing the test-suite evaluator - in at least one baseline run.",
+  "frozen": true,
+  "must_not_be_modified": "This cohort is frozen before any treatment exists. Redrawing it after treatment results appear would make the target a function of the result.",
+  "cohort_size": 39,
+  "observed_recoverable_per_run": {
+    "counts": [
+      32,
+      26,
+      29,
+      24,
+      28
+    ],
+    "min": 24,
+    "max": 32,
+    "mean": 27.8,
+    "as_share_of_1034": 0.026885880077369438,
+    "mean_pp": 2.6885880077369437
+  },
+  "subtype_totals": {
+    "FOUND_PASSING_NEVER_SUBMITTED": 79,
+    "FOUND_PASSING_SUBMITTED_WORSE": 60
+  },
+  "cohort_by_dominant_subtype": {
+    "FOUND_PASSING_NEVER_SUBMITTED": 25,
+    "FOUND_PASSING_SUBMITTED_WORSE": 14
+  },
+  "recurrence": {
+    "3": 4,
+    "5": 15,
+    "2": 5,
+    "1": 6,
+    "4": 9
+  },
+  "baseline_pass_frequency_histogram_5runs": {
+    "0/5": 20,
+    "1/5": 8,
+    "2/5": 5,
+    "3/5": 5,
+    "4/5": 1
+  },
+  "baseline_pass_frequency_histogram_on_only": {
+    "0/4": 20,
+    "1/4": 11,
+    "2/4": 6,
+    "3/4": 1,
+    "4/4": 1
+  },
+  "pass_frequency_caveat": "Descriptive labels. A 0/5 task is NOT proven deterministically unsolvable - five samples cannot establish that, and P1 measured 6.5% of tasks flipping between identical runs. Inference must rest on pooled paired behaviour, not on these labels.",
+  "empty_result_profile": {
+    "cohort_tasks_always_empty": 26,
+    "cohort_tasks_ever_empty": 26
+  },
+  "non_target_empty_result_cohort": {
+    "definition": "Tasks NOT in the frozen cohort whose baseline trajectories contain at least one successful EMPTY execution. These are what an empty-result intervention could damage.",
+    "size": 65,
+    "task_ids": [
+      "spider_dev_0014",
+      "spider_dev_0015",
+      "spider_dev_0059",
+      "spider_dev_0060",
+      "spider_dev_0066",
+      "spider_dev_0105",
+      "spider_dev_0106",
+      "spider_dev_0111",
+      "spider_dev_0112",
+      "spider_dev_0129",
+      "spider_dev_0130",
+      "spider_dev_0149",
+      "spider_dev_0152",
+      "spider_dev_0158",
+      "spider_dev_0168",
+      "spider_dev_0171",
+      "spider_dev_0175",
+      "spider_dev_0176",
+      "spider_dev_0180",
+      "spider_dev_0182",
+      "spider_dev_0221",
+      "spider_dev_0222",
+      "spider_dev_0223",
+      "spider_dev_0224",
+      "spider_dev_0234",
+      "spider_dev_0237",
+      "spider_dev_0238",
+      "spider_dev_0239",
+      "spider_dev_0240",
+      "spider_dev_0241",
+      "spider_dev_0242",
+      "spider_dev_0243",
+      "spider_dev_0244",
+      "spider_dev_0248",
+      "spider_dev_0251",
+      "spider_dev_0253",
+      "spider_dev_0354",
+      "spider_dev_0356",
+      "spider_dev_0361",
+      "spider_dev_0362",
+      "spider_dev_0403",
+      "spider_dev_0458",
+      "spider_dev_0505",
+      "spider_dev_0511",
+      "spider_dev_0531",
+      "spider_dev_0536",
+      "spider_dev_0549",
+      "spider_dev_0550",
+      "spider_dev_0576",
+      "spider_dev_0610",
+      "spider_dev_0631",
+      "spider_dev_0632",
+      "spider_dev_0642",
+      "spider_dev_0700",
+      "spider_dev_0720",
+      "spider_dev_0721",
+      "spider_dev_0757",
+      "spider_dev_0772",
+      "spider_dev_0773",
+      "spider_dev_0785",
+      "spider_dev_0787",
+      "spider_dev_0808",
+      "spider_dev_0955",
+      "spider_dev_1021",
+      "spider_dev_1033"
+    ]
+  },
+  "cohort": [
+    {
+      "task_id": "spider_dev_0043",
+      "database_id": "concert_singer",
+      "runs_with_recoverable_failure": 3,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 3
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 3,
+      "identical_result_repeated_count": 3,
+      "baseline_pass_frequency_5runs": "2/5",
+      "baseline_pass_frequency_on_only": "2/4",
+      "termination_reasons": {
+        "MAX_STEPS": 3
+      }
+    },
+    {
+      "task_id": "spider_dev_0044",
+      "database_id": "concert_singer",
+      "runs_with_recoverable_failure": 3,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 3
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 3,
+      "identical_result_repeated_count": 3,
+      "baseline_pass_frequency_5runs": "2/5",
+      "baseline_pass_frequency_on_only": "2/4",
+      "termination_reasons": {
+        "MAX_STEPS": 3
+      }
+    },
+    {
+      "task_id": "spider_dev_0161",
+      "database_id": "car_1",
+      "runs_with_recoverable_failure": 3,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 3
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 0,
+      "baseline_pass_frequency_5runs": "2/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 3
+      }
+    },
+    {
+      "task_id": "spider_dev_0162",
+      "database_id": "car_1",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 0,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0169",
+      "database_id": "car_1",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 2,
+      "identical_result_repeated_count": 3,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0170",
+      "database_id": "car_1",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 0,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0185",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 2,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 2
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 2,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3.0,
+      "turns_remaining_after_median": 7.0,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 2,
+      "baseline_pass_frequency_5runs": "3/5",
+      "baseline_pass_frequency_on_only": "2/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 2
+      }
+    },
+    {
+      "task_id": "spider_dev_0186",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0197",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 0,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0198",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 0,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0201",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0202",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 2,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0210",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0215",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 1,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 1,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "4/5",
+      "baseline_pass_frequency_on_only": "4/4",
+      "termination_reasons": {
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0218",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 1,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 5,
+      "first_passing_turn_median": 5,
+      "turns_remaining_after_median": 5,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0228",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 1,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 1,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 6,
+      "first_passing_turn_median": 6,
+      "turns_remaining_after_median": 4,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0233",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 5,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0235",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4.0,
+      "turns_remaining_after_median": 6.0,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0236",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 2,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 2
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 2,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4.0,
+      "turns_remaining_after_median": 6.0,
+      "equivalent_query_repeated_count": 2,
+      "identical_result_repeated_count": 2,
+      "baseline_pass_frequency_5runs": "3/5",
+      "baseline_pass_frequency_on_only": "2/4",
+      "termination_reasons": {
+        "MAX_STEPS": 2
+      }
+    },
+    {
+      "task_id": "spider_dev_0247",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 2,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0249",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4.0,
+      "turns_remaining_after_median": 6.0,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0250",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3.0,
+      "turns_remaining_after_median": 7.0,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0252",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 1,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 1,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 9,
+      "first_passing_turn_median": 9,
+      "turns_remaining_after_median": 1,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0254",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 6,
+      "first_passing_turn_median": 8.0,
+      "turns_remaining_after_median": 2.0,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0255",
+      "database_id": "flight_2",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4.0,
+      "turns_remaining_after_median": 6.0,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0293",
+      "database_id": "employee_hire_evaluation",
+      "runs_with_recoverable_failure": 2,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 2
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 2,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3.0,
+      "turns_remaining_after_median": 7.0,
+      "equivalent_query_repeated_count": 1,
+      "identical_result_repeated_count": 2,
+      "baseline_pass_frequency_5runs": "3/5",
+      "baseline_pass_frequency_on_only": "2/4",
+      "termination_reasons": {
+        "MAX_STEPS": 2
+      }
+    },
+    {
+      "task_id": "spider_dev_0294",
+      "database_id": "employee_hire_evaluation",
+      "runs_with_recoverable_failure": 1,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 1,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "2/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0397",
+      "database_id": "course_teach",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3.0,
+      "turns_remaining_after_median": 7.0,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0398",
+      "database_id": "course_teach",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 5,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0521",
+      "database_id": "student_transcripts_tracking",
+      "runs_with_recoverable_failure": 1,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 8,
+      "first_passing_turn_median": 8,
+      "turns_remaining_after_median": 2,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0532",
+      "database_id": "student_transcripts_tracking",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3,
+      "turns_remaining_after_median": 7,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0606",
+      "database_id": "tvshow",
+      "runs_with_recoverable_failure": 2,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 2
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 0,
+      "passing_result_always_empty": false,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3.5,
+      "turns_remaining_after_median": 6.5,
+      "equivalent_query_repeated_count": 0,
+      "identical_result_repeated_count": 2,
+      "baseline_pass_frequency_5runs": "3/5",
+      "baseline_pass_frequency_on_only": "3/4",
+      "termination_reasons": {
+        "SUCCESS": 2
+      }
+    },
+    {
+      "task_id": "spider_dev_0809",
+      "database_id": "world_1",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 3,
+        "FOUND_PASSING_NEVER_SUBMITTED": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": true,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 3,
+      "first_passing_turn_median": 3.0,
+      "turns_remaining_after_median": 7.0,
+      "equivalent_query_repeated_count": 1,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "SUCCESS": 3,
+        "MAX_STEPS": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0842",
+      "database_id": "orchestra",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 5,
+      "first_passing_turn_median": 5.0,
+      "turns_remaining_after_median": 5.0,
+      "equivalent_query_repeated_count": 4,
+      "identical_result_repeated_count": 4,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0843",
+      "database_id": "orchestra",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 5,
+      "first_passing_turn_median": 5,
+      "turns_remaining_after_median": 5,
+      "equivalent_query_repeated_count": 5,
+      "identical_result_repeated_count": 5,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "MAX_STEPS": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0860",
+      "database_id": "orchestra",
+      "runs_with_recoverable_failure": 5,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 5
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 5,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 3,
+      "identical_result_repeated_count": 3,
+      "baseline_pass_frequency_5runs": "0/5",
+      "baseline_pass_frequency_on_only": "0/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 5
+      }
+    },
+    {
+      "task_id": "spider_dev_0861",
+      "database_id": "orchestra",
+      "runs_with_recoverable_failure": 4,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_SUBMITTED_WORSE": 4
+      },
+      "dominant_subtype": "FOUND_PASSING_SUBMITTED_WORSE",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 4,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4.0,
+      "turns_remaining_after_median": 6.0,
+      "equivalent_query_repeated_count": 1,
+      "identical_result_repeated_count": 1,
+      "baseline_pass_frequency_5runs": "1/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "VERIFICATION_FAILED": 4
+      }
+    },
+    {
+      "task_id": "spider_dev_0908",
+      "database_id": "network_1",
+      "runs_with_recoverable_failure": 3,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 2,
+        "FOUND_PASSING_SUBMITTED_WORSE": 1
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": true,
+      "passing_result_empty_count": 3,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4,
+      "turns_remaining_after_median": 6,
+      "equivalent_query_repeated_count": 3,
+      "identical_result_repeated_count": 3,
+      "baseline_pass_frequency_5runs": "2/5",
+      "baseline_pass_frequency_on_only": "1/4",
+      "termination_reasons": {
+        "MAX_STEPS": 2,
+        "VERIFICATION_FAILED": 1
+      }
+    },
+    {
+      "task_id": "spider_dev_0909",
+      "database_id": "network_1",
+      "runs_with_recoverable_failure": 2,
+      "of_runs": 5,
+      "subtype_frequency": {
+        "FOUND_PASSING_NEVER_SUBMITTED": 2
+      },
+      "dominant_subtype": "FOUND_PASSING_NEVER_SUBMITTED",
+      "mixed_subtype": false,
+      "passing_result_empty_count": 2,
+      "passing_result_always_empty": true,
+      "first_passing_turn_min": 4,
+      "first_passing_turn_median": 4.0,
+      "turns_remaining_after_median": 6.0,
+      "equivalent_query_repeated_count": 2,
+      "identical_result_repeated_count": 2,
+      "baseline_pass_frequency_5runs": "3/5",
+      "baseline_pass_frequency_on_only": "2/4",
+      "termination_reasons": {
+        "MAX_STEPS": 2
+      }
+    }
+  ]
+}

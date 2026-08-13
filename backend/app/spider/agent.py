@@ -137,6 +137,11 @@ class AgentConfig:
     # P0 smoke run surfaced. Recorded under its own tool-schema identifier so an
     # ablation run can never be mistaken for a normal one.
     validate_tool_arguments_enabled: bool = True
+    # P2 Intervention A. "baseline" reproduces every prior run byte-for-byte;
+    # "accept_empty" labels execution outcomes explicitly and tells the agent an
+    # empty result is not itself evidence of wrong SQL. Recorded in the run config,
+    # so control and treatment share one commit.
+    empty_result_policy: str = "baseline"
     # Transient API failures are retried; a persistent one terminates the episode
     # as MODEL_ERROR and is reported as an infrastructure failure, never as a
     # wrong answer.
@@ -517,7 +522,11 @@ def _run_tool(context: EpisodeContext, name: str, arguments: dict[str, Any]) -> 
                 query_span.set_attribute("episode.id", context.episode_id)
                 query_span.set_attribute("db.system", "sqlite")
                 query_span.set_attribute("db.name", context.task.database_id)
-                result = execute_sql(context.database, arguments.get("query", ""))
+                result = execute_sql(
+                    context.database,
+                    arguments.get("query", ""),
+                    empty_result_policy=context.config.empty_result_policy,
+                )
                 query_span.set_attribute(
                     "db.row_count", result.full_result.get("row_count", 0)
                 )
@@ -568,6 +577,16 @@ def _tool_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
             continue
 
         if name == "submit_answer":
+            # Damage-channel instrumentation: did the agent submit straight after a
+            # first empty result without executing anything further? That is the
+            # failure mode the treatment could induce, so it is counted on both
+            # sides rather than only where it is expected.
+            executions = [
+                s_ for s_ in context.steps if s_.tool_name == "execute_sql"
+            ]
+            if executions and context.counters.get("last_execution_was_empty"):
+                context.bump("submitted_immediately_after_empty")
+
             # Instrumented like any other tool. It previously had no span at all -
             # 986 trajectory records against 0 spans in `spider_full__p0_v1` -
             # because it is handled here rather than in `_run_tool`. Being a
@@ -673,6 +692,12 @@ def _tool_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
             context.bump("sql_executions")
             if not result.success:
                 context.bump("sql_execution_errors")
+            empty = (
+                result.success and result.full_result.get("row_count") == 0
+            )
+            context.counters["last_execution_was_empty"] = 1 if empty else 0
+            if empty:
+                context.bump("empty_successful_executions")
 
         result_ref = context.store.store_payload(
             _payload_ref(context.episode_id, step_index, "tool_result"),
@@ -905,6 +930,12 @@ class SpiderSQLAgent:
                 ),
                 tool_steps=sum(1 for s in context.steps if s.step_type is StepType.TOOL),
                 schema_inspections=context.counters.get("schema_inspections", 0),
+                empty_successful_executions=context.counters.get(
+                    "empty_successful_executions", 0
+                ),
+                submitted_immediately_after_empty=context.counters.get(
+                    "submitted_immediately_after_empty", 0
+                ),
                 bad_argument_tool_calls=(
                     context.counters.get("bad_argument_tool_calls", 0)
                     + context.counters.get("unvalidated_bad_argument_calls", 0)
