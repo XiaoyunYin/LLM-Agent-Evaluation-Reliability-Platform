@@ -278,15 +278,32 @@ def audit(run_id: str, root: Path) -> dict[str, Any]:
         numerator=total_cost, denominator=total,
         source="episodes.jsonl",
     ))
+    # Canonical definition: TOTAL benchmark cost divided by successes. This answers
+    # "what did each success cost", which necessarily includes the spend on
+    # episodes that failed. An earlier version published the mean over successful
+    # episodes only ($0.000526), which silently excluded the cost of failure and
+    # is a different question; it is retired.
     claims.append(Claim(
         name="estimated_cost_per_successful_episode_usd",
+        value=total_cost / len(successes) if successes else None,
+        definition=(
+            "TOTAL benchmark estimated cost divided by the number of successful "
+            "episodes. Includes spend on failed episodes, because those were paid "
+            "for too. Not the mean cost of a successful episode."
+        ),
+        numerator=total_cost, denominator=len(successes),
+        source="episodes.jsonl",
+    ))
+    claims.append(Claim(
+        name="mean_cost_of_a_successful_episode_usd",
         value=(
             sum(e["estimated_cost"] for e in successes) / len(successes)
             if successes else None
         ),
         definition=(
-            "Cost of SUCCESSFUL episodes divided by successful episodes. Note this "
-            "is not total cost / successes - it excludes spend on failed episodes."
+            "Mean estimated cost of episodes that succeeded, excluding spend on "
+            "failures. Reported only to keep it distinguishable from the canonical "
+            "cost-per-success above; do not publish it as cost per success."
         ),
         numerator=sum(e["estimated_cost"] for e in successes), denominator=len(successes),
         source="episodes.jsonl",
@@ -395,6 +412,82 @@ def audit(run_id: str, root: Path) -> dict[str, Any]:
         source="failure_analysis.json (task IDs stored)",
         status="OK" if abandoned.get("count") is not None else "UNVERIFIED",
     ))
+
+    comparison = {}
+    for path in sorted(store.run_dir.glob("comparison_vs_*.json")):
+        comparison = json.loads(path.read_text(encoding="utf-8"))
+        break
+
+    if comparison:
+        ledger = comparison["pass_fail_ledger"]
+        shared = comparison["task_sets"]["shared"]
+        for name, key in (
+            ("repeat_pass_to_pass", "pass_to_pass"),
+            ("repeat_pass_to_fail", "pass_to_fail"),
+            ("repeat_fail_to_pass", "fail_to_pass"),
+            ("repeat_fail_to_fail", "fail_to_fail"),
+        ):
+            claims.append(Claim(
+                name=name,
+                value=ledger[key],
+                definition=(
+                    f"Tasks with outcome {key.replace('_', ' ')} between "
+                    f"{comparison['run_a']} and {comparison['run_b']}, joined on "
+                    "task_id. PASS means termination_reason == SUCCESS."
+                ),
+                numerator=ledger[key], denominator=shared,
+                source=f"comparison_vs_{comparison['run_a']}.json",
+            ))
+        claims.append(Claim(
+            name="repeat_total_pass_fail_flips",
+            value=ledger["total_pass_fail_flips"],
+            definition=(
+                "PASS->FAIL + FAIL->PASS across two runs of an identical recorded "
+                "configuration. NOT the count of termination-reason changes, which "
+                "is larger because it includes fail-to-fail reason changes."
+            ),
+            numerator=ledger["total_pass_fail_flips"], denominator=shared,
+            source=f"comparison_vs_{comparison['run_a']}.json",
+            note="Supersedes an earlier figure of 49, which counted reason changes.",
+        ))
+        claims.append(Claim(
+            name="repeat_termination_reason_changes",
+            value=comparison["termination_reason_churn"]["total_reason_changes"],
+            definition=(
+                "Any change in termination_reason between the two runs, including "
+                "fail-to-fail changes that did not alter the outcome."
+            ),
+            denominator=shared,
+            source=f"comparison_vs_{comparison['run_a']}.json",
+        ))
+
+    overlap = (failures.get("max_steps_analysis") or {}).get("cohort_overlap") or {}
+    if overlap:
+        claims.append(Claim(
+            name="abandoned_correct_query_in_empty_result_cohort",
+            value=overlap.get("in_both"),
+            definition=(
+                "Exact intersection of episodes that abandoned a verifier-passing "
+                "query with the empty_result_loop_broad cohort."
+            ),
+            numerator=overlap.get("in_both"),
+            denominator=overlap.get("abandoned_correct_query"),
+            source="failure_analysis.json",
+        ))
+        claims.append(Claim(
+            name="abandoned_correct_query_share_of_benchmark_pp",
+            value=(max_steps_block.get("abandoned_a_correct_query") or {}).get(
+                "share_of_benchmark_pp"
+            ),
+            definition=(
+                "Observed theoretical headroom in percentage points: episodes that "
+                "executed a verifier-passing query and never submitted it, over all "
+                "measured episodes. NOT guaranteed recoverable accuracy."
+            ),
+            numerator=(max_steps_block.get("abandoned_a_correct_query") or {}).get("count"),
+            denominator=total,
+            source="failure_analysis.json",
+        ))
 
     claims.append(Claim(
         name="p0_criteria_verified",

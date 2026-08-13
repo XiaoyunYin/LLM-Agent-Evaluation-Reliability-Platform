@@ -242,12 +242,19 @@ def analyze(run_id: str, root: Path, verify_abandoned: bool) -> dict[str, Any]:
 
     broad: list[str] = []
     strict: list[str] = []
-    abandoned: list[dict[str, str]] = []
+    abandoned: list[dict[str, Any]] = []
+
+    def normalize(query: str) -> str:
+        """Collapse whitespace, case, and semicolons so repeats are detectable."""
+        return " ".join((query or "").lower().replace(";", " ").split())
 
     for episode in max_step_episodes:
+        episode_steps = sorted(
+            steps_by_episode[episode["episode_id"]], key=lambda s: s["step_index"]
+        )
         calls = [
             (step, tool_results.get(step["tool_result_ref"]) or {})
-            for step in steps_by_episode[episode["episode_id"]]
+            for step in episode_steps
             if step["tool_name"] == "execute_sql"
         ]
         zero_rows = [
@@ -260,21 +267,73 @@ def analyze(run_id: str, root: Path, verify_abandoned: bool) -> dict[str, Any]:
         if len(zero_rows) >= 2:
             strict.append(episode["task_id"])
 
-        if verify_abandoned:
-            task = tasks.get(episode["task_id"])
-            if task is None:
+        if not verify_abandoned:
+            continue
+
+        task = tasks.get(episode["task_id"])
+        if task is None:
+            continue
+
+        # Model turns are the budget, so position is reported in model turns
+        # rather than raw step indexes.
+        model_turn_of_step = {}
+        turn = 0
+        for step in episode_steps:
+            if step["step_type"] == "model":
+                turn += 1
+            model_turn_of_step[step["step_index"]] = turn
+
+        for position, (step, result) in enumerate(calls, start=1):
+            query = (step.get("tool_args") or {}).get("query")
+            if not query:
                 continue
-            for step, _ in calls:
-                query = (step.get("tool_args") or {}).get("query")
-                if not query:
-                    continue
-                verification = verify_sql(
-                    query, task.gold_query, task.database_path,
-                    task.task_id, task.database_id,
-                )
-                if verification.outcome is VerificationOutcome.PASS:
-                    abandoned.append({"task_id": episode["task_id"], "query": query})
-                    break
+            verification = verify_sql(
+                query, task.gold_query, task.database_path,
+                task.task_id, task.database_id,
+            )
+            if verification.outcome is not VerificationOutcome.PASS:
+                continue
+
+            normalized = normalize(query)
+            later = [
+                normalize((s.get("tool_args") or {}).get("query", ""))
+                for s, _ in calls[position:]
+            ]
+            row_count = result.get("row_count")
+
+            abandoned.append(
+                {
+                    "task_id": episode["task_id"],
+                    "database_id": task.database_id,
+                    "question": task.question,
+                    "gold_query": task.gold_query,
+                    "passing_query": query,
+                    "first_passing_at_model_turn": model_turn_of_step.get(
+                        step["step_index"]
+                    ),
+                    "first_passing_at_sql_call": position,
+                    "total_sql_calls": len(calls),
+                    "model_turns_used": episode["model_steps"],
+                    "model_turns_remaining_after": max(
+                        (config.get("max_steps") or 10)
+                        - (model_turn_of_step.get(step["step_index"]) or 0),
+                        0,
+                    ),
+                    "passing_result_row_count": row_count,
+                    "passing_result_was_empty": row_count == 0,
+                    "equivalent_query_repeated_later": normalized in later,
+                    "distinct_queries_executed": len(
+                        {
+                            normalize((s.get("tool_args") or {}).get("query", ""))
+                            for s, _ in calls
+                        }
+                    ),
+                    "termination_cause": (
+                        "reached the model-turn cap without calling submit_answer"
+                    ),
+                }
+            )
+            break
 
     max_steps_analysis = {
         "total_max_step_episodes": len(max_step_episodes),
@@ -297,8 +356,53 @@ def analyze(run_id: str, root: Path, verify_abandoned: bool) -> dict[str, Any]:
                 if verify_abandoned and max_step_episodes
                 else None
             ),
+            "share_of_benchmark_pp": (
+                100 * len(abandoned) / len(episodes)
+                if verify_abandoned and episodes
+                else None
+            ),
+            "share_of_benchmark_meaning": (
+                "Observed theoretical headroom: the share of the benchmark where a "
+                "verifier-passing query was already executed and never submitted. "
+                "It is NOT guaranteed recoverable accuracy - no intervention has "
+                "been measured, and any intervention that changes behaviour here "
+                "would change it on other episodes too."
+            ),
             "task_ids": sorted(row["task_id"] for row in abandoned),
-            "examples": abandoned[:5],
+            "cases": abandoned,
+        },
+        "cohort_overlap": {
+            "definition": (
+                "Exact intersection of episodes that abandoned a verifier-passing "
+                "query with those matching empty_result_loop_broad."
+            ),
+            "abandoned_correct_query": len(abandoned) if verify_abandoned else None,
+            "empty_result_loop_broad": len(broad),
+            "in_both": (
+                len({row["task_id"] for row in abandoned} & set(broad))
+                if verify_abandoned
+                else None
+            ),
+            "abandoned_only": (
+                sorted({row["task_id"] for row in abandoned} - set(broad))
+                if verify_abandoned
+                else None
+            ),
+            "empty_result_only": (
+                sorted(set(broad) - {row["task_id"] for row in abandoned})
+                if verify_abandoned
+                else None
+            ),
+            "passing_query_itself_returned_empty": (
+                sum(1 for row in abandoned if row["passing_result_was_empty"])
+                if verify_abandoned
+                else None
+            ),
+            "equivalent_query_repeated_later": (
+                sum(1 for row in abandoned if row["equivalent_query_repeated_later"])
+                if verify_abandoned
+                else None
+            ),
         },
         "upper_bound_if_all_max_steps_were_solved": {
             "current_success_rate": termination_table["SUCCESS"] / len(episodes),

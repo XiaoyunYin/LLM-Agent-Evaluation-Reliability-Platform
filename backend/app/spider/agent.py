@@ -105,6 +105,16 @@ class AgentConfig:
     # tools would make the cap depend on how chatty the tool schema is.
     max_steps: int = 10
     temperature: float = 0.0
+    # Sampling controls are recorded explicitly, including when they are NOT sent.
+    # `None` means the parameter is omitted from the request and the provider
+    # default applies. Without recording that, "identical configuration" cannot be
+    # checked - a reader cannot tell an unset parameter from one never considered.
+    #
+    # OpenAI's `seed` is best-effort, not a determinism guarantee, so runs are
+    # described as "repeated under identical recorded configuration", never as
+    # seeded.
+    top_p: float | None = None
+    seed: int | None = None
     max_completion_tokens: int = 800
     # Transient API failures are retried; a persistent one terminates the episode
     # as MODEL_ERROR and is reported as an infrastructure failure, never as a
@@ -215,11 +225,18 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
 
         for attempt in range(agent_config.max_model_retries):
             try:
+                optional: dict[str, Any] = {}
+                if agent_config.top_p is not None:
+                    optional["top_p"] = agent_config.top_p
+                if agent_config.seed is not None:
+                    optional["seed"] = agent_config.seed
+
                 response = context.client.chat.completions.create(
                     model=agent_config.model,
                     messages=messages,
                     tools=TOOL_SPECS,
                     tool_choice="auto",
+                    **optional,
                     # One tool call per turn. Parallel calls would make step
                     # accounting ambiguous and let the agent submit an answer in
                     # the same turn it inspects the schema.
@@ -254,6 +271,12 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 "termination_reason": TerminationReason.MODEL_ERROR.value,
                 "messages": messages,
             }
+
+        # The alias `gpt-4o-mini` resolves to a dated revision that the provider
+        # can change under us. Capturing what actually answered is the only way a
+        # later run can be compared honestly against this one.
+        model_revision = getattr(response, "model", None) or ""
+        system_fingerprint = getattr(response, "system_fingerprint", None) or ""
 
         usage = response.usage
         input_tokens = getattr(usage, "prompt_tokens", 0) or 0
@@ -303,6 +326,7 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         span.set_attribute("cached_input_tokens", cached_tokens)
         span.set_attribute("finish_reason", choice.finish_reason or "")
         span.set_attribute("model.tool_call_count", len(raw_tool_calls))
+        span.set_attribute("model.revision", model_revision)
 
         context.steps.append(
             AgentStep(
@@ -316,6 +340,8 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 output_tokens=output_tokens,
                 latency_ms=latency_ms,
                 estimated_cost=step_cost,
+                model_revision=model_revision,
+                system_fingerprint=system_fingerprint,
                 trace_id=current_trace_id(),
             )
         )

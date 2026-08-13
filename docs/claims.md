@@ -466,7 +466,9 @@ number is the same failure as any other inflated metric.
 
 **Status: Verified, scoped to Spider 1.0 dev under a tool-discovery protocol.**
 
-Frozen baseline: run `spider_full__p0_v2`. Every number is recomputed from the raw
+**Canonical P0 baseline: run `spider_full__p0_v2`** — "the P0 baseline" means that
+run ID and no other; `spider_full__p0_v1` is a repeat run, never the baseline.
+Every number is recomputed from the raw
 artifact by `scripts/audit_p0_claims.py`, which reports MISMATCH if a published
 figure and its source disagree. Current status: **all_reconciled: True**.
 
@@ -529,7 +531,7 @@ because cached-input tokens are persisted:
 | Input / cached / output tokens | 3,782,629 / 478,848 / 141,545 |
 | Benchmark-only estimated cost | **$0.616408** |
 | Per episode | $0.000596 |
-| Per successful episode | $0.000526 |
+| Per successful episode ($0.616408 / 758) | $0.000813 |
 | **Total real API spend across all P0 dev+test runs** | **$1.2780** (2,139 episodes) |
 
 Verifier QA, frozen before any agent ran, and bit-for-bit reproducible:
@@ -587,20 +589,28 @@ One run, one model, one prompt, one tool schema.
 `inspect_schema` read only `table_name` and silently ignored other keys, so
 `inspect_schema({"table": "course"})` returned the *table list* — a
 successful-looking answer to a question never asked. The agent could not detect it
-and looped to its step cap. On 10 seeded tasks with `tool_schema_version` verified
-as the only differing config field, success went 5/10 to 8/10.
+and looped to its step cap. On 10 task IDs (selected with a fixed task-sampling
+seed) with `tool_schema_version` verified as the only differing config field,
+success went 5/10 to 8/10.
 
-**n=10, so the effect size is not established** — 49 of 1,034 tasks flip between
-two identical full runs, which is more than this comparison can resolve. What is
-established is the *mechanism*, visible directly in the trajectories, and that it
-persists at scale: the model still sent `{"table": ...}` 19 times in 1,034
-episodes, each now returning a corrective error naming the right parameter.
+**n=10, so the effect size is not established** — 34 of 1,034 tasks change outcome
+between two runs of an identical recorded configuration, which is more churn than a
+10-task comparison can resolve. What is established is the *mechanism*, visible
+directly in the trajectories, and that it persists at scale: the model still sent
+`{"table": ...}` 19 times in 1,034 episodes, each now returning a corrective error
+naming the right parameter.
 
 **Empty results read as failure.** By coded rule, 39 of 48 max-step episodes
-(81.2%) executed a valid query returning zero rows and no error; 25 of 48 (52.1%)
-executed a query that **passes the evaluator** and never submitted it, established
-by re-verification rather than inspection. Frozen as a baseline finding and
-deliberately unfixed.
+(81.2%) executed a valid query returning zero rows and no error; **25 of 48
+(52.1%)** executed a query that **passes the evaluator** and never submitted it,
+established by re-verification rather than inspection. That is **2.42pp of the
+benchmark** — *observed theoretical headroom*, not recoverable accuracy.
+
+Exact cohort overlap: **23 of those 25** are also in the empty-result cohort, and in
+**23 of 25** the passing query itself returned zero rows. **17 of 25** re-ran an
+equivalent query after already having a passing one. The first passing query
+appeared at model turn 3–6, leaving 4–7 turns unused; all 25 spent the full budget.
+Frozen as a baseline finding and deliberately unfixed.
 
 **Three observability defects found by auditing our own numbers**: span
 reconciliation checked only 4 hand-listed span types and missed 1,009 tool steps
@@ -610,9 +620,28 @@ a total. All three are fixed with regression tests.
 
 ### Two identical runs
 
-`spider_full__p0_v1` and `spider_full__p0_v2` have **zero differing configuration
-fields**. Aggregate moved 0.39 points (73.69% to 73.31%), but **49 of 1,034 tasks
-(4.7%) flipped outcome**. Aggregate stability hid per-task instability.
+`spider_full__p0_v1` (repeat) and `spider_full__p0_v2` (**canonical baseline**)
+have **zero differing identity fields**; only `run_id` and `started_at` differ.
+
+| | Run B: PASS | Run B: FAIL |
+|---|---:|---:|
+| **Run A: PASS** | 743 | **19** |
+| **Run A: FAIL** | **15** | 257 |
+
+- PASS→FAIL: **19**
+- FAIL→PASS: **15**
+- **Total pass/fail flips: 34 (3.29% of tasks)**
+- Net: 15 − 19 = −4 tasks = 758 − 762 ✓
+
+A separate, larger quantity is **termination-reason churn: 49 changes**, of which
+34 changed the outcome and **15 were fail→fail** (e.g. `VERIFICATION_FAILED` →
+`MAX_STEPS`, 7 cases). An earlier version of this document published 49 as the
+flip count. That was wrong: it counted reason changes, not outcome changes.
+
+No seed was sent, so these are **repeated runs under an identical recorded
+configuration**, not seeded runs. `top_p` was not sent either; the provider default
+applied. The resolved model revision behind the `gpt-4o-mini` alias was not captured
+for these runs — it is captured going forward.
 
 **This is n=2 and is not a variance estimate.** It is recorded as direct evidence
 for why a regression threshold cannot be set from a single run.
@@ -632,8 +661,9 @@ tighten the metric's blind spot by an unquantified amount.
 > involved. 73.3% over all 1,034 dev tasks, zero infrastructure failures. I won't
 > compare that to the leaderboard, because those systems get the schema in the
 > prompt — different task. The thing I'd actually point at: I ran the same config
-> twice and the aggregate moved 0.4 points, but 49 individual tasks flipped. That's
-> why I won't set a CI threshold off one run — measuring that variance is next."
+> twice and the aggregate moved 0.4 points, but 34 tasks changed pass/fail — 19 one
+> way, 15 the other. That's why I won't set a CI threshold off one run — measuring
+> that variance properly is next."
 
 ---
 
