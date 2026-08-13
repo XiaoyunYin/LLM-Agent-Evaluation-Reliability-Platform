@@ -1,7 +1,7 @@
 
 # The Silent Tool Failure Pattern
 
-An engineering finding, recorded because it has now appeared **three times** in
+An engineering finding, recorded because it has now appeared **four times** in
 this project in three different subsystems, each time costing real measurement
 before it was found.
 
@@ -86,6 +86,30 @@ to the right answer is better than a silent one and still not sufficient.
 |---|---|
 | Cost | `policy_update` scored 0/12 |
 | Fix | `list_reference_data` exposing valid team and agent ids |
+
+---
+
+## Instance 4 — two filters, two matching semantics (P3)
+
+`search_tickets` had two free-text filters. `query` matched with `LIKE %...%`;
+`customer_name` required an exact string. Neither semantic was documented.
+
+The agent called `search_tickets(customer_name="013")` for *Customer 013*, got
+`SUCCESS_EMPTY`, and stopped. Under the P2-adopted `accept_empty` policy that is
+**exactly the instructed behaviour** — an empty result is a real answer and should
+be acted on rather than retried. So a partial identifier became a silent dead end
+that the adopted policy told the agent not to question.
+
+| | |
+|---|---|
+| Cost | `distractor_resolution` failures that looked like the agent ignoring the customer constraint |
+| Detected by | reading the trajectory: the *same* agent used the full name correctly on a sibling task |
+| Fix | `customer_name` is a documented case-insensitive substring match |
+
+The general lesson is sharper than the fix: **an empty-result convention is only
+as trustworthy as the narrowest way a caller can be silently wrong.** Making empty
+results authoritative (P2) raised the cost of every remaining path that returns a
+misleading empty.
 
 ---
 

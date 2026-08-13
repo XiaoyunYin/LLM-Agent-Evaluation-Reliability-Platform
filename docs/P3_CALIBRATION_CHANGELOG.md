@@ -31,6 +31,10 @@ impossible or ambiguous given the tool surface, which is the documented category
 
 | 8 | 2026-08-13 | task/spec defect | `chained_resolution` | Filter no-op changes on **both** required fields, not just `team_id` | The independent QA no-op check caught `SUP-chain-002` requiring `priority=high` on a ticket already at high. Same class as edit #1, in a family written after that fix - which is why the check recomputes from the fixture instead of trusting the generator. |
 
+| 9 | 2026-08-13 | **fixture defect** | whole fixture | Offset the subject index by the block number so each customer's three tickets are three different subjects | 20 customers and 10 subjects shared a cycle; 10 divides 20, so a customer's subject was a *function* of the customer. **Zero of 60 tickets had a unique (customer, subject) pair.** Every `chained_resolution` and `distractor_resolution` task had 2-3 equally correct answers, and `distractor_resolution` additionally forbade other tickets of the *target* customer - unpassable by reading. Found by 10 hard tasks failing 3/3. |
+| 10 | 2026-08-13 | task/spec defect | `noop_plus_mutation` | Derive required changes from `POLICY_ACTIONS`; added POL-002 to that table | POL-002 mandates the billing team **at normal priority**; the task required only the team. An agent that applied the policy exactly was failed for an undeclared mutation. The intended trap (do not escalate) was avoided correctly in all 3 repeats - the task failed on the part it got right. |
+| 11 | 2026-08-13 | tool/runtime defect | `search_tickets` (contract v1 -> v2) | `customer_name` is a documented case-insensitive substring match, matching `query` | Two free-text filters on one tool had different, undocumented matching semantics. `customer_name="013"` returned `SUCCESS_EMPTY`, which under the adopted `accept_empty` policy correctly tells the agent to stop - a partial name became a silent dead end. Fourth instance of [SILENT_TOOL_FAILURE](SILENT_TOOL_FAILURE.md). |
+
 ## Rebalancing passes
 
 One intentional difficulty/fairness rebalancing pass is permitted before the
@@ -38,7 +42,7 @@ freeze. **None used so far.**
 
 | Pass | Date | Scope | Outcome |
 |---|---|---|---|
-| 1 (the single permitted pass) | 2026-08-13 | Composition/difficulty **expansion**: added 5 structurally harder families. No existing task modified, none removed for being easy. | 33 → 54 tasks. Hard tier 49.2% vs core 97.0%. Discrimination restored. |
+| 1 (the single permitted pass) | 2026-08-13 | Composition/difficulty **expansion**: added 5 structurally harder families. No existing task modified, none removed for being easy. | 33 → 60 tasks. **Did not achieve its goal.** The hard tier measured 49.2% only while three benchmark defects were present; after edits 9–11 it measures **96.2%**. See below. |
 
 ### Amended rule
 
@@ -47,22 +51,44 @@ situation it was written for never occurred. Trigger: the measured ceiling after
 substrate defects were removed. Scope: add harder families. Explicitly out of
 scope: editing a task because the agent passes it.
 
-### Measured effect
+### Measured effect — the expansion did not create difficulty
 
-| Tier | Pooled success (3 repeats) |
-|---|---:|
-| core (33) | **97.0%** — regression canary, as designed |
-| **hard (21)** | **49.2%** — primary discrimination metric |
+The first hard-tier calibration read 49.2%, and I recorded that as restored
+discrimination. **That was wrong.** Three benchmark defects were suppressing the
+score (edits 9–11), the largest being a fixture in which no ticket was uniquely
+identifiable by customer and issue. After fixing them, on the same commit, same
+model, same 14-turn budget:
 
-By family: `chained_resolution` 16.7%, `noop_plus_mutation` 16.7%,
-`distractor_resolution` 20.0%, `conditional_escalation` 83.3%, everything else
-100%. Three hard families discriminate strongly; `policy_selection` and
-`multi_ticket_conditional` do not yet and are candidates for the expansion to 80.
+| Tier | Before fixes (defective) | After fixes | Reading |
+|---|---:|---:|---|
+| core | 97.0% | **98.0%** | unchanged; regression canary works |
+| **hard** | 49.2% | **96.2%** | the difficulty was measurement error |
 
-Per-task consistency over 3 repeats: 41 tasks 3/3, 10 tasks 0/3, 3 tasks
-intermittent - so most hard failures are repeatable rather than stochastic.
+Per family after fixes: `distractor_resolution` 85.7%, `conditional_escalation`
+88.9%, **every other family 100%**. Per-task consistency over 3 repeats: 57 of 60
+pass 3/3, two are intermittent, one fails 3/3.
 
-**The schema-repair experiment is viable again.** Invalid typed calls are
-**44/804 = 5.5%** of tool calls and appear in **27.2%** of episodes, clearing the
-pre-registered selection thresholds (>=2% of calls, or >=15% of episodes) that the
-saturated 33-task suite could not.
+The one deterministic failure (`SUP-distract-005`) was inspected and is **genuine
+agent weakness**, not a defect: the agent picked Customer 002's *billing* ticket
+when the prompt asked for their shipping ticket, apparently matching the ticket
+number to the customer number. It stays.
+
+**Conclusion: the suite is saturated for this model at ~97%, and the single
+permitted rebalancing pass is now spent.** Task-level success is not a
+discriminating metric here. That is a measured result and it is reported as one —
+no further difficulty tuning is permitted, and manufacturing harder tasks to
+produce a lower number would be fitting the benchmark to a desired figure.
+
+### What still discriminates
+
+Call-level behaviour, which is independent of task success:
+
+| Signal | Measured | Pre-registered threshold | Selected? |
+|---|---:|---|:--:|
+| invalid typed calls | **49/930 = 5.27%** | ≥2% of calls | yes |
+| episodes with ≥1 invalid call | **49/180 = 27.2%** | ≥15% of episodes | yes |
+
+Both thresholds were fixed before these numbers existed, and both clear. **The
+schema-repair intervention is selected by the pre-registered rule.** Its outcome
+metrics are call-level and efficiency-level, where headroom exists, rather than
+task success, where it does not.

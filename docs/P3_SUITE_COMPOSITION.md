@@ -37,6 +37,35 @@ After this pass, difficulty tuning ends.
 
 ---
 
+## 1b. Outcome of the pass — it did not create difficulty
+
+Recorded here because §1 pre-committed the pass and honesty requires the result
+next to the intent.
+
+The pass added five families. Their first calibration read **49.2%**, which looked
+like restored discrimination. It was not: three benchmark defects were suppressing
+it (calibration-changelog edits 9–11), chiefly a fixture where **no ticket was
+uniquely identifiable by customer and issue**, so tasks naming a ticket that way
+had two or three equally correct answers.
+
+After the fixes, on the same commit and model:
+
+| Tier | Defective | Fixed |
+|---|---:|---:|
+| core | 97.0% | **98.0%** |
+| hard | 49.2% | **96.2%** |
+
+**The suite is saturated for this model, and the single permitted pass is spent.**
+Task-level success is reported as a non-discriminating metric rather than tuned
+until it discriminates. Manufacturing harder tasks now would be fitting the
+benchmark to a desired number, which §1 explicitly forbids.
+
+The tier split below still stands and still has a use — core as regression canary
+— but the **primary P3 discrimination signal moves to call-level behaviour**,
+where the pre-registered intervention thresholds are met (§9b).
+
+---
+
 ## 2. Tier interpretation, pre-declared
 
 The blended 80-task aggregate is **not** the headline. Declared before any
@@ -181,6 +210,23 @@ Categories are fixed now so frequencies cannot reshape the definitions:
 | `undeclared_mutation` | a change outside required ∪ allowed |
 | `termination_failure` | stopped without finishing, or hit the turn cap |
 | `correct_actions_verifier_mismatch` | actions look right but the verifier disagrees — always investigated as a possible verifier defect |
+
+---
+
+## 9b. Selected intervention — decided by the pre-registered rule
+
+The rule was fixed before these numbers existed: schema repair is selected if
+invalid typed calls are ≥2% of relevant calls, **or** ≥15% of episodes contain
+one. Measured over 3 repeats × 60 tasks:
+
+| Signal | Measured | Threshold | Clears |
+|---|---:|---|:--:|
+| invalid typed calls | 49/930 = **5.27%** | ≥2% | yes |
+| episodes with ≥1 invalid call | 49/180 = **27.2%** | ≥15% | yes |
+
+**Schema repair is selected.** Because task success is saturated, its primary
+outcome metrics are call-level (invalid-call rate) and efficiency (turns, tokens,
+cost per solved task), not task success — where there is no headroom to move.
 
 ---
 
