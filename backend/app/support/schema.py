@@ -14,14 +14,15 @@ comparison across runs.
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 import sqlite3
 from pathlib import Path
 
 # Bumped whenever the schema or the fixture generation changes. Recorded on every
 # run, because a task's expected diff is only meaningful against a known world.
-SCHEMA_VERSION = "support_schema_v1"
-FIXTURE_VERSION = "support_fixture_v1"
+SCHEMA_VERSION = "support_schema_v2"
+FIXTURE_VERSION = "support_fixture_v2"
 FIXTURE_SEED = 20260813
 
 # Enums are closed sets. Tools validate against them, so an agent cannot invent a
@@ -78,7 +79,12 @@ CREATE TABLE policies (
     policy_id   TEXT PRIMARY KEY,
     title       TEXT NOT NULL,
     body        TEXT NOT NULL,
-    topic       TEXT NOT NULL
+    topic       TEXT NOT NULL,
+    -- Structured applicability predicate, as JSON. Prose interpretation is not an
+    -- applicability test: a task whose applicable policy can only be decided by
+    -- reading English cannot be QA'd for uniqueness, so an ambiguous task would
+    -- reach the agent and present as a confusing failure.
+    applies_to  TEXT NOT NULL
 );
 """
 
@@ -90,36 +96,62 @@ POLICIES = [
      "Enterprise-tier customers reporting an outage must be escalated within one "
      "business hour and assigned to the technical team. Set the escalated flag to "
      "true (this is the escalated field, not the status field) and set priority "
-     "to urgent. Leave status unchanged."),
+     "to urgent. Leave status unchanged.",
+     {"tier": ["enterprise"], "signal": "outage"}),
     ("POL-002", "Billing dispute handling", "billing",
      "Billing disputes are assigned to the billing team at normal priority. Do not "
-     "escalate a billing dispute unless the disputed amount exceeds 5000."),
+     "escalate a billing dispute unless the disputed amount exceeds 5000.",
+     {"signal": "billing_dispute"}),
     ("POL-003", "Refund approval threshold", "billing",
      "Refunds above 500 require a comment with reason code REFUND_APPROVAL before "
-     "the ticket may be resolved."),
+     "the ticket may be resolved.",
+     {"signal": "refund"}),
     ("POL-004", "Shipping delay policy", "shipping",
-     "Shipping delays under 48 hours are handled at low priority by the shipping "
-     "team. Delays over 48 hours move to high priority."),
+     "Shipping delays are handled by the shipping team at high priority when the "
+     "delay exceeds 48 hours.",
+     {"signal": "shipping_delay"}),
     ("POL-005", "Account lockout procedure", "accounts",
      "Account lockouts are assigned to the accounts team at high priority and "
-     "require a comment with reason code IDENTITY_CHECK."),
-    ("POL-006", "Free-tier response targets", "technical",
-     "Free-tier customers are handled at low priority unless the issue is a "
-     "security report, which is always urgent."),
+     "require a comment with reason code IDENTITY_CHECK.",
+     {"signal": "lockout"}),
+    ("POL-006", "Free-tier performance issues", "technical",
+     "Free-tier customers reporting a performance issue are handled at low "
+     "priority by the technical team.",
+     {"tier": ["free"], "signal": "performance"}),
     ("POL-007", "Security report handling", "technical",
      "Security reports must have the escalated flag set to true (this is the "
      "escalated field, not the status field), priority set to urgent, and be "
      "assigned to the technical team. Leave status unchanged. They require a "
-     "comment with reason code SECURITY_TRIAGE."),
+     "comment with reason code SECURITY_TRIAGE.",
+     {"signal": "security"}),
     ("POL-008", "Waiting on customer", "technical",
      "A ticket blocked on customer information moves to status waiting_customer "
-     "and keeps its current priority."),
+     "and keeps its current priority.",
+     {"signal": "blocked_on_customer"}),
     ("POL-009", "Duplicate tickets", "accounts",
      "Duplicate tickets are closed with a comment carrying reason code DUPLICATE. "
-     "Do not reassign a duplicate."),
+     "Do not reassign a duplicate.",
+     {"signal": "duplicate"}),
     ("POL-010", "Enterprise billing priority", "billing",
      "Enterprise-tier billing issues are handled at high priority by the billing "
-     "team, even when the amount is small."),
+     "team, even when the amount is small.",
+     {"tier": ["enterprise"], "signal": "billing_general"}),
+    ("POL-011", "Pro-tier outage handling", "technical",
+     "Pro-tier customers reporting an outage are assigned to the technical team at "
+     "high priority. Do NOT set the escalated flag for pro-tier outages.",
+     {"tier": ["pro"], "signal": "outage"}),
+    ("POL-012", "Free-tier outage handling", "technical",
+     "Free-tier customers reporting an outage are assigned to the technical team "
+     "at normal priority. Do NOT set the escalated flag for free-tier outages.",
+     {"tier": ["free"], "signal": "outage"}),
+    ("POL-013", "Pro-tier performance issues", "technical",
+     "Pro-tier customers reporting a performance issue are handled at normal "
+     "priority by the technical team.",
+     {"tier": ["pro"], "signal": "performance"}),
+    ("POL-014", "Enterprise performance issues", "technical",
+     "Enterprise-tier customers reporting a performance issue are handled at high "
+     "priority by the technical team.",
+     {"tier": ["enterprise"], "signal": "performance"}),
 ]
 
 _TEAMS = [
@@ -138,18 +170,55 @@ _AGENTS = [
     ("AG-006", "Faye", "TEAM-shipping"),
 ]
 
+# (subject, topic, body, signal). The signal is the machine-readable fact a policy
+# predicate matches on, so applicability never depends on parsing prose.
 _SUBJECTS = [
-    ("Cannot log in after password reset", "accounts", "Account lockout after three failed attempts."),
-    ("Charged twice for March invoice", "billing", "Duplicate charge of 240 on the March invoice."),
-    ("Order has not shipped", "shipping", "Order placed 60 hours ago and still not dispatched."),
-    ("API returns 500 on every request", "technical", "Complete outage of the reporting API."),
-    ("Refund request for annual plan", "billing", "Requesting a refund of 900 for an unused annual plan."),
-    ("Possible data exposure", "technical", "Security report: another customer's data visible in export."),
-    ("Need invoice copy", "billing", "Requesting a copy of the February invoice."),
-    ("Shipment delayed by one day", "shipping", "Delivery is about 20 hours late."),
-    ("Cannot add team member", "accounts", "Seat limit reached when adding a user."),
-    ("Dashboard loads slowly", "technical", "Reports take about 30 seconds to load."),
+    ("Cannot log in after password reset", "accounts",
+     "Account lockout after three failed attempts.", "lockout"),
+    ("Charged twice for March invoice", "billing",
+     "Duplicate charge of 240 on the March invoice.", "billing_dispute"),
+    ("Order has not shipped", "shipping",
+     "Order placed 60 hours ago and still not dispatched.", "shipping_delay"),
+    ("API returns 500 on every request", "technical",
+     "Complete outage of the reporting API.", "outage"),
+    ("Refund request for annual plan", "billing",
+     "Requesting a refund of 900 for an unused annual plan.", "refund"),
+    ("Possible data exposure", "technical",
+     "Security report: another customer's data visible in export.", "security"),
+    ("Need invoice copy", "billing",
+     "Requesting a copy of the February invoice.", "billing_general"),
+    ("Shipment delayed by one day", "shipping",
+     "Delivery is about 20 hours late.", "shipping_delay"),
+    ("Cannot add team member", "accounts",
+     "Seat limit reached when adding a user.", "lockout"),
+    ("Dashboard loads slowly", "technical",
+     "Reports take about 30 seconds to load.", "performance"),
 ]
+
+
+def applicable_policies(tier: str, signal: str) -> list[str]:
+    """Policy ids whose predicate matches. The single source of applicability.
+
+    Used by task generation AND, independently, by QA, which asserts that an
+    intended single-policy task has exactly one match. Applicability decided by
+    reading prose cannot be checked that way, so an ambiguous task would reach the
+    agent and present as a confusing failure rather than a caught defect.
+    """
+    matches = []
+    for policy_id, _title, _topic, _body, applies in POLICIES:
+        if "tier" in applies and tier not in applies["tier"]:
+            continue
+        if "signal" in applies and applies["signal"] != signal:
+            continue
+        matches.append(policy_id)
+    return matches
+
+
+def signal_for_subject(subject: str) -> str | None:
+    for entry_subject, _topic, _body, signal in _SUBJECTS:
+        if entry_subject == subject:
+            return signal
+    return None
 
 
 def _seeded_rows(count: int) -> tuple[list, list]:
@@ -173,7 +242,7 @@ def _seeded_rows(count: int) -> tuple[list, list]:
 
     tickets = []
     for index in range(1, count + 1):
-        subject, topic, body = _SUBJECTS[(index - 1) % len(_SUBJECTS)]
+        subject, topic, body, _signal = _SUBJECTS[(index - 1) % len(_SUBJECTS)]
         customer = customers[(index - 1) % len(customers)]
         tickets.append(
             (
@@ -216,8 +285,10 @@ def build_fixture(path: Path, ticket_count: int = 60) -> str:
         "INSERT INTO tickets VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", tickets
     )
     connection.executemany(
-        "INSERT INTO policies (policy_id, title, topic, body) VALUES (?, ?, ?, ?)",
-        POLICIES,
+        "INSERT INTO policies (policy_id, title, topic, body, applies_to) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [(pid, title, topic, body, json.dumps(applies, sort_keys=True))
+         for pid, title, topic, body, applies in POLICIES],
     )
     connection.commit()
     connection.close()

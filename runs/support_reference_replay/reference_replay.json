@@ -1,15 +1,15 @@
 {
-  "generated_at": "2026-08-13T12:00:41.072316+00:00",
+  "generated_at": "2026-08-13T17:51:39.912381+00:00",
   "run_id": "support_reference_replay",
   "model_calls_made": 0,
-  "fixture_sha256": "f27e7f09d977779a31d7e60a1771913f21307b12c0967a5e038862b5fdff15bb",
+  "fixture_sha256": "cdec26465d1ffce8d2e25d1995efc30757fa425d3e250803b0e08f83895e7512",
   "versions": {
-    "schema": "support_schema_v1",
+    "schema": "support_schema_v2",
     "normalization": "support_normalize_v1",
     "verifier": "support_verifier_v1",
     "tools": "support_tools_v1",
     "contract_stage": "calibration",
-    "task_families": "support_tasks_v1",
+    "task_families": "support_tasks_v2",
     "agent": "support_langgraph_agent_v0",
     "prompt": "support_agent_v0"
   },
@@ -18,19 +18,29 @@
     "empty_result_policy": "accept_empty"
   },
   "empty_result_policy_used": "accept_empty",
-  "tasks": 33,
+  "tasks": 54,
   "all_passed": true,
   "problems": [],
   "reference_trajectory_lengths": {
     "min": 1,
     "max": 5,
-    "mean": 2.515151515151515,
-    "median": 3,
+    "mean": 2.9444444444444446,
+    "median": 3.0,
     "by_family": {
+      "chained_resolution": {
+        "min": 4,
+        "max": 4,
+        "n": 2
+      },
       "conditional_escalation": {
         "min": 3,
         "max": 3,
         "n": 6
+      },
+      "distractor_resolution": {
+        "min": 3,
+        "max": 3,
+        "n": 5
       },
       "lookup_update": {
         "min": 2,
@@ -46,6 +56,21 @@
         "min": 3,
         "max": 3,
         "n": 3
+      },
+      "multi_ticket_conditional": {
+        "min": 2,
+        "max": 3,
+        "n": 2
+      },
+      "noop_plus_mutation": {
+        "min": 3,
+        "max": 3,
+        "n": 6
+      },
+      "policy_selection": {
+        "min": 5,
+        "max": 5,
+        "n": 6
       },
       "policy_update": {
         "min": 5,
@@ -73,7 +98,7 @@
       "before_ref": "ref_SUP-simple-001:before_state",
       "after_ref": "ref_SUP-simple-001:after_state",
       "diff_ref": "ref_SUP-simple-001:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -89,7 +114,7 @@
       "before_ref": "ref_SUP-simple-002:before_state",
       "after_ref": "ref_SUP-simple-002:after_state",
       "diff_ref": "ref_SUP-simple-002:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -105,7 +130,7 @@
       "before_ref": "ref_SUP-simple-003:before_state",
       "after_ref": "ref_SUP-simple-003:after_state",
       "diff_ref": "ref_SUP-simple-003:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -121,7 +146,7 @@
       "before_ref": "ref_SUP-simple-004:before_state",
       "after_ref": "ref_SUP-simple-004:after_state",
       "diff_ref": "ref_SUP-simple-004:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -137,7 +162,7 @@
       "before_ref": "ref_SUP-simple-005:before_state",
       "after_ref": "ref_SUP-simple-005:after_state",
       "diff_ref": "ref_SUP-simple-005:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -153,7 +178,7 @@
       "before_ref": "ref_SUP-simple-006:before_state",
       "after_ref": "ref_SUP-simple-006:after_state",
       "diff_ref": "ref_SUP-simple-006:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -169,7 +194,7 @@
       "before_ref": "ref_SUP-simple-007:before_state",
       "after_ref": "ref_SUP-simple-007:after_state",
       "diff_ref": "ref_SUP-simple-007:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -185,7 +210,7 @@
       "before_ref": "ref_SUP-simple-008:before_state",
       "after_ref": "ref_SUP-simple-008:after_state",
       "diff_ref": "ref_SUP-simple-008:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 1
     },
     {
@@ -201,7 +226,7 @@
       "before_ref": "ref_SUP-lookup-001:before_state",
       "after_ref": "ref_SUP-lookup-001:after_state",
       "diff_ref": "ref_SUP-lookup-001:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -217,7 +242,7 @@
       "before_ref": "ref_SUP-lookup-002:before_state",
       "after_ref": "ref_SUP-lookup-002:after_state",
       "diff_ref": "ref_SUP-lookup-002:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -233,7 +258,7 @@
       "before_ref": "ref_SUP-lookup-003:before_state",
       "after_ref": "ref_SUP-lookup-003:after_state",
       "diff_ref": "ref_SUP-lookup-003:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -249,7 +274,7 @@
       "before_ref": "ref_SUP-lookup-004:before_state",
       "after_ref": "ref_SUP-lookup-004:after_state",
       "diff_ref": "ref_SUP-lookup-004:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -265,7 +290,7 @@
       "before_ref": "ref_SUP-lookup-005:before_state",
       "after_ref": "ref_SUP-lookup-005:after_state",
       "diff_ref": "ref_SUP-lookup-005:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -281,7 +306,7 @@
       "before_ref": "ref_SUP-lookup-006:before_state",
       "after_ref": "ref_SUP-lookup-006:after_state",
       "diff_ref": "ref_SUP-lookup-006:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -297,7 +322,7 @@
       "before_ref": "ref_SUP-lookup-007:before_state",
       "after_ref": "ref_SUP-lookup-007:after_state",
       "diff_ref": "ref_SUP-lookup-007:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -313,7 +338,7 @@
       "before_ref": "ref_SUP-lookup-008:before_state",
       "after_ref": "ref_SUP-lookup-008:after_state",
       "diff_ref": "ref_SUP-lookup-008:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 2
     },
     {
@@ -329,7 +354,7 @@
       "before_ref": "ref_SUP-policy-001:before_state",
       "after_ref": "ref_SUP-policy-001:after_state",
       "diff_ref": "ref_SUP-policy-001:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 5
     },
     {
@@ -345,7 +370,7 @@
       "before_ref": "ref_SUP-policy-002:before_state",
       "after_ref": "ref_SUP-policy-002:after_state",
       "diff_ref": "ref_SUP-policy-002:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 5
     },
     {
@@ -361,7 +386,7 @@
       "before_ref": "ref_SUP-policy-003:before_state",
       "after_ref": "ref_SUP-policy-003:after_state",
       "diff_ref": "ref_SUP-policy-003:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 5
     },
     {
@@ -377,7 +402,7 @@
       "before_ref": "ref_SUP-policy-004:before_state",
       "after_ref": "ref_SUP-policy-004:after_state",
       "diff_ref": "ref_SUP-policy-004:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 5
     },
     {
@@ -393,7 +418,7 @@
       "before_ref": "ref_SUP-multi-001:before_state",
       "after_ref": "ref_SUP-multi-001:after_state",
       "diff_ref": "ref_SUP-multi-001:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -409,7 +434,7 @@
       "before_ref": "ref_SUP-multi-002:before_state",
       "after_ref": "ref_SUP-multi-002:after_state",
       "diff_ref": "ref_SUP-multi-002:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -425,7 +450,7 @@
       "before_ref": "ref_SUP-multi-003:before_state",
       "after_ref": "ref_SUP-multi-003:after_state",
       "diff_ref": "ref_SUP-multi-003:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -441,7 +466,7 @@
       "before_ref": "ref_SUP-multi-004:before_state",
       "after_ref": "ref_SUP-multi-004:after_state",
       "diff_ref": "ref_SUP-multi-004:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -457,7 +482,7 @@
       "before_ref": "ref_SUP-multiticket-001:before_state",
       "after_ref": "ref_SUP-multiticket-001:after_state",
       "diff_ref": "ref_SUP-multiticket-001:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -473,7 +498,7 @@
       "before_ref": "ref_SUP-multiticket-002:before_state",
       "after_ref": "ref_SUP-multiticket-002:after_state",
       "diff_ref": "ref_SUP-multiticket-002:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -489,7 +514,7 @@
       "before_ref": "ref_SUP-multiticket-003:before_state",
       "after_ref": "ref_SUP-multiticket-003:after_state",
       "diff_ref": "ref_SUP-multiticket-003:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -505,7 +530,7 @@
       "before_ref": "ref_SUP-cond-001:before_state",
       "after_ref": "ref_SUP-cond-001:after_state",
       "diff_ref": "ref_SUP-cond-001:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -521,7 +546,7 @@
       "before_ref": "ref_SUP-cond-002:before_state",
       "after_ref": "ref_SUP-cond-002:after_state",
       "diff_ref": "ref_SUP-cond-002:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -537,7 +562,7 @@
       "before_ref": "ref_SUP-cond-003:before_state",
       "after_ref": "ref_SUP-cond-003:after_state",
       "diff_ref": "ref_SUP-cond-003:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -553,7 +578,7 @@
       "before_ref": "ref_SUP-cond-004:before_state",
       "after_ref": "ref_SUP-cond-004:after_state",
       "diff_ref": "ref_SUP-cond-004:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -569,7 +594,7 @@
       "before_ref": "ref_SUP-cond-005:before_state",
       "after_ref": "ref_SUP-cond-005:after_state",
       "diff_ref": "ref_SUP-cond-005:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     },
     {
@@ -585,7 +610,343 @@
       "before_ref": "ref_SUP-cond-006:before_state",
       "after_ref": "ref_SUP-cond-006:after_state",
       "diff_ref": "ref_SUP-cond-006:state_diff",
-      "trace_id": "0ada0061a6c50dcbcf82ed1224a4f5fd",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-chain-001",
+      "family": "chained_resolution",
+      "reference_calls": 4,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-chain-001:before_state",
+      "after_ref": "ref_SUP-chain-001:after_state",
+      "diff_ref": "ref_SUP-chain-001:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 4
+    },
+    {
+      "task_id": "SUP-chain-002",
+      "family": "chained_resolution",
+      "reference_calls": 4,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-chain-002:before_state",
+      "after_ref": "ref_SUP-chain-002:after_state",
+      "diff_ref": "ref_SUP-chain-002:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 4
+    },
+    {
+      "task_id": "SUP-polsel-001",
+      "family": "policy_selection",
+      "reference_calls": 5,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-polsel-001:before_state",
+      "after_ref": "ref_SUP-polsel-001:after_state",
+      "diff_ref": "ref_SUP-polsel-001:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 5
+    },
+    {
+      "task_id": "SUP-polsel-002",
+      "family": "policy_selection",
+      "reference_calls": 5,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-polsel-002:before_state",
+      "after_ref": "ref_SUP-polsel-002:after_state",
+      "diff_ref": "ref_SUP-polsel-002:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 5
+    },
+    {
+      "task_id": "SUP-polsel-003",
+      "family": "policy_selection",
+      "reference_calls": 5,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-polsel-003:before_state",
+      "after_ref": "ref_SUP-polsel-003:after_state",
+      "diff_ref": "ref_SUP-polsel-003:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 5
+    },
+    {
+      "task_id": "SUP-polsel-004",
+      "family": "policy_selection",
+      "reference_calls": 5,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-polsel-004:before_state",
+      "after_ref": "ref_SUP-polsel-004:after_state",
+      "diff_ref": "ref_SUP-polsel-004:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 5
+    },
+    {
+      "task_id": "SUP-polsel-005",
+      "family": "policy_selection",
+      "reference_calls": 5,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-polsel-005:before_state",
+      "after_ref": "ref_SUP-polsel-005:after_state",
+      "diff_ref": "ref_SUP-polsel-005:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 5
+    },
+    {
+      "task_id": "SUP-polsel-006",
+      "family": "policy_selection",
+      "reference_calls": 5,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-polsel-006:before_state",
+      "after_ref": "ref_SUP-polsel-006:after_state",
+      "diff_ref": "ref_SUP-polsel-006:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 5
+    },
+    {
+      "task_id": "SUP-distract-001",
+      "family": "distractor_resolution",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-distract-001:before_state",
+      "after_ref": "ref_SUP-distract-001:after_state",
+      "diff_ref": "ref_SUP-distract-001:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-distract-002",
+      "family": "distractor_resolution",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-distract-002:before_state",
+      "after_ref": "ref_SUP-distract-002:after_state",
+      "diff_ref": "ref_SUP-distract-002:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-distract-003",
+      "family": "distractor_resolution",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-distract-003:before_state",
+      "after_ref": "ref_SUP-distract-003:after_state",
+      "diff_ref": "ref_SUP-distract-003:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-distract-005",
+      "family": "distractor_resolution",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-distract-005:before_state",
+      "after_ref": "ref_SUP-distract-005:after_state",
+      "diff_ref": "ref_SUP-distract-005:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "family": "distractor_resolution",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-distract-009:before_state",
+      "after_ref": "ref_SUP-distract-009:after_state",
+      "diff_ref": "ref_SUP-distract-009:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-noop-001",
+      "family": "noop_plus_mutation",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-noop-001:before_state",
+      "after_ref": "ref_SUP-noop-001:after_state",
+      "diff_ref": "ref_SUP-noop-001:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-noop-002",
+      "family": "noop_plus_mutation",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-noop-002:before_state",
+      "after_ref": "ref_SUP-noop-002:after_state",
+      "diff_ref": "ref_SUP-noop-002:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-noop-003",
+      "family": "noop_plus_mutation",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-noop-003:before_state",
+      "after_ref": "ref_SUP-noop-003:after_state",
+      "diff_ref": "ref_SUP-noop-003:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-noop-004",
+      "family": "noop_plus_mutation",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-noop-004:before_state",
+      "after_ref": "ref_SUP-noop-004:after_state",
+      "diff_ref": "ref_SUP-noop-004:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-noop-005",
+      "family": "noop_plus_mutation",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-noop-005:before_state",
+      "after_ref": "ref_SUP-noop-005:after_state",
+      "diff_ref": "ref_SUP-noop-005:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-noop-006",
+      "family": "noop_plus_mutation",
+      "reference_calls": 3,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-noop-006:before_state",
+      "after_ref": "ref_SUP-noop-006:after_state",
+      "diff_ref": "ref_SUP-noop-006:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 3
+    },
+    {
+      "task_id": "SUP-mtcond-001",
+      "family": "multi_ticket_conditional",
+      "reference_calls": 2,
+      "effectful_calls": 1,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 1,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-mtcond-001:before_state",
+      "after_ref": "ref_SUP-mtcond-001:after_state",
+      "diff_ref": "ref_SUP-mtcond-001:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
+      "model_turns_equivalent": 2
+    },
+    {
+      "task_id": "SUP-mtcond-002",
+      "family": "multi_ticket_conditional",
+      "reference_calls": 3,
+      "effectful_calls": 2,
+      "identities_unique": true,
+      "call_failures": [],
+      "state_changes": 2,
+      "verifier_outcome": "pass",
+      "passed": true,
+      "before_ref": "ref_SUP-mtcond-002:before_state",
+      "after_ref": "ref_SUP-mtcond-002:after_state",
+      "diff_ref": "ref_SUP-mtcond-002:state_diff",
+      "trace_id": "01f394369d1fb50353046a0c24308316",
       "model_turns_equivalent": 3
     }
   ]

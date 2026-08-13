@@ -28,11 +28,17 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from backend.app.support.verifier import ChangeSpec, CommentPredicate, TaskSpec
+from backend.app.support.schema import applicable_policies, signal_for_subject
+from backend.app.support.verifier import (
+    ChangeSpec,
+    CommentPredicate,
+    DifficultyAttributes,
+    TaskSpec,
+)
 
-TASK_FAMILY_VERSION = "support_tasks_v1"
+TASK_FAMILY_VERSION = "support_tasks_v2"
 
-FAMILIES = (
+CORE_FAMILIES = (
     "simple_update",
     "lookup_update",
     "policy_update",
@@ -40,6 +46,31 @@ FAMILIES = (
     "multi_ticket",
     "conditional_escalation",
 )
+
+# Structurally harder families, added by the one-time composition/difficulty
+# expansion pass. Each must satisfy the structural attributes pre-committed in
+# docs/P3_SUITE_COMPOSITION.md.
+HARD_FAMILIES = (
+    "chained_resolution",
+    "policy_selection",
+    "distractor_resolution",
+    "multi_ticket_conditional",
+    "noop_plus_mutation",
+)
+
+FAMILIES = CORE_FAMILIES + HARD_FAMILIES
+
+# Policy actions, keyed by policy id. The verifier derives required changes from
+# the SAME predicate the agent must apply, so a task cannot encode an expectation
+# the policy does not actually state.
+POLICY_ACTIONS: dict[str, dict[str, Any]] = {
+    "POL-001": {"priority": "urgent", "escalated": 1, "team_id": "TEAM-technical"},
+    "POL-011": {"priority": "high", "team_id": "TEAM-technical"},
+    "POL-012": {"priority": "normal", "team_id": "TEAM-technical"},
+    "POL-014": {"priority": "high", "team_id": "TEAM-technical"},
+    "POL-013": {"priority": "normal", "team_id": "TEAM-technical"},
+    "POL-006": {"priority": "low", "team_id": "TEAM-technical"},
+}
 
 
 def _field_change(table: str, key: str, field: str, after: Any) -> ChangeSpec:
@@ -286,4 +317,229 @@ def build_tasks(fixture_path: Path, fixture_sha: str, schema_version: str) -> li
             "reference": reference,
         })
 
+    tasks.extend(_hard_families(tickets, customers, spec))
     return tasks
+
+
+def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
+    """Generate the structurally harder families.
+
+    Selection is by structural attribute only. No candidate is included or
+    excluded because of how an agent performs on it.
+    """
+    hard: list[dict[str, Any]] = []
+    by_customer: dict[str, list[dict[str, Any]]] = {}
+    for ticket in tickets:
+        by_customer.setdefault(ticket["customer_id"], []).append(ticket)
+
+    def attrs(**kwargs) -> DifficultyAttributes:
+        return DifficultyAttributes(**kwargs)
+
+    # -- chained_resolution: customer name -> ticket -> team ------------------
+    index = 0
+    for customer_id, group in sorted(by_customer.items()):
+        if len(hard) >= 10:
+            break
+        # Both required fields must be real changes. Filtering only one of them
+        # is how SUP-chain-002 shipped a no-op priority requirement, caught by the
+        # independent QA check rather than by this generator.
+        candidates = [
+            t for t in group
+            if "log in" in t["subject"].lower()
+            and _needs_change(t, "team_id", "TEAM-accounts")
+            and _needs_change(t, "priority", "high")
+        ]
+        if not candidates:
+            continue
+        ticket = candidates[0]
+        customer = customers[customer_id]
+        index += 1
+        hard.append({
+            "spec": spec(
+                task_id=f"SUP-chain-{index:03d}", family="chained_resolution",
+                tier="hard", provenance="hard-calibration-derived",
+                attributes=attrs(reference_call_count=4, entities_involved=3,
+                                 required_mutations=2, cross_entity_resolution=True,
+                                 tickets_affected=1),
+                prompt=(
+                    f"{customer['name']} cannot log in. Find their account-lockout "
+                    f"ticket, assign it to the team that handles account lockouts, "
+                    f"and set its priority to high. Look up the team identifier "
+                    f"rather than guessing it."
+                ),
+                required_changes=[
+                    _field_change("tickets", ticket["ticket_id"], "team_id", "TEAM-accounts"),
+                    _field_change("tickets", ticket["ticket_id"], "priority", "high"),
+                ],
+            ),
+            "reference": [
+                ("search_tickets", {"customer_name": customer["name"]}),
+                ("list_reference_data", {}),
+                ("assign_ticket", {"ticket_id": ticket["ticket_id"], "team_id": "TEAM-accounts"}),
+                ("update_ticket", {"ticket_id": ticket["ticket_id"], "priority": "high"}),
+            ],
+        })
+
+    # -- policy_selection: tier decides which of several policies applies -----
+    outages = [t for t in tickets if signal_for_subject(t["subject"]) == "outage"]
+    count = 0
+    for ticket in outages:
+        if count >= 10:
+            break
+        tier = customers[ticket["customer_id"]]["tier"]
+        matching = applicable_policies(tier, "outage")
+        if len(matching) != 1:
+            continue  # ambiguous by predicate: never generated
+        policy_id = matching[0]
+        actions = POLICY_ACTIONS[policy_id]
+        required = [
+            _field_change("tickets", ticket["ticket_id"], field, value)
+            for field, value in actions.items()
+            if _needs_change(ticket, field, value)
+        ]
+        if not required:
+            continue
+        forbidden = []
+        if "escalated" not in actions:
+            forbidden.append(_field_change("tickets", ticket["ticket_id"], "escalated", 1))
+        count += 1
+        hard.append({
+            "spec": spec(
+                task_id=f"SUP-polsel-{count:03d}", family="policy_selection",
+                tier="hard", provenance="hard-calibration-derived",
+                attributes=attrs(reference_call_count=4, entities_involved=2,
+                                 required_mutations=len(required),
+                                 retrieval_required=True, policy_reasoning_required=True,
+                                 conditional_branches=1, cross_entity_resolution=True),
+                prompt=(
+                    f"Ticket {ticket['ticket_id']} reports an outage. Different "
+                    f"outage policies apply to different customer tiers. Determine "
+                    f"this customer's tier, find the outage policy for that tier, "
+                    f"and apply exactly what it says."
+                ),
+                required_changes=required,
+                forbidden_changes=forbidden,
+                metadata={"expected_policy": policy_id, "customer_tier": tier},
+            ),
+            "reference": [
+                ("get_ticket", {"ticket_id": ticket["ticket_id"]}),
+                ("search_policy", {"query": "outage tier handling"}),
+                ("list_reference_data", {}),
+                ("update_ticket", {"ticket_id": ticket["ticket_id"],
+                                   **{k: (True if k == "escalated" else v)
+                                      for k, v in actions.items() if k != "team_id"}}),
+                ("assign_ticket", {"ticket_id": ticket["ticket_id"],
+                                   "team_id": actions["team_id"]}),
+            ],
+        })
+
+    # -- distractor_resolution: several plausible tickets, one correct --------
+    shipping = [t for t in tickets if signal_for_subject(t["subject"]) == "shipping_delay"]
+    for position in range(min(10, max(0, len(shipping) - 3))):
+        target = shipping[position]
+        distractors = [t for t in shipping if t["ticket_id"] != target["ticket_id"]][:4]
+        if len(distractors) < 3 or not _needs_change(target, "priority", "high"):
+            continue
+        customer = customers[target["customer_id"]]
+        hard.append({
+            "spec": spec(
+                task_id=f"SUP-distract-{position + 1:03d}", family="distractor_resolution",
+                tier="hard", provenance="hard-calibration-derived",
+                attributes=attrs(reference_call_count=3, entities_involved=2,
+                                 required_mutations=1, distractor_count=len(distractors),
+                                 cross_entity_resolution=True),
+                prompt=(
+                    f"Several customers report shipping delays. Only the ticket "
+                    f"belonging to {customer['name']} is confirmed over 48 hours. "
+                    f"Set that one ticket to high priority. Leave the other shipping "
+                    f"tickets alone."
+                ),
+                required_changes=[
+                    _field_change("tickets", target["ticket_id"], "priority", "high")
+                ],
+                forbidden_changes=[
+                    _field_change("tickets", d["ticket_id"], "priority", "high")
+                    for d in distractors
+                ],
+            ),
+            "reference": [
+                ("search_tickets", {"query": "ship"}),
+                ("search_tickets", {"customer_name": customer["name"]}),
+                ("update_ticket", {"ticket_id": target["ticket_id"], "priority": "high"}),
+            ],
+        })
+
+    # -- noop_plus_mutation: decide NOT to change one thing, change another ---
+    pairs = [t for t in tickets if signal_for_subject(t["subject"]) == "billing_dispute"]
+    for position, ticket in enumerate(pairs[:8], start=1):
+        if not _needs_change(ticket, "team_id", "TEAM-billing"):
+            continue
+        hard.append({
+            "spec": spec(
+                task_id=f"SUP-noop-{position:03d}", family="noop_plus_mutation",
+                tier="hard", provenance="hard-calibration-derived",
+                attributes=attrs(reference_call_count=3, entities_involved=2,
+                                 required_mutations=1, retrieval_required=True,
+                                 requires_noop_decision=True, policy_reasoning_required=True),
+                prompt=(
+                    f"Ticket {ticket['ticket_id']} is a billing dispute for 240. "
+                    f"Look up the billing dispute policy and apply it. Note the "
+                    f"policy's condition on escalation carefully."
+                ),
+                required_changes=[
+                    _field_change("tickets", ticket["ticket_id"], "team_id", "TEAM-billing")
+                ],
+                forbidden_changes=[
+                    _field_change("tickets", ticket["ticket_id"], "escalated", 1)
+                ],
+            ),
+            "reference": [
+                ("search_policy", {"query": "billing dispute"}),
+                ("list_reference_data", {}),
+                ("assign_ticket", {"ticket_id": ticket["ticket_id"], "team_id": "TEAM-billing"}),
+            ],
+        })
+
+    # -- multi_ticket_conditional: several tickets, per-ticket branch ---------
+    perf = [t for t in tickets if signal_for_subject(t["subject"]) == "performance"]
+    groups = [perf[i:i + 3] for i in range(0, len(perf), 3)]
+    for position, group in enumerate(groups[:9], start=1):
+        if len(group) < 3:
+            continue
+        required, reference = [], [("search_policy", {"query": "performance tier"})]
+        ok = True
+        for ticket in group:
+            tier = customers[ticket["customer_id"]]["tier"]
+            matching = applicable_policies(tier, "performance")
+            if len(matching) != 1:
+                ok = False
+                break
+            actions = POLICY_ACTIONS[matching[0]]
+            if _needs_change(ticket, "priority", actions["priority"]):
+                required.append(_field_change("tickets", ticket["ticket_id"],
+                                              "priority", actions["priority"]))
+                reference.append(("update_ticket", {"ticket_id": ticket["ticket_id"],
+                                                    "priority": actions["priority"]}))
+        if not ok or not required:
+            continue
+        hard.append({
+            "spec": spec(
+                task_id=f"SUP-mtcond-{position:03d}", family="multi_ticket_conditional",
+                tier="hard", provenance="hard-calibration-derived",
+                attributes=attrs(reference_call_count=len(reference), entities_involved=4,
+                                 required_mutations=len(required), retrieval_required=True,
+                                 policy_reasoning_required=True, conditional_branches=len(group),
+                                 tickets_affected=len(group), cross_entity_resolution=True),
+                prompt=(
+                    "These tickets all report slow performance: "
+                    + ", ".join(t["ticket_id"] for t in group)
+                    + ". The correct priority depends on each customer's tier. Look "
+                    "up the performance policies and set each ticket's priority "
+                    "accordingly. Change nothing else."
+                ),
+                required_changes=required,
+            ),
+            "reference": reference,
+        })
+
+    return hard

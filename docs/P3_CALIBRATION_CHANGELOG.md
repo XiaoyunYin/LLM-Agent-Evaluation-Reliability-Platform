@@ -29,6 +29,8 @@ the benchmark into a description of what the model already does.
 No edit was made because a score was disappointing. Each traced to a task being
 impossible or ambiguous given the tool surface, which is the documented category.
 
+| 8 | 2026-08-13 | task/spec defect | `chained_resolution` | Filter no-op changes on **both** required fields, not just `team_id` | The independent QA no-op check caught `SUP-chain-002` requiring `priority=high` on a ticket already at high. Same class as edit #1, in a family written after that fix - which is why the check recomputes from the fixture instead of trusting the generator. |
+
 ## Rebalancing passes
 
 One intentional difficulty/fairness rebalancing pass is permitted before the
@@ -36,4 +38,31 @@ freeze. **None used so far.**
 
 | Pass | Date | Scope | Outcome |
 |---|---|---|---|
-| — | — | — | not yet run |
+| 1 (the single permitted pass) | 2026-08-13 | Composition/difficulty **expansion**: added 5 structurally harder families. No existing task modified, none removed for being easy. | 33 → 54 tasks. Hard tier 49.2% vs core 97.0%. Discrimination restored. |
+
+### Amended rule
+
+The pass was redefined before use (docs/P3_SUITE_COMPOSITION.md §1) because the
+situation it was written for never occurred. Trigger: the measured ceiling after
+substrate defects were removed. Scope: add harder families. Explicitly out of
+scope: editing a task because the agent passes it.
+
+### Measured effect
+
+| Tier | Pooled success (3 repeats) |
+|---|---:|
+| core (33) | **97.0%** — regression canary, as designed |
+| **hard (21)** | **49.2%** — primary discrimination metric |
+
+By family: `chained_resolution` 16.7%, `noop_plus_mutation` 16.7%,
+`distractor_resolution` 20.0%, `conditional_escalation` 83.3%, everything else
+100%. Three hard families discriminate strongly; `policy_selection` and
+`multi_ticket_conditional` do not yet and are candidates for the expansion to 80.
+
+Per-task consistency over 3 repeats: 41 tasks 3/3, 10 tasks 0/3, 3 tasks
+intermittent - so most hard failures are repeatable rather than stochastic.
+
+**The schema-repair experiment is viable again.** Invalid typed calls are
+**44/804 = 5.5%** of tool calls and appear in **27.2%** of episodes, clearing the
+pre-registered selection thresholds (>=2% of calls, or >=15% of episodes) that the
+saturated 33-task suite could not.
