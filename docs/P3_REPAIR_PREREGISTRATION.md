@@ -211,3 +211,37 @@ pre-registration, not applied backwards to manufacture a different history.
 §6 freezes the cohort as tasks producing ≥1 invalid call in ≥3 of 10 baseline
 runs, with a floor of 8 tasks or the experiment is reported underpowered. That
 rule is unchanged and is applied to the replacement baselines.
+
+---
+
+# Amendment 2 - future selection is consequence-based
+
+Written after the P3 verdict, so this does not alter the P3 experiment or its
+pre-registered null. It replaces the doctrine for future interventions.
+
+The P3 selection rule was incidence-only: select schema repair if invalid calls
+were common enough by call share or episode share. That rule fired, and the
+experiment was run. The measured result showed why incidence is the wrong trigger
+by itself.
+
+For future interventions, selection must ask whether the observed failure has an
+unrecovered or material consequence:
+
+- Does the failure remain unresolved?
+- Does it cause task failure?
+- Does it materially increase steps or cost?
+- Does it create an unsafe side effect?
+
+Artifact-backed P3 values:
+
+| Quantity | Value |
+|---|---:|
+| invalid-call incidence | 235 / 4,545 |
+| next tool call valid after the validation error | 235 / 235 |
+| second invalid call in the same episode | 0 / 235 |
+| unrecovered invalid-call consequence | 0 |
+
+Under this amended rule, schema repair would not have been selected. The
+incidence was real, but every observed invalid call was recovered before a
+repeated invalid call occurred. This is recorded as a lesson for the next
+pre-registration, not applied backward to rewrite P3.

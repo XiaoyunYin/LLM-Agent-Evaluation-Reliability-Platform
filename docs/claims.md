@@ -726,6 +726,92 @@ suite `2cfcaedbb400`, 80 tasks, budget 20 turns, model `gpt-4o-mini`.
 
 ---
 
+## 8. Deterministic P4a durability matrix
+
+**Status: Verified, scoped to the Python-native P4a harness.**
+
+### Claim
+
+> Deterministic P4a durability matrix passed 915/915 clean and injected-crash
+> cases with zero duplicate effects, lost effects, incorrect final states, or
+> protocol invariant violations.
+
+### Evidence
+
+Full result: [`docs/results/p4a-matrix.md`](results/p4a-matrix.md).
+
+| Measure | Value | Artifact |
+|---|---:|---|
+| model calls | 0 | `runs/p4a_matrix/p4a_matrix_20260813/p4a_matrix.json` |
+| clean cases | 80 | same |
+| injected-crash cases | 835 | same |
+| total cases | 915 | same |
+| passed cases | 915 / 915 | same |
+| duplicate_side_effects | 0 | same + audit |
+| lost_required_effects | 0 | same + audit |
+| incorrect_final_states | 0 | same + audit |
+| stale_fenced_effects_accepted | 0 | same + audit |
+| orphan_effect_records | 0 | same + audit |
+| invariant_violations | 0 | same + audit |
+
+Matrix artifact SHA-256:
+`9F60CE9E933EDBECBA5CE35199A8CCFED3336D2F44769FADF2C4FB585E6D4FD4`.
+
+Audit artifact:
+`runs/p4a_matrix/p4a_matrix_20260813/p4a_matrix_audit.json`.
+The audit reconstructs the expected case set from the frozen 80-task P3 suite and
+verifies every expected `(task_id, crash_window, step_index, tool_name)` row
+appears exactly once. It also verifies every promised acceptance counter and
+protocol invariant is zero row-by-row, not only through aggregate failure count.
+
+Crash-window coverage:
+
+| Window | Cases |
+|---|---:|
+| clean | 80 |
+| before_intent_insert | 167 |
+| after_intent_before_effect | 167 |
+| inside_before_effect_application | 167 |
+| after_effect_before_step_completion | 167 |
+| after_step_before_next_model | 167 |
+
+Tool/window coverage:
+
+| Tool | Cases per crash window |
+|---|---:|
+| update_ticket | 80 |
+| assign_ticket | 77 |
+| add_comment | 10 |
+
+Supplemental artifact:
+`runs/p4a_supplemental/p4a_supplemental_20260813/p4a_supplemental.json`.
+It separately measured double-crash recovery, stale-worker fencing-token
+rejection, and poison-to-DLQ after three failed attempts: 3/3 passed, zero model
+calls.
+
+### Scope
+
+The 915-case matrix covers deterministic replay of frozen P3 reference
+trajectories through the Python-native P4a protocol, with every supported crash
+window injected at every effectful step.
+
+Stale-worker fencing and poison/DLQ are **not** part of the 915-case matrix; they
+are measured only by the supplemental artifact. The stale-worker case is a
+fencing-token simulation, not an OS SIGSTOP test.
+
+This claim does not cover P4b or the distributed Java substrate.
+
+### Must not say
+
+- Do not claim P4b is implemented.
+- Do not claim the 915-case matrix contains zombie/stale-worker or poison/DLQ
+  rows; those are separate supplemental scenarios.
+- Do not claim OS-level SIGSTOP coverage.
+- Do not generalize exactly-once behavior beyond the Python-native harness until
+  P4b is implemented and measured.
+
+---
+
 ## Cross-cutting
 
 Two claims that hold across every bullet and are worth making explicitly:

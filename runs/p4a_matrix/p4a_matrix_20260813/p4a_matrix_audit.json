@@ -1,0 +1,90 @@
+{
+  "acceptance_counters_checked": [
+    "duplicate_side_effects",
+    "incorrect_final_states",
+    "invariant_violations",
+    "lost_required_effects",
+    "orphan_effect_records",
+    "stale_fenced_effects_accepted"
+  ],
+  "accounting": {
+    "by_tool_window": {
+      "add_comment": {
+        "after_effect_before_step_completion": 10,
+        "after_intent_before_effect": 10,
+        "after_step_before_next_model": 10,
+        "before_intent_insert": 10,
+        "inside_before_effect_application": 10
+      },
+      "assign_ticket": {
+        "after_effect_before_step_completion": 77,
+        "after_intent_before_effect": 77,
+        "after_step_before_next_model": 77,
+        "before_intent_insert": 77,
+        "inside_before_effect_application": 77
+      },
+      "update_ticket": {
+        "after_effect_before_step_completion": 80,
+        "after_intent_before_effect": 80,
+        "after_step_before_next_model": 80,
+        "before_intent_insert": 80,
+        "inside_before_effect_application": 80
+      }
+    },
+    "by_window": {
+      "after_effect_before_step_completion": 167,
+      "after_intent_before_effect": 167,
+      "after_step_before_next_model": 167,
+      "before_intent_insert": 167,
+      "clean": 80,
+      "inside_before_effect_application": 167
+    },
+    "clean_cases": 80,
+    "crash_cases": 835,
+    "expected_clean_cases": 80,
+    "expected_crash_cases": 835,
+    "expected_effectful_steps": 167,
+    "expected_total_cases": 915,
+    "passed_cases": 915,
+    "summary_clean_cases": 80,
+    "summary_crash_cases": 835,
+    "summary_passed_cases": 915,
+    "summary_total_cases": 915,
+    "total_cases": 915
+  },
+  "all_checks_passed": true,
+  "artifact": "D:\\vscode project rebuild\\llm_eval_regression_platform\\runs\\p4a_matrix\\p4a_matrix_20260813\\p4a_matrix.json",
+  "artifact_run_id": "p4a_matrix_20260813",
+  "audited_at": "2026-08-13T20:19:21.684132+00:00",
+  "failures": {
+    "duplicate_actual_case_keys": [],
+    "duplicate_expected_case_keys": [],
+    "missing_expected_cases": [],
+    "row_acceptance_nonzero": [],
+    "row_effect_count_mismatches": [],
+    "row_invariant_nonzero": [],
+    "row_not_passed": [],
+    "row_verification_failures": [],
+    "summary_acceptance_nonzero": {},
+    "unexpected_cases": []
+  },
+  "model_calls_made": 0,
+  "protocol_invariants_checked": [
+    "completed_without_result",
+    "duplicate_business_mutations",
+    "durable_intent_duplicates",
+    "effect_result_duplicates",
+    "effects_without_intent",
+    "stale_fenced_effects_accepted"
+  ],
+  "recovery_semantics": {
+    "crash_after_effect_before_runner_completion_cases": 167,
+    "crash_after_intent_cases": 167,
+    "crash_after_step_before_next_model_cases": 167,
+    "crash_before_intent_cases": 167,
+    "crash_inside_before_effect_application_cases": 167,
+    "poison_dlq_cases_in_matrix": 0,
+    "retry_of_persisted_intent_cases": 167,
+    "stale_worker_fencing_cases_in_matrix": 0
+  }
+}

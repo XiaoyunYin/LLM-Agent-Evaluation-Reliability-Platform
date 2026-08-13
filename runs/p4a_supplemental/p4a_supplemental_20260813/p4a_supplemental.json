@@ -1,0 +1,122 @@
+{
+  "all_passed": true,
+  "cases": [
+    {
+      "case_name": "double_crash_recovery",
+      "completed_steps": 5,
+      "crashes_observed": 2,
+      "duplicate_business_mutations": 0,
+      "effect_records": 3,
+      "expected_crashes": 2,
+      "intent_records": 5,
+      "invariants": {
+        "completed_without_result": 0,
+        "duplicate_business_mutations": 0,
+        "durable_intent_duplicates": 0,
+        "effect_result_duplicates": 0,
+        "effects_without_intent": 0,
+        "stale_fenced_effects_accepted": 0
+      },
+      "passed": true,
+      "retry_count": 0,
+      "runner_state": "SUCCEEDED",
+      "runtime_episode_id": "p4a_432a64e6abdd06ba",
+      "stale_fenced_effects_accepted": 0,
+      "stale_token_attempts": 0,
+      "verification": {
+        "actual_changes": [
+          "field_changed:tickets:TKT-0006:escalated:1",
+          "field_changed:tickets:TKT-0006:priority:urgent",
+          "field_changed:tickets:TKT-0006:team_id:TEAM-technical",
+          "row_added:comments:CMT#88256341f5a18546"
+        ],
+        "detail": "all required changes present, nothing undeclared",
+        "forbidden_hit": [],
+        "missing_comments": [],
+        "missing_required": [],
+        "normalization_version": "support_normalize_v1",
+        "outcome": "pass",
+        "passed": true,
+        "task_id": "SUP-policy-001",
+        "undeclared": [],
+        "verifier_version": "support_verifier_v1"
+      }
+    },
+    {
+      "case_name": "stale_worker_fencing",
+      "completed_steps": 5,
+      "duplicate_business_mutations": 0,
+      "effect_records": 3,
+      "intent_records": 5,
+      "invariants": {
+        "completed_without_result": 0,
+        "duplicate_business_mutations": 0,
+        "durable_intent_duplicates": 0,
+        "effect_result_duplicates": 0,
+        "effects_without_intent": 0,
+        "stale_fenced_effects_accepted": 0
+      },
+      "passed": true,
+      "retry_count": 0,
+      "runner_state": "SUCCEEDED",
+      "runtime_episode_id": "p4a_6682608fe96c3e3e",
+      "stale_fenced_effects_accepted": 0,
+      "stale_rejected": true,
+      "stale_token_attempts": 1,
+      "verification": {
+        "actual_changes": [
+          "field_changed:tickets:TKT-0006:escalated:1",
+          "field_changed:tickets:TKT-0006:priority:urgent",
+          "field_changed:tickets:TKT-0006:team_id:TEAM-technical",
+          "row_added:comments:CMT#88256341f5a18546"
+        ],
+        "detail": "all required changes present, nothing undeclared",
+        "forbidden_hit": [],
+        "missing_comments": [],
+        "missing_required": [],
+        "normalization_version": "support_normalize_v1",
+        "outcome": "pass",
+        "passed": true,
+        "task_id": "SUP-policy-001",
+        "undeclared": [],
+        "verifier_version": "support_verifier_v1"
+      }
+    },
+    {
+      "case_name": "poison_dlq",
+      "completed_steps": 0,
+      "duplicate_business_mutations": 0,
+      "effect_records": 0,
+      "expected_protocol_violations": 3,
+      "intent_records": 1,
+      "invariants": {
+        "completed_without_result": 0,
+        "duplicate_business_mutations": 0,
+        "durable_intent_duplicates": 0,
+        "effect_result_duplicates": 0,
+        "effects_without_intent": 0,
+        "stale_fenced_effects_accepted": 0
+      },
+      "passed": true,
+      "protocol_violations": 3,
+      "retry_count": 3,
+      "runner_state": "DLQ",
+      "runtime_episode_id": "p4a_62af584effc5583a",
+      "stale_fenced_effects_accepted": 0,
+      "stale_token_attempts": 0,
+      "verification": null
+    }
+  ],
+  "generated_at": "2026-08-13T20:19:25.233437+00:00",
+  "model_calls_made": 0,
+  "protocol": "p4a_supplemental_recovery_v1",
+  "run_id": "p4a_supplemental_20260813",
+  "summary": {
+    "cases": 3,
+    "double_crash_recovery_cases": 1,
+    "failed_cases": 0,
+    "passed_cases": 3,
+    "poison_dlq_cases": 1,
+    "stale_worker_fencing_cases": 1
+  }
+}
