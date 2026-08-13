@@ -64,3 +64,10 @@ runs/spider_benchmark/*/payloads.jsonl
 # Personal editor and tooling config, not project configuration.
 .editor-rules.md
 .tooling-rules.md
+
+# Aborted P1 repeat attempts. The concurrent batch that ran into the OpenAI
+# requests-per-day cap produced episodes that are almost entirely MODEL_ERROR -
+# quota artefacts, not measurements. They are deleted rather than kept, so no
+# analysis can pick them up as if they were a repeat.
+runs/spider_benchmark/spider_rpt__*
+runs/spider_benchmark/spider_abl__*
