@@ -34,6 +34,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from backend.app.spider.evaluator import (  # noqa: E402
+    SUBSTRATE_SINGLE_DB,
+    SUBSTRATE_TEST_SUITE,
+)
 from backend.app.spider.trajectory import DEFAULT_RUN_ROOT, TrajectoryStore  # noqa: E402
 
 # Fields that define "the same experiment". A difference in any of these means the
@@ -53,7 +57,9 @@ EXPECTED_TO_DIFFER = (
 )
 
 
-def load_run(run_id: str, root: Path) -> tuple[dict[str, Any], dict[str, dict]]:
+def load_run(
+    run_id: str, root: Path, substrate: str = SUBSTRATE_SINGLE_DB
+) -> tuple[dict[str, Any], dict[str, dict]]:
     store = TrajectoryStore(run_id, root)
     if not store.episodes_path.exists():
         raise SystemExit(f"No episodes for {run_id}")
@@ -63,6 +69,32 @@ def load_run(run_id: str, root: Path) -> tuple[dict[str, Any], dict[str, dict]]:
         else {}
     )
     episodes = {e["task_id"]: e for e in store.iter_episodes()}
+
+    if substrate != SUBSTRATE_SINGLE_DB:
+        # Verdicts come from the offline rescore, which was computed over exactly
+        # these trajectories. `termination_reason` is overwritten only for the
+        # SUCCESS/not-SUCCESS decision; every other field is left untouched, and
+        # the original reason is preserved so reason churn stays reportable.
+        rescore_path = store.run_dir / f"rescore__{substrate}.json"
+        if not rescore_path.exists():
+            raise SystemExit(
+                f"No {substrate} rescore for {run_id}. Run:\n"
+                f"  python scripts/rescore_with_substrate.py --run-id {run_id} "
+                f"--substrate {substrate}"
+            )
+        rescore = json.loads(rescore_path.read_text(encoding="utf-8"))
+        verdicts = {row["task_id"]: row for row in rescore["per_task"]}
+        for task_id, episode in episodes.items():
+            row = verdicts.get(task_id)
+            if row is None or row.get("excluded_on_this_substrate"):
+                continue
+            episode["single_db_termination_reason"] = episode["termination_reason"]
+            if row["rescored_passed"]:
+                episode["termination_reason"] = "SUCCESS"
+            elif episode["termination_reason"] == "SUCCESS":
+                # Credited by single-DB, rejected by the stricter substrate.
+                episode["termination_reason"] = "VERIFICATION_FAILED"
+
     return config, episodes
 
 
@@ -90,9 +122,11 @@ def sampling_settings(config: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def compare(run_a: str, run_b: str, root: Path) -> dict[str, Any]:
-    config_a, episodes_a = load_run(run_a, root)
-    config_b, episodes_b = load_run(run_b, root)
+def compare(
+    run_a: str, run_b: str, root: Path, substrate: str = SUBSTRATE_SINGLE_DB
+) -> dict[str, Any]:
+    config_a, episodes_a = load_run(run_a, root, substrate)
+    config_b, episodes_b = load_run(run_b, root, substrate)
 
     tasks_a, tasks_b = set(episodes_a), set(episodes_b)
     shared = sorted(tasks_a & tasks_b)
@@ -169,6 +203,12 @@ def compare(run_a: str, run_b: str, root: Path) -> dict[str, Any]:
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "run_a": run_a,
         "run_b": run_b,
+        "substrate": substrate,
+        "verdict_source": (
+            "episodes.jsonl termination_reason"
+            if substrate == SUBSTRATE_SINGLE_DB
+            else f"rescore__{substrate}.json (offline, no model re-run)"
+        ),
         "task_sets": {
             "shared": len(shared),
             "only_in_a": sorted(tasks_a - tasks_b),
@@ -232,7 +272,8 @@ def compare(run_a: str, run_b: str, root: Path) -> dict[str, Any]:
 
 
 def print_report(report: dict[str, Any]) -> None:
-    print(f"Run comparison: {report['run_a']}  ->  {report['run_b']}\n")
+    print(f"Run comparison: {report['run_a']}  ->  {report['run_b']}")
+    print(f"Substrate: {report['substrate']}  (verdicts from {report['verdict_source']})\n")
 
     config = report["configuration"]
     print("CONFIGURATION")
@@ -293,15 +334,47 @@ def main() -> int:
     parser.add_argument("--run-a", required=True)
     parser.add_argument("--run-b", required=True)
     parser.add_argument("--root", default=str(DEFAULT_RUN_ROOT))
+    parser.add_argument(
+        "--substrate",
+        default=SUBSTRATE_SINGLE_DB,
+        choices=[SUBSTRATE_SINGLE_DB, SUBSTRATE_TEST_SUITE],
+    )
+    parser.add_argument(
+        "--diagnostic-only",
+        action="store_true",
+        help=(
+            "Stamp the artifact as diagnostic. Use for comparisons that are NOT "
+            "part of the P1 variance family, such as the two frozen P0 runs, "
+            "which differ by observability-only working-tree changes."
+        ),
+    )
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
     root = Path(args.root)
-    report = compare(args.run_a, args.run_b, root)
+    report = compare(args.run_a, args.run_b, root, args.substrate)
+    report["classification"] = (
+        {
+            "diagnostic_only": True,
+            "in_p1_variance_family": False,
+            "why": (
+                "Marked diagnostic. These runs are not part of the P1 variance "
+                "family, which is defined as runs executed from the p1-runner tag "
+                "with an identical recorded configuration. Their churn bounds the "
+                "noise floor only approximately and must not be used to derive CI "
+                "thresholds."
+            ),
+        }
+        if args.diagnostic_only
+        else {"diagnostic_only": False, "in_p1_variance_family": None}
+    )
     print_report(report)
+    if args.diagnostic_only:
+        print("\n  *** DIAGNOSTIC ONLY - not part of the P1 variance family ***")
 
+    suffix = "" if args.substrate == SUBSTRATE_SINGLE_DB else f"__{args.substrate}"
     output = Path(args.output) if args.output else (
-        root / args.run_b / f"comparison_vs_{args.run_a}.json"
+        root / args.run_b / f"comparison_vs_{args.run_a}{suffix}.json"
     )
     output.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     print(f"\nWrote {output}")

@@ -38,7 +38,13 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from backend.app.spider.evaluator import VerificationOutcome, verify_sql  # noqa: E402
+from backend.app.spider.evaluator import (  # noqa: E402
+    SUBSTRATE_SINGLE_DB,
+    SUBSTRATE_TEST_SUITE,
+    VerificationOutcome,
+    substrate_database_path,
+    verify_sql,
+)
 from backend.app.spider.loader import load_spider_tasks  # noqa: E402
 from backend.app.spider.trajectory import (  # noqa: E402
     DEFAULT_RUN_ROOT,
@@ -103,7 +109,12 @@ def load_run(run_id: str, root: Path) -> dict[str, Any]:
     }
 
 
-def analyze(run_id: str, root: Path, verify_abandoned: bool) -> dict[str, Any]:
+def analyze(
+    run_id: str,
+    root: Path,
+    verify_abandoned: bool,
+    substrate: str = SUBSTRATE_SINGLE_DB,
+) -> dict[str, Any]:
     run = load_run(run_id, root)
     episodes = run["episodes"]
     steps = run["steps"]
@@ -288,8 +299,12 @@ def analyze(run_id: str, root: Path, verify_abandoned: bool) -> dict[str, Any]:
             if not query:
                 continue
             verification = verify_sql(
-                query, task.gold_query, task.database_path,
-                task.task_id, task.database_id,
+                query,
+                task.gold_query,
+                substrate_database_path(task.database_id, substrate),
+                task.task_id,
+                task.database_id,
+                substrate=substrate,
             )
             if verification.outcome is not VerificationOutcome.PASS:
                 continue
@@ -436,11 +451,13 @@ def analyze(run_id: str, root: Path, verify_abandoned: bool) -> dict[str, Any]:
         "step_decomposition": step_decomposition,
         "tool_vs_episode_errors": tool_vs_episode,
         "max_steps_analysis": max_steps_analysis,
+        "substrate": substrate,
     }
 
 
 def print_report(report: dict[str, Any]) -> None:
-    print(f"Failure analysis - run {report['run_id']}\n")
+    print(f"Failure analysis - run {report['run_id']} "
+          f"[substrate: {report.get('substrate')}]\n")
 
     breakdown = report["termination_breakdown"]
     print("TERMINATION BREAKDOWN (all P0 reasons, including zeros)")
@@ -507,6 +524,17 @@ def main() -> int:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--root", default=str(DEFAULT_RUN_ROOT))
     parser.add_argument(
+        "--substrate",
+        default=SUBSTRATE_SINGLE_DB,
+        choices=[SUBSTRATE_SINGLE_DB, SUBSTRATE_TEST_SUITE],
+        help=(
+            "Which substrate decides whether an executed query 'would have "
+            "passed'. The test-suite substrate is the stricter one and is what "
+            "P2 planning should use; single-DB is retained as historical "
+            "diagnostic data."
+        ),
+    )
+    parser.add_argument(
         "--no-verify-abandoned",
         action="store_true",
         help="Skip re-verifying executed queries (the slow part).",
@@ -514,11 +542,14 @@ def main() -> int:
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
-    report = analyze(args.run_id, Path(args.root), not args.no_verify_abandoned)
+    report = analyze(
+        args.run_id, Path(args.root), not args.no_verify_abandoned, args.substrate
+    )
     print_report(report)
 
+    suffix = "" if args.substrate == SUBSTRATE_SINGLE_DB else f"__{args.substrate}"
     output = Path(args.output) if args.output else (
-        Path(args.root) / args.run_id / "failure_analysis.json"
+        Path(args.root) / args.run_id / f"failure_analysis{suffix}.json"
     )
     output.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     print(f"\nWrote {output}")
