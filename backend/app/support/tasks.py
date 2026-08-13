@@ -441,7 +441,7 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
 
     # -- distractor_resolution: several plausible tickets, one correct --------
     shipping = [t for t in tickets if signal_for_subject(t["subject"]) == "shipping_delay"]
-    for position in range(min(10, max(0, len(shipping) - 3))):
+    for position in range(min(10, max(0, len(shipping) - 2))):
         target = shipping[position]
         distractors = [t for t in shipping if t["ticket_id"] != target["ticket_id"]][:4]
         if len(distractors) < 3 or not _needs_change(target, "priority", "high"):
@@ -523,16 +523,29 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
         })
 
     # -- multi_ticket_conditional: several tickets, per-ticket branch ---------
-    perf = [t for t in tickets if signal_for_subject(t["subject"]) == "performance"]
-    groups = [perf[i:i + 3] for i in range(0, len(perf), 3)]
-    for position, group in enumerate(groups[:9], start=1):
+    # Both tier-conditional signals, not just performance. The family's structure
+    # is "several tickets, per-ticket branch on the customer's tier"; outage is the
+    # other signal with tier-specific policies (POL-001/011/012), so it belongs
+    # here. Disjoint chunks of one signal capped the family at 4 tasks - a
+    # substrate limit, not a design choice.
+    conditional_pool = [
+        (signal, [t for t in tickets if signal_for_subject(t["subject"]) == signal])
+        for signal in ("performance", "outage")
+    ]
+    groups = [
+        (signal, pool[i:i + 3])
+        for signal, pool in conditional_pool
+        for i in range(0, max(0, len(pool) - 2), 3)
+    ]
+    for position, (signal, group) in enumerate(groups[:9], start=1):
         if len(group) < 3:
             continue
-        required, reference = [], [("search_policy", {"query": "performance tier"})]
+        query = "performance tier" if signal == "performance" else "outage tier"
+        required, reference = [], [("search_policy", {"query": query})]
         ok = True
         for ticket in group:
             tier = customers[ticket["customer_id"]]["tier"]
-            matching = applicable_policies(tier, "performance")
+            matching = applicable_policies(tier, signal)
             if len(matching) != 1:
                 ok = False
                 break
@@ -553,10 +566,12 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
                                  policy_reasoning_required=True, conditional_branches=len(group),
                                  tickets_affected=len(group), cross_entity_resolution=True),
                 prompt=(
-                    "These tickets all report slow performance: "
+                    ("These tickets all report slow performance: "
+                     if signal == "performance" else
+                     "These tickets all report an outage: ")
                     + ", ".join(t["ticket_id"] for t in group)
                     + ". The correct priority depends on each customer's tier. Look "
-                    "up the performance policies and set each ticket's priority "
+                    f"up the {signal} policies and set each ticket's priority "
                     "accordingly. Change nothing else."
                 ),
                 required_changes=required,

@@ -1,0 +1,30 @@
+{
+  "fixture_version": "support_fixture_v4",
+  "fixture_sha256": "18d64bd9595c47f79810a37562b01b0e03eb6b31627ff50f489e083a55ff0efc",
+  "ticket_count": 120,
+  "schema_version": "support_schema_v2",
+  "task_family_version": "support_tasks_v3",
+  "suite_sha256": "d7c2116f7a9a56b9e4509e8fbd9a8af73d3dbb5dda790e2aa6d4bb06427d08f7",
+  "tool_schema_version": "support_tools_v2",
+  "verifier_version": "support_verifier_v1",
+  "normalization_version": "support_normalize_v1",
+  "agent_version": "support_langgraph_agent_v0",
+  "prompt_version": "support_agent_v0",
+  "max_steps": 15,
+  "empty_result_policy": "accept_empty",
+  "schema_repair_enabled": false,
+  "task_count": 79,
+  "composition": {
+    "core/conditional_escalation": 6,
+    "core/lookup_update": 8,
+    "core/multi_field": 6,
+    "core/multi_ticket": 3,
+    "core/policy_update": 4,
+    "core/simple_update": 8,
+    "hard/chained_resolution": 10,
+    "hard/distractor_resolution": 8,
+    "hard/multi_ticket_conditional": 8,
+    "hard/noop_plus_mutation": 8,
+    "hard/policy_selection": 10
+  }
+}

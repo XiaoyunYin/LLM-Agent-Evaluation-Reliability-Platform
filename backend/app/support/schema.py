@@ -22,7 +22,12 @@ from pathlib import Path
 # Bumped whenever the schema or the fixture generation changes. Recorded on every
 # run, because a task's expected diff is only meaningful against a known world.
 SCHEMA_VERSION = "support_schema_v2"
-FIXTURE_VERSION = "support_fixture_v3"
+# 120 tickets = 12 per subject. Chosen as the smallest size that lets every
+# family reach its pre-committed quota; the composition expansion was substrate-
+# bound below this, not design-bound.
+DEFAULT_TICKET_COUNT = 120
+
+FIXTURE_VERSION = "support_fixture_v4"
 FIXTURE_SEED = 20260813
 
 # Enums are closed sets. Tools validate against them, so an agent cannot invent a
@@ -275,7 +280,7 @@ def _seeded_rows(count: int) -> tuple[list, list]:
     return customers, tickets
 
 
-def build_fixture(path: Path, ticket_count: int = 60) -> str:
+def build_fixture(path: Path, ticket_count: int = DEFAULT_TICKET_COUNT) -> str:
     """Create the seeded database and return its content hash.
 
     The hash pins the initial world. A task's expected diff means nothing without

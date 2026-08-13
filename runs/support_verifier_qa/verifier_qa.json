@@ -1,44 +1,44 @@
 {
-  "generated_at": "2026-08-13T18:02:38.230076+00:00",
-  "fixture_sha256": "c998163bedcef078790ab7edd19722b2f86f453fa00078857098a5419492a75f",
+  "generated_at": "2026-08-13T18:11:16.391099+00:00",
+  "fixture_sha256": "18d64bd9595c47f79810a37562b01b0e03eb6b31627ff50f489e083a55ff0efc",
   "versions": {
     "schema": "support_schema_v2",
-    "fixture": "support_fixture_v3",
+    "fixture": "support_fixture_v4",
     "normalization": "support_normalize_v1",
     "verifier": "support_verifier_v1",
     "tools": "support_tools_v2",
     "task_families": "support_tasks_v3"
   },
-  "tasks": 60,
-  "checks_run": 316,
+  "tasks": 79,
+  "checks_run": 418,
   "checks_failed": 0,
   "by_check": {
     "no_noop_required_changes": {
-      "ok": 60,
+      "ok": 79,
       "bad": 0
     },
     "reference_passes": {
-      "ok": 60,
+      "ok": 79,
       "bad": 0
     },
     "unrelated_mutation_fails": {
-      "ok": 60,
+      "ok": 79,
       "bad": 0
     },
     "wrong_value_fails": {
-      "ok": 39,
+      "ok": 55,
       "bad": 0
     },
     "partial_completion_fails": {
-      "ok": 52,
+      "ok": 71,
       "bad": 0
     },
     "missing_required_comment_fails": {
-      "ok": 9,
+      "ok": 10,
       "bad": 0
     },
     "forbidden_mutation_fails": {
-      "ok": 21,
+      "ok": 27,
       "bad": 0
     },
     "fixture_customer_subject_unique": {
@@ -46,11 +46,11 @@
       "bad": 0
     },
     "distractors_are_other_customers": {
-      "ok": 7,
+      "ok": 8,
       "bad": 0
     },
     "policy_actions_fully_required": {
-      "ok": 6,
+      "ok": 8,
       "bad": 0
     },
     "state_isolation_between_episodes": {
@@ -1123,6 +1123,60 @@
       "detail": "0 required change(s) and 1 required comment(s) missing"
     },
     {
+      "task_id": "SUP-multi-006",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-multi-006",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-multi-006",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "0 required change(s) and 1 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-multi-006",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-multi-006",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 1 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-multi-006",
+      "check": "missing_required_comment_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "0 required change(s) and 1 required comment(s) missing"
+    },
+    {
       "task_id": "SUP-multiticket-001",
       "check": "no_noop_required_changes",
       "expected": "PASS",
@@ -1708,6 +1762,231 @@
       "detail": "1 required change(s) and 0 required comment(s) missing"
     },
     {
+      "task_id": "SUP-chain-006",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-chain-006",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-chain-006",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-006",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-chain-006",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-007",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-chain-007",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-chain-007",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-007",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-chain-007",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-008",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-chain-008",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-chain-008",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-008",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-chain-008",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-009",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-chain-009",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-chain-009",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-009",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-chain-009",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-010",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-chain-010",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-chain-010",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-chain-010",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-chain-010",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
       "task_id": "SUP-polsel-001",
       "check": "no_noop_required_changes",
       "expected": "PASS",
@@ -1996,6 +2275,195 @@
       "detail": "1 undeclared change(s)"
     },
     {
+      "task_id": "SUP-polsel-007",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-polsel-007",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-polsel-007",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-polsel-007",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-polsel-007",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "forbidden_mutation",
+      "detail": "1 forbidden change(s) present"
+    },
+    {
+      "task_id": "SUP-polsel-008",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-polsel-008",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-polsel-008",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-polsel-008",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-polsel-008",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "forbidden_mutation",
+      "detail": "1 forbidden change(s) present"
+    },
+    {
+      "task_id": "SUP-polsel-009",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-polsel-009",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-polsel-009",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-polsel-009",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-polsel-009",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "2 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "2 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-polsel-010",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "forbidden_mutation",
+      "detail": "1 forbidden change(s) present"
+    },
+    {
       "task_id": "SUP-distract-001",
       "check": "no_noop_required_changes",
       "expected": "PASS",
@@ -2366,6 +2834,60 @@
     },
     {
       "task_id": "SUP-distract-008",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-distract-010",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-distract-010",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-distract-010",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-distract-010",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-distract-010",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-distract-010",
       "check": "forbidden_mutation_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -2680,6 +3202,105 @@
       "detail": "1 forbidden change(s) present"
     },
     {
+      "task_id": "SUP-noop-007",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-noop-007",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-noop-007",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-noop-007",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-noop-007",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-noop-007",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "forbidden_mutation",
+      "detail": "1 forbidden change(s) present"
+    },
+    {
+      "task_id": "SUP-noop-008",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-noop-008",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-noop-008",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-noop-008",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-noop-008",
+      "check": "forbidden_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "forbidden_mutation",
+      "detail": "1 forbidden change(s) present"
+    },
+    {
       "task_id": "SUP-mtcond-001",
       "check": "no_noop_required_changes",
       "expected": "PASS",
@@ -2762,6 +3383,276 @@
     },
     {
       "task_id": "SUP-mtcond-002",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "2 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-003",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-mtcond-003",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-mtcond-003",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-003",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-mtcond-003",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "2 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-004",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-mtcond-004",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-mtcond-004",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-004",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-mtcond-004",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "2 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-005",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-mtcond-005",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-mtcond-005",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-005",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-mtcond-005",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "2 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-006",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-mtcond-006",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-mtcond-006",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-006",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-mtcond-006",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-007",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-mtcond-007",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-mtcond-007",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-007",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-mtcond-007",
+      "check": "wrong_value_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-008",
+      "check": "no_noop_required_changes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a required change already true in the fixture is unverifiable"
+    },
+    {
+      "task_id": "SUP-mtcond-008",
+      "check": "reference_passes",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "pass",
+      "detail": "all required changes present, nothing undeclared"
+    },
+    {
+      "task_id": "SUP-mtcond-008",
+      "check": "partial_completion_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "missing_required",
+      "detail": "1 required change(s) and 0 required comment(s) missing"
+    },
+    {
+      "task_id": "SUP-mtcond-008",
+      "check": "unrelated_mutation_fails",
+      "expected": "FAIL",
+      "actual": "FAIL",
+      "ok": true,
+      "outcome": "undeclared_mutation",
+      "detail": "1 undeclared change(s)"
+    },
+    {
+      "task_id": "SUP-mtcond-008",
       "check": "wrong_value_fails",
       "expected": "FAIL",
       "actual": "FAIL",
@@ -2842,6 +3733,15 @@
       "detail": "a forbidden ticket owned by the target customer is an ambiguity"
     },
     {
+      "task_id": "SUP-distract-010",
+      "check": "distractors_are_other_customers",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "a forbidden ticket owned by the target customer is an ambiguity"
+    },
+    {
       "task_id": "SUP-noop-001",
       "check": "policy_actions_fully_required",
       "expected": "PASS",
@@ -2888,6 +3788,24 @@
     },
     {
       "task_id": "SUP-noop-006",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "POL-002 mandates changes the task does not require"
+    },
+    {
+      "task_id": "SUP-noop-007",
+      "check": "policy_actions_fully_required",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "none",
+      "detail": "POL-002 mandates changes the task does not require"
+    },
+    {
+      "task_id": "SUP-noop-008",
       "check": "policy_actions_fully_required",
       "expected": "PASS",
       "actual": "PASS",
