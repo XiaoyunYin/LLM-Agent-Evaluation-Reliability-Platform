@@ -34,7 +34,7 @@ published number and its source disagree.
 | Tool calls per successful task | 4.67 mean, 4.00 median | |
 | Trajectory records per successful task | 9.34 mean, 8.00 median | = model turns + tool calls |
 | Episodes using both tools | **1,034 of 1,034** | |
-| Est. cost per successful episode | **$0.000526** | list price, not billed |
+| Est. cost per successful episode | **$0.000813** | $0.616408 / 758 — total benchmark cost incl. failed episodes |
 | Benchmark-only estimated cost | $0.616408 | this run only |
 | Total real API spend, all P0 dev+test | **$1.2780** | 2,139 episodes across 6 runs |
 | Trajectory step records | 10,432 | |
@@ -55,10 +55,24 @@ Full write-up: [docs/results/spider-p0.md](docs/results/spider-p0.md).
 Frozen pins with content hashes: [docs/P0_BASELINE.md](docs/P0_BASELINE.md).
 
 **The most useful thing this run produced.** The same configuration was run twice
-with zero differing config fields. The aggregate moved 0.39 points (73.69% →
-73.31%) — but **49 of 1,034 tasks (4.7%) flipped outcome**. Aggregate stability hid
-per-task instability. That is n=2 and is *not* a variance estimate; it is recorded
-as direct evidence for why a CI regression threshold cannot be set from one run.
+with zero differing identity fields (`spider_full__p0_v1` → `spider_full__p0_v2`).
+The aggregate moved 0.39 points (73.69% → 73.31%), but the per-task ledger shows
+churn underneath it:
+
+| | v2: PASS | v2: FAIL |
+|---|---:|---:|
+| **v1: PASS** | 743 | **19** |
+| **v1: FAIL** | **15** | 257 |
+
+**34 tasks (3.29%) changed pass/fail outcome** — 19 PASS→FAIL and 15 FAIL→PASS —
+netting to −4. Separately, **49 termination *reasons* changed**, 15 of them
+fail→fail. Aggregate stability hid per-task churn.
+
+Neither run used a seed; these are **repeated runs under an identical recorded
+configuration**, not seeded runs. That is n=2 and is *not* a variance estimate. It
+is recorded as direct evidence for why a CI regression threshold cannot be set from
+one run. Ledger and config diff:
+`runs/spider_benchmark/spider_full__p0_v2/comparison_vs_spider_full__p0_v1.json`.
 
 Two findings pulled out of the trajectories (debugging findings, not headline
 claims — see `docs/claims.md` §6 for the scope of each):
@@ -70,8 +84,10 @@ claims — see `docs/claims.md` §6 for the scope of each):
   answered with a corrective error.
 - **25 of 48** max-step terminations executed a query that **passes the evaluator**
   and never submitted it — established by re-verifying every executed query, not by
-  inspection. The agent reads a valid zero-row result as proof it was wrong. Left
-  unfixed on purpose: P0 measures a baseline.
+  inspection. That is **2.42pp of the benchmark**, and it is *observed theoretical
+  headroom*, not recoverable accuracy: no intervention has been measured. **23 of
+  those 25** are also in the empty-result cohort, and in 23 the passing query itself
+  returned zero rows. Left unfixed on purpose: P0 measures a baseline.
 
 ```powershell
 python scripts/download_spider.py

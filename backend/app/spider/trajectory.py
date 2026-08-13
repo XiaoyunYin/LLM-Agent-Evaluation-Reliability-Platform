@@ -118,6 +118,11 @@ class AgentStep(BaseModel):
     latency_ms: float = 0.0
     estimated_cost: float = 0.0
 
+    # What the provider actually served, as opposed to the alias requested.
+    # Empty on runs recorded before this field existed.
+    model_revision: str | None = None
+    system_fingerprint: str | None = None
+
     span_id: str | None = None
     trace_id: str | None = None
     created_at: str = Field(

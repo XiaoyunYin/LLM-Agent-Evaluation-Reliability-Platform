@@ -1,10 +1,13 @@
 # P0 Frozen Baseline
 
+**"The P0 baseline" means run `spider_full__p0_v2` and no other run.**
+Any other full run in this repository is a repeat or comparison run.
+
 Everything required to regenerate the P0 Spider benchmark. Content hashes
 sit beside version labels because a label does not change when the thing it
 names is edited — the hash does.
 
-Frozen at: 2026-08-13T04:52:23.654574+00:00  
+Frozen at: 2026-08-13T05:20:50.253461+00:00  
 Run ID: `spider_full__p0_v2`  
 Code commit: `ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7`  **(working tree dirty at run time)**
 
@@ -55,9 +58,14 @@ Vendored source hashes:
 |---|---|
 | Model | `gpt-4o-mini` |
 | Temperature | `0.0` |
+| `top_p` | not sent; provider default applied |
+| `seed` | **not sent** |
+| Resolved model revision | not captured for this run; captured on runs after this freeze |
 | `max_steps` (model-turn cap) | `10` |
 | Pricing snapshot (USD / 1M tokens) | `{'input': 0.15, 'cached_input': 0.075, 'output': 0.6}` |
 | Pricing basis | published list price, not a billed invoice |
+
+Repeated executions of this configuration are 'repeated runs under an identical recorded configuration'. They are NOT seeded runs and are not bitwise reproducible.
 
 ## Prompt
 
@@ -87,12 +95,12 @@ Vendored source hashes:
 
 | File | Bytes | sha256 |
 |---|---:|---|
-| `claims_audit.json` | 15,125 | `6e2c341c20d07fb5…` |
+| `claims_audit.json` | 18,948 | `c621d07ff6f995a0…` |
 | `config.json` | 51,229 | `c01c1b3b2a4ed602…` |
 | `episodes.jsonl` | 1,409,724 | `1705b56e94ec7728…` |
-| `failure_analysis.json` | 11,454 | `9da56f4817337d6a…` |
+| `failure_analysis.json` | 36,422 | `cece8099b8762849…` |
 | `p0_completion.json` | 5,152 | `fe59f883296d9ba3…` |
-| `p0_metrics.json` | 4,743 | `5a93bd2e56009465…` |
+| `p0_metrics.json` | 4,743 | `699dfc59445ec42a…` |
 | `steps.jsonl` | 5,596,027 | `5112a98bd8a23242…` |
 
 ## Regenerate

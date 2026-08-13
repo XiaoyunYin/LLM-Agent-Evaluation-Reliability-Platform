@@ -55,16 +55,21 @@ these is measurable against a prior run:
 
 A regression comparison is only meaningful when exactly one of those moves.
 
-A regression comparison also needs to clear the noise floor. Two runs of an
-**identical** configuration measured 73.69% and 73.31% — 0.39 points apart in
-aggregate, but with **49 of 1,034 tasks (4.7%) flipping outcome**. A controlled
-delta smaller than that is not resolvable by a single pair of runs.
+A regression comparison also needs to clear the noise floor. Two runs under an
+identical recorded configuration measured 73.69% and 73.31% — 0.39 points apart in
+aggregate, but with **34 of 1,034 tasks (3.29%) changing pass/fail outcome** (19
+PASS→FAIL, 15 FAIL→PASS). A controlled delta smaller than that is not resolvable by
+a single pair of runs.
+
+No seed was sent to the model, so these are repeated runs under an identical
+recorded configuration, not seeded runs.
 
 Worked example from this project's own history: fixing tool-argument validation
 was a `tool_schema_version` change from `spider_tools_v1` to `spider_tools_v2`,
-and on the same 10 seeded tasks with everything else held constant it moved
-success from 5/10 to 8/10. That is the *shape* of comparison this benchmark
-supports — but at n=10 it establishes the mechanism, not the effect size.
+and on the same 10 task IDs (selected with a fixed *task-sampling* seed) with
+everything else held constant it moved success from 5/10 to 8/10. That is the
+*shape* of comparison this benchmark supports — but at n=10, against a 34-task
+noise floor, it establishes the mechanism and not the effect size.
 
 ## Step accounting
 

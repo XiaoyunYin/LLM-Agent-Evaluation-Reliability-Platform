@@ -140,12 +140,41 @@ def build_manifest(run_id: str, root: Path) -> dict[str, Any]:
             "task_ids": sorted(load_exclusions()),
         },
 
+        "canonical": {
+            "is_canonical_p0_baseline": True,
+            "meaning": (
+                "\"The P0 baseline\" refers to this run ID and no other. Any other "
+                "full run is a repeat or comparison run and must be named as such."
+            ),
+        },
+
         "model": {
             "model_version": config.get("model_version"),
             "temperature": config.get("temperature"),
             "max_steps_model_turn_cap": config.get("max_steps"),
             "pricing_snapshot_usd_per_1m": MODEL_PRICING.get(config.get("model_version")),
             "pricing_basis": "published list price, not a billed invoice",
+        },
+
+        # Recorded including the parameters that were NOT sent. Without that, a
+        # reader cannot distinguish a default from a decision, and "identical
+        # configuration" becomes uncheckable.
+        "nondeterminism": {
+            "temperature": config.get("temperature"),
+            "top_p": config.get(
+                "top_p", "not sent; provider default applied"
+            ),
+            "seed": config.get("seed", "not sent"),
+            "requested_model_alias": config.get("model_version"),
+            "resolved_model_revision": config.get(
+                "resolved_model_revision",
+                "not captured for this run; captured on runs after this freeze",
+            ),
+            "wording": (
+                "Repeated executions of this configuration are 'repeated runs under "
+                "an identical recorded configuration'. They are NOT seeded runs and "
+                "are not bitwise reproducible."
+            ),
         },
 
         "prompt": {
@@ -216,6 +245,9 @@ def render_doc(manifest: dict[str, Any]) -> str:
     lines = [
         "# P0 Frozen Baseline",
         "",
+        f"**\"The P0 baseline\" means run `{manifest['run_id']}` and no other run.**",
+        "Any other full run in this repository is a repeat or comparison run.",
+        "",
         "Everything required to regenerate the P0 Spider benchmark. Content hashes",
         "sit beside version labels because a label does not change when the thing it",
         "names is edited — the hash does.",
@@ -274,9 +306,14 @@ def render_doc(manifest: dict[str, Any]) -> str:
         "|---|---|",
         f"| Model | `{model['model_version']}` |",
         f"| Temperature | `{model['temperature']}` |",
+        f"| `top_p` | {manifest['nondeterminism']['top_p']} |",
+        f"| `seed` | **{manifest['nondeterminism']['seed']}** |",
+        f"| Resolved model revision | {manifest['nondeterminism']['resolved_model_revision']} |",
         f"| `max_steps` (model-turn cap) | `{model['max_steps_model_turn_cap']}` |",
         f"| Pricing snapshot (USD / 1M tokens) | `{model['pricing_snapshot_usd_per_1m']}` |",
         f"| Pricing basis | {model['pricing_basis']} |",
+        "",
+        manifest["nondeterminism"]["wording"],
         "",
         "## Prompt",
         "",

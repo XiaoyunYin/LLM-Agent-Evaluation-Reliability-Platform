@@ -661,7 +661,7 @@ Each criterion names the artifact that proves it. `R/` abbreviates
 | 18 | Task success is measured | **758 / 1,034 = 73.31%** single-database execution accuracy | `R/p0_metrics.json` → `primary`, `R/claims_audit.json` |
 | 19 | Steps per successful task are measured | **4.67 model turns**, 4.67 tool calls, 9.34 trajectory records (mean); medians 4.00 / 4.00 / 8.00 | `R/failure_analysis.json` → `step_decomposition` |
 | 20 | SQL execution-error rate is measured | **16 / 1,379 = 1.16%** tool-call rate; separately, 2 `SQL_ERROR` episode terminations | `R/failure_analysis.json` → `tool_vs_episode_errors` |
-| 21 | Token and cost metrics are measured | 3,782,629 in (478,848 cached) / 141,545 out; $0.616408 total, $0.000526 per successful episode; **reconciles exactly** | `R/claims_audit.json` → `cost_algebra` |
+| 21 | Token and cost metrics are measured | 3,782,629 in (478,848 cached) / 141,545 out; $0.616408 total, $0.000596/episode, $0.000813/success ($0.616408 / 758); **reconciles exactly** from persisted cached-token counts | `R/claims_audit.json` → `cost_algebra` |
 | 22 | Failure categories are measured | all 7 reasons incl. zeros, summing exactly to 1,034 | `R/failure_analysis.json` → `termination_breakdown` |
 | 23 | The exact benchmark configuration is saved | 10/10 required fields, plus prompt and tool-spec **content hashes** | `R/config.json`, `R/baseline_manifest.json`, `docs/P0_BASELINE.md` |
 | 24 | The benchmark protocol limitation is documented | tool-discovered schema, not leaderboard-comparable, controlled deltas | `docs/benchmark-protocol.md` |

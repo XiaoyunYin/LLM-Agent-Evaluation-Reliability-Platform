@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-13T04:52:13.712993+00:00",
+  "generated_at": "2026-08-13T05:20:07.533818+00:00",
   "provenance": {
     "run_id": "spider_full__p0_v2",
     "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
@@ -127,8 +127,18 @@
     },
     {
       "name": "estimated_cost_per_successful_episode_usd",
+      "value": 0.0008132028364116094,
+      "definition": "TOTAL benchmark estimated cost divided by the number of successful episodes. Includes spend on failed episodes, because those were paid for too. Not the mean cost of a successful episode.",
+      "numerator": 0.6164077499999999,
+      "denominator": 758,
+      "source": "episodes.jsonl",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "mean_cost_of_a_successful_episode_usd",
       "value": 0.0005264568601583113,
-      "definition": "Cost of SUCCESSFUL episodes divided by successful episodes. Note this is not total cost / successes - it excludes spend on failed episodes.",
+      "definition": "Mean estimated cost of episodes that succeeded, excluding spend on failures. Reported only to keep it distinguishable from the canonical cost-per-success above; do not publish it as cost per success.",
       "numerator": 0.3990543,
       "denominator": 758,
       "source": "episodes.jsonl",
@@ -222,6 +232,86 @@
       "numerator": 25,
       "denominator": 48,
       "source": "failure_analysis.json (task IDs stored)",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "repeat_pass_to_pass",
+      "value": 743,
+      "definition": "Tasks with outcome pass to pass between spider_full__p0_v1 and spider_full__p0_v2, joined on task_id. PASS means termination_reason == SUCCESS.",
+      "numerator": 743,
+      "denominator": 1034,
+      "source": "comparison_vs_spider_full__p0_v1.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "repeat_pass_to_fail",
+      "value": 19,
+      "definition": "Tasks with outcome pass to fail between spider_full__p0_v1 and spider_full__p0_v2, joined on task_id. PASS means termination_reason == SUCCESS.",
+      "numerator": 19,
+      "denominator": 1034,
+      "source": "comparison_vs_spider_full__p0_v1.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "repeat_fail_to_pass",
+      "value": 15,
+      "definition": "Tasks with outcome fail to pass between spider_full__p0_v1 and spider_full__p0_v2, joined on task_id. PASS means termination_reason == SUCCESS.",
+      "numerator": 15,
+      "denominator": 1034,
+      "source": "comparison_vs_spider_full__p0_v1.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "repeat_fail_to_fail",
+      "value": 257,
+      "definition": "Tasks with outcome fail to fail between spider_full__p0_v1 and spider_full__p0_v2, joined on task_id. PASS means termination_reason == SUCCESS.",
+      "numerator": 257,
+      "denominator": 1034,
+      "source": "comparison_vs_spider_full__p0_v1.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "repeat_total_pass_fail_flips",
+      "value": 34,
+      "definition": "PASS->FAIL + FAIL->PASS across two runs of an identical recorded configuration. NOT the count of termination-reason changes, which is larger because it includes fail-to-fail reason changes.",
+      "numerator": 34,
+      "denominator": 1034,
+      "source": "comparison_vs_spider_full__p0_v1.json",
+      "status": "OK",
+      "note": "Supersedes an earlier figure of 49, which counted reason changes."
+    },
+    {
+      "name": "repeat_termination_reason_changes",
+      "value": 49,
+      "definition": "Any change in termination_reason between the two runs, including fail-to-fail changes that did not alter the outcome.",
+      "numerator": null,
+      "denominator": 1034,
+      "source": "comparison_vs_spider_full__p0_v1.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "abandoned_correct_query_in_empty_result_cohort",
+      "value": 23,
+      "definition": "Exact intersection of episodes that abandoned a verifier-passing query with the empty_result_loop_broad cohort.",
+      "numerator": 23,
+      "denominator": 25,
+      "source": "failure_analysis.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "abandoned_correct_query_share_of_benchmark_pp",
+      "value": 2.4177949709864603,
+      "definition": "Observed theoretical headroom in percentage points: episodes that executed a verifier-passing query and never submitted it, over all measured episodes. NOT guaranteed recoverable accuracy.",
+      "numerator": 25,
+      "denominator": 1034,
+      "source": "failure_analysis.json",
       "status": "OK",
       "note": ""
     },

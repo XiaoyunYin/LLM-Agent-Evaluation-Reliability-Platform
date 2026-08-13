@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-08-13T04:52:23.654574+00:00",
+  "frozen_at": "2026-08-13T05:20:50.253461+00:00",
   "run_id": "spider_full__p0_v2",
   "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
   "code_working_tree_dirty": true,
@@ -33,6 +33,10 @@
     "count": 0,
     "task_ids": []
   },
+  "canonical": {
+    "is_canonical_p0_baseline": true,
+    "meaning": "\"The P0 baseline\" refers to this run ID and no other. Any other full run is a repeat or comparison run and must be named as such."
+  },
   "model": {
     "model_version": "gpt-4o-mini",
     "temperature": 0.0,
@@ -43,6 +47,14 @@
       "output": 0.6
     },
     "pricing_basis": "published list price, not a billed invoice"
+  },
+  "nondeterminism": {
+    "temperature": 0.0,
+    "top_p": "not sent; provider default applied",
+    "seed": "not sent",
+    "requested_model_alias": "gpt-4o-mini",
+    "resolved_model_revision": "not captured for this run; captured on runs after this freeze",
+    "wording": "Repeated executions of this configuration are 'repeated runs under an identical recorded configuration'. They are NOT seeded runs and are not bitwise reproducible."
   },
   "prompt": {
     "prompt_version": "sql_agent_v1",
@@ -79,7 +91,7 @@
       "bytes": 5596027
     },
     "p0_metrics.json": {
-      "sha256": "5a93bd2e56009465b0a87c3ac4335e4eb8576ceebb99194fdcf3a32351287490",
+      "sha256": "699dfc59445ec42ae050826fde25c2f103f0eabec9452982473959b445b42ad7",
       "bytes": 4743
     },
     "p0_completion.json": {
@@ -87,12 +99,12 @@
       "bytes": 5152
     },
     "failure_analysis.json": {
-      "sha256": "9da56f4817337d6a4fb879e9cfb4a340696e18156c0e50fceeee2e08e53ceea1",
-      "bytes": 11454
+      "sha256": "cece8099b8762849bb5d64ce4009995169a56b5af51557bb2145a99162f1eb23",
+      "bytes": 36422
     },
     "claims_audit.json": {
-      "sha256": "6e2c341c20d07fb5c963704a7513a2e7fa4cea7de53eee32c508913a56512ca8",
-      "bytes": 15125
+      "sha256": "c621d07ff6f995a0d2eb12cf7dc99e3b23b81992658d4bfecff17f9081c15552",
+      "bytes": 18948
     }
   }
 }
