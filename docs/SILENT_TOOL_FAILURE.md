@@ -144,6 +144,31 @@ misleading empty.
 
 ---
 
+## A sibling pattern: the check keyed on the wrong column
+
+Three of the six P3 benchmark defects were **ambiguous task targets** — a prompt
+naming a ticket that two rows answered to. Each time a QA assertion existed and
+each time it passed, because it was keyed on a column adjacent to the one the
+prompt used:
+
+| Defect | Check asserted | Prompt selected on | Result |
+|---|---|---|---|
+| 1 | nothing yet | (customer, subject) | 3 correct answers per task |
+| 2 | (customer, **subject**) unique | (customer, **signal**) | 2 subjects shared one signal |
+| 3 | (customer, **signal**) unique | (customer, **topic**) | 1 topic spanned 2 signals |
+
+A passing assertion is not evidence unless it is keyed on the same thing the
+prompt is. The fix that finally held was to stop inferring the key: tasks now
+carry `selector_signal` and `selector_customer` as explicit fields, the prompt is
+*built from* them, and QA asserts that pair names exactly one row. The check and
+the prompt cannot disagree because they read the same value.
+
+The general rule: **when a check and the thing it checks derive their key
+independently, the check is only as good as the guess.** Make the key an explicit
+shared field.
+
+---
+
 ## Why aggregate metrics cannot catch this
 
 In all three instances the aggregate looked like model weakness. Only two things
