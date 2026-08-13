@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import math
 import statistics
 import sys
 from datetime import datetime, timezone
@@ -34,6 +35,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from backend.app.spider.evaluator import (  # noqa: E402
+    SUBSTRATE_SINGLE_DB,
+    SUBSTRATE_TEST_SUITE,
+)
 from backend.app.spider.trajectory import (  # noqa: E402
     DEFAULT_RUN_ROOT,
     TerminationReason,
@@ -46,7 +51,7 @@ ALL_TERMINATIONS = [reason.value for reason in TerminationReason]
 IDENTITY_FIELDS = (
     "dataset_version", "split", "model_version", "prompt_version",
     "tool_schema_version", "adapter_version", "agent_version", "max_steps",
-    "temperature", "valid_task_count",
+    "temperature", "valid_task_count", "tool_argument_validation",
 )
 
 # Pre-registered in docs/P1_PREREGISTRATION.md, before these runs existed.
@@ -54,12 +59,37 @@ SPREAD_MULTIPLIER = 2.0
 MIN_DETECTABLE_ACCURACY_PP = 100 / 1034  # one task
 
 
-def load(run_id: str, root: Path) -> dict[str, Any]:
+def load(
+    run_id: str, root: Path, substrate: str = SUBSTRATE_SINGLE_DB
+) -> dict[str, Any]:
     store = TrajectoryStore(run_id, root)
     if not store.episodes_path.exists():
         raise SystemExit(f"No episodes for {run_id}")
     config = json.loads(store.config_path.read_text(encoding="utf-8"))
     episodes = {e["task_id"]: e for e in store.iter_episodes()}
+
+    if substrate != SUBSTRATE_SINGLE_DB:
+        rescore_path = store.run_dir / f"rescore__{substrate}.json"
+        if not rescore_path.exists():
+            raise SystemExit(
+                f"No {substrate} rescore for {run_id}. Run:\n"
+                f"  python scripts/rescore_with_substrate.py --run-id {run_id} "
+                f"--substrate {substrate}"
+            )
+        verdicts = {
+            row["task_id"]: row
+            for row in json.loads(rescore_path.read_text(encoding="utf-8"))["per_task"]
+        }
+        for task_id, episode in episodes.items():
+            row = verdicts.get(task_id)
+            if row is None or row.get("excluded_on_this_substrate"):
+                continue
+            episode["single_db_termination_reason"] = episode["termination_reason"]
+            if row["rescored_passed"]:
+                episode["termination_reason"] = "SUCCESS"
+            elif episode["termination_reason"] == "SUCCESS":
+                episode["termination_reason"] = "VERIFICATION_FAILED"
+
     return {"run_id": run_id, "config": config, "episodes": episodes}
 
 
@@ -116,8 +146,10 @@ def spread(values: list[float]) -> dict[str, Any]:
     }
 
 
-def analyze(run_ids: list[str], root: Path) -> dict[str, Any]:
-    runs = [load(run_id, root) for run_id in run_ids]
+def analyze(
+    run_ids: list[str], root: Path, substrate: str = SUBSTRATE_TEST_SUITE
+) -> dict[str, Any]:
+    runs = [load(run_id, root, substrate) for run_id in run_ids]
 
     # Repeat-set validity: identical recorded configuration and identical task set.
     reference = runs[0]["config"]
@@ -201,8 +233,28 @@ def analyze(run_ids: list[str], root: Path) -> dict[str, Any]:
     always_fail = [t for t, c in pass_counts.items() if c == 0]
     flaky = [t for t, c in pass_counts.items() if 0 < c < k]
 
+    # pass^k, estimator pinned in docs/P1_PREREGISTRATION_V2.md before any run:
+    #     pass^k(task) = C(c, k) / C(n, k),  0 when c < k
+    #     pass^k        = mean over tasks
+    # Unbiased over the runs actually performed; not an extrapolation to unseen
+    # runs, and no confidence interval is attached.
+    pass_pow = {}
+    for kk in range(1, k + 1):
+        denominator = math.comb(k, kk)
+        pass_pow[f"pass^{kk}"] = statistics.fmean(
+            [math.comb(c, kk) / denominator if c >= kk else 0.0
+             for c in pass_counts.values()]
+        )
+
     consistency = {
         "repeats_k": k,
+        "estimator": "pass^k(task) = C(c,k)/C(n,k), averaged over tasks",
+        "estimator_source": "docs/P1_PREREGISTRATION_V2.md (fixed before any run)",
+        "pass_pow_k_series": pass_pow,
+        "pass_pow_1_equals_mean_accuracy": (
+            abs(pass_pow["pass^1"] - statistics.fmean([m["accuracy"] for m in metrics]))
+            < 1e-9
+        ),
         "definitions": {
             "pass_pow_k": "Share of tasks passing in EVERY one of the k repeats.",
             "pass_at_k": "Share of tasks passing in AT LEAST ONE of the k repeats.",
@@ -275,6 +327,27 @@ def analyze(run_ids: list[str], root: Path) -> dict[str, Any]:
             "all_identities_hold": all(p["identity_holds"] for p in pairs),
         },
         "consistency": consistency,
+        "on_family_envelope": {
+            "definition": (
+                "Maximum paired discordance (PASS->FAIL + FAIL->PASS) across all "
+                "ON<->ON pairs. The pre-registered ablation rule requires an OFF "
+                "run to exceed this against EVERY family member."
+            ),
+            "pairwise_discordance": [p["total_pass_fail_flips"] for p in pairs],
+            "max_discordance": max(
+                (p["total_pass_fail_flips"] for p in pairs), default=None
+            ),
+            "min_discordance": min(
+                (p["total_pass_fail_flips"] for p in pairs), default=None
+            ),
+            "mean_discordance": statistics.fmean(
+                [p["total_pass_fail_flips"] for p in pairs]
+            ) if pairs else None,
+            "median_discordance": statistics.median(
+                [p["total_pass_fail_flips"] for p in pairs]
+            ) if pairs else None,
+        },
+        "substrate": substrate,
         "ci_thresholds": thresholds,
         "threshold_policy": (
             "max(2 x observed spread, minimum detectable change), fixed in "
@@ -290,7 +363,8 @@ def analyze(run_ids: list[str], root: Path) -> dict[str, Any]:
 
 def print_report(report: dict[str, Any]) -> None:
     validity = report["repeat_set_validity"]
-    print(f"Run-to-run variance over {len(report['runs'])} runs\n")
+    print(f"Run-to-run variance over {len(report['runs'])} runs "
+          f"[substrate: {report.get('substrate')}]\n")
     print("REPEAT-SET VALIDITY")
     print(f"  identical recorded configuration : {validity['identical_recorded_configuration']}")
     print(f"  identical task set               : {validity['identical_task_set']} "
@@ -339,6 +413,16 @@ def print_report(report: dict[str, Any]) -> None:
     print(f"  mean accuracy - pass^k           "
           f"{consistency['gap_mean_accuracy_minus_pass_pow_k']:+.4f}")
     print(f"  pass-frequency histogram         {consistency['pass_frequency_histogram']}")
+    print("  pass^k series (pinned estimator):")
+    for name, value in consistency["pass_pow_k_series"].items():
+        print(f"    {name:<8} {value:.4f}")
+    print(f"  pass^1 == mean accuracy          "
+          f"{consistency['pass_pow_1_equals_mean_accuracy']}")
+    envelope = report["on_family_envelope"]
+    print()
+    print("ON-FAMILY ENVELOPE  (for the pre-registered ablation rule)")
+    print(f"  pairwise discordance             {envelope['pairwise_discordance']}")
+    print(f"  max (the bar OFF must clear)     {envelope['max_discordance']}")
     print()
 
     print("CI THRESHOLDS  (formula pre-registered before these runs)")
@@ -353,10 +437,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", action="append", dest="runs", required=True)
     parser.add_argument("--root", default=str(DEFAULT_RUN_ROOT))
+    parser.add_argument(
+        "--substrate",
+        default=SUBSTRATE_TEST_SUITE,
+        choices=[SUBSTRATE_SINGLE_DB, SUBSTRATE_TEST_SUITE],
+        help="Primary metric substrate. Test-suite is the P1 primary.",
+    )
     parser.add_argument("--output", default=None)
     args = parser.parse_args()
 
-    report = analyze(args.runs, Path(args.root))
+    report = analyze(args.runs, Path(args.root), args.substrate)
     print_report(report)
 
     output = Path(args.output) if args.output else (
