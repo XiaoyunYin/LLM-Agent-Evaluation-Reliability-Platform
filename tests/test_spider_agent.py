@@ -750,3 +750,48 @@ def test_retry_wait_is_excluded_from_api_latency(task, tmp_path: Path):
     assert first["api_latency_ms"] < first["latency_ms"], (
         "api_latency_ms must exclude the backoff that latency_ms includes"
     )
+
+
+def test_infrastructure_episodes_are_not_treated_as_completed(tmp_path: Path):
+    """Regression test for a bug caught against a real 429.
+
+    A RATE_LIMITED episode has a row in episodes.jsonl but measured nothing. When
+    `completed_task_ids()` counted it as done, a resume skipped that task forever
+    while every report still claimed the full 1,034-task set — a benchmark
+    silently shrinking without anything looking wrong.
+    """
+    store = TrajectoryStore("resume_run", tmp_path)
+    store.record_episode(_episode_record("done_task"))
+
+    limited = _episode_record("limited_task")
+    limited.termination_reason = TerminationReason.RATE_LIMITED
+    store.record_episode(limited)
+
+    assert store.completed_task_ids() == {"done_task"}
+    assert store.incomplete_task_ids() == {"limited_task"}
+
+
+def test_pruning_clears_infrastructure_episodes_and_their_steps(tmp_path: Path):
+    """Resuming must not leave two rows for one task."""
+    from backend.app.spider.trajectory import AgentStep, StepType
+
+    store = TrajectoryStore("prune_run", tmp_path)
+    store.record_episode(_episode_record("keep_task"))
+    store.record_step(
+        AgentStep(episode_id="ep_keep_task", step_index=0, step_type=StepType.MODEL)
+    )
+
+    limited = _episode_record("drop_task")
+    limited.termination_reason = TerminationReason.MODEL_ERROR
+    store.record_episode(limited)
+    store.record_step(
+        AgentStep(episode_id="ep_drop_task", step_index=0, step_type=StepType.MODEL)
+    )
+
+    assert store.prune_infrastructure_episodes() == 1
+
+    remaining = [e["task_id"] for e in store.iter_episodes()]
+    assert remaining == ["keep_task"]
+    # Steps must go with their episode or step/episode counts stop reconciling.
+    assert [s["episode_id"] for s in store.iter_steps()] == ["ep_keep_task"]
+    assert store.prune_infrastructure_episodes() == 0
