@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "purpose": "Behaviour adopted by a frozen experiment, which every later phase must inherit. A later benchmark run that does not set these is measuring an older agent than the one that exists, and its numbers are not comparable to anything.",
+  "adopted": {
+    "tool_argument_validation": {
+      "value": true,
+      "adopted_in": "P0 (spider_tools_v2)",
+      "evidence": "docs/results/spider-p0.md",
+      "why": "inspect_schema silently ignored unknown arguments and returned a plausible-looking wrong response, so the agent looped without any way to detect it. The P1 ablation later showed the accuracy effect is not distinguishable from run-to-run noise, but the mechanism is real and measurable (5.6x malformed calls with it off), so it stays on.",
+      "verdict": "kept on mechanism grounds, not on a measured accuracy benefit"
+    },
+    "empty_result_policy": {
+      "value": "accept_empty",
+      "adopted_in": "P2 Intervention A",
+      "evidence": "docs/results/p2-frozen.md",
+      "tag": "p2-frozen",
+      "why": "A valid query returning zero rows read as failure, so agents discarded queries they had already verified as correct. Labelling execution outcomes explicitly converted the frozen 39-task cohort from 19.23% to 71.79%, 29 tasks converted against 1 regression, with MAX_STEPS falling 44-52 to 9-11.",
+      "verdict": "ADOPT, under the pre-registered rule in docs/P2_PREREGISTRATION.md"
+    }
+  },
+  "applies_to": [
+    "every phase after the one that adopted it",
+    "every baseline, control, and treatment run of a later phase"
+  ],
+  "explicitly_not_adopted": {
+    "equivalent_query_detection": "not built. If pursued, equivalence is defined as persisted result-set identity first, normalized SQL text as fallback. No semantic SQL-equivalence claim.",
+    "final_answer_selection": "not built. Targets FOUND_PASSING_SUBMITTED_WORSE (60 of 139 recoverable occurrences, dominant in 14 of 39 cohort tasks). Needs its own isolated experiment; mixing it with a termination-policy change would make neither attributable.",
+    "loop_detection": "not built. Deliberately excluded from the P2 experiment to keep attribution clean."
+  },
+  "carry_forward_rule": "A later phase's baseline is only a baseline if it runs with every flag above set to its adopted value. Benchmarking a later phase against pre-adoption behaviour would measure a regression this project already fixed and report it as the state of the art."
+}

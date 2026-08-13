@@ -137,11 +137,16 @@ class AgentConfig:
     # P0 smoke run surfaced. Recorded under its own tool-schema identifier so an
     # ablation run can never be mistaken for a normal one.
     validate_tool_arguments_enabled: bool = True
-    # P2 Intervention A. "baseline" reproduces every prior run byte-for-byte;
-    # "accept_empty" labels execution outcomes explicitly and tells the agent an
-    # empty result is not itself evidence of wrong SQL. Recorded in the run config,
-    # so control and treatment share one commit.
-    empty_result_policy: str = "baseline"
+    # P2 Intervention A, ADOPTED (docs/results/p2-frozen.md, tag p2-frozen).
+    #
+    # "accept_empty" is now the default because it is adopted behaviour: a later
+    # phase that defaulted to "baseline" would benchmark an agent older than the
+    # one that exists and report a regression this project already fixed.
+    #
+    # "baseline" is retained only to reproduce the frozen P0/P1 runs and the P2
+    # control. Those artifacts record the value they ran with, so they stay
+    # reproducible.
+    empty_result_policy: str = "accept_empty"
     # Transient API failures are retried; a persistent one terminates the episode
     # as MODEL_ERROR and is reported as an infrastructure failure, never as a
     # wrong answer.
