@@ -22,7 +22,7 @@ from pathlib import Path
 # Bumped whenever the schema or the fixture generation changes. Recorded on every
 # run, because a task's expected diff is only meaningful against a known world.
 SCHEMA_VERSION = "support_schema_v2"
-FIXTURE_VERSION = "support_fixture_v2"
+FIXTURE_VERSION = "support_fixture_v3"
 FIXTURE_SEED = 20260813
 
 # Enums are closed sets. Tools validate against them, so an agent cannot invent a
@@ -242,7 +242,21 @@ def _seeded_rows(count: int) -> tuple[list, list]:
 
     tickets = []
     for index in range(1, count + 1):
-        subject, topic, body, _signal = _SUBJECTS[(index - 1) % len(_SUBJECTS)]
+        # FIXTURE DEFECT FIX (hard-tier calibration): with 20 customers and 10
+        # subjects, `index % 20` and `index % 10` are not independent - 10 divides
+        # 20, so a customer's subject was a function of the customer. Every
+        # customer filed the same one subject three times and NO (customer,
+        # subject) pair was unique in the whole fixture.
+        #
+        # Any task that identifies a ticket as "customer X's <issue> ticket" was
+        # therefore unresolvable by reading it. The agent picked a different
+        # equally-valid ticket and was marked wrong. Offsetting the subject by the
+        # block number makes each customer's three tickets three DIFFERENT
+        # subjects, so (customer, subject) is unique, while every subject still
+        # appears six times across six distinct customers - which the distractor
+        # family needs.
+        block = (index - 1) // len(customers)
+        subject, topic, body, _signal = _SUBJECTS[(index - 1 + block) % len(_SUBJECTS)]
         customer = customers[(index - 1) % len(customers)]
         tickets.append(
             (

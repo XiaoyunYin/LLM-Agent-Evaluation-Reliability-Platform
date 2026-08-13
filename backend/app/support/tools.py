@@ -30,7 +30,7 @@ from backend.app.support.schema import PRIORITIES, STATUSES
 # payload format may still change during calibration, under the documented rules
 # in docs/P3_CONTRACT_V0.md. After the freeze, any agent-visible change to this
 # surface is an intervention requiring a bridge run.
-TOOL_SCHEMA_VERSION = "support_tools_v1"
+TOOL_SCHEMA_VERSION = "support_tools_v2"
 CONTRACT_STAGE = "calibration"
 
 # Adopted in P2 and generalized here. In Spider it applied to one tool; in P3 the
@@ -200,10 +200,16 @@ def search_tickets(environment, arguments: dict[str, Any]) -> ToolResult:
             # route from a name to a ticket was guessing the id. Measured on the
             # first calibration run as every lookup_update episode returning zero
             # rows and correctly giving up.
+            # Substring, case-insensitive, matching `query` below. Exact matching
+            # here was an undocumented inconsistency between two free-text filters
+            # on the same tool: `search_tickets(customer_name="013")` returned
+            # SUCCESS_EMPTY, which under the adopted accept_empty policy correctly
+            # tells the agent to stop - so a partial name became a silent dead end.
             clauses.append(
-                "customer_id IN (SELECT customer_id FROM customers WHERE name = ?)"
+                "customer_id IN (SELECT customer_id FROM customers "
+                "WHERE LOWER(name) LIKE ?)"
             )
-            params.append(arguments["customer_name"])
+            params.append(f"%{str(arguments['customer_name']).lower()}%")
         if arguments.get("query"):
             clauses.append("(subject LIKE ? OR body LIKE ?)")
             params += [f"%{arguments['query']}%"] * 2
