@@ -462,6 +462,181 @@ number is the same failure as any other inflated metric.
 
 ---
 
+## 6. Tool-using SQL agent evaluation with execution-based verification
+
+**Status: Verified, scoped to Spider 1.0 dev under a tool-discovery protocol.**
+
+Frozen baseline: run `spider_full__p0_v2`. Every number is recomputed from the raw
+artifact by `scripts/audit_p0_claims.py`, which reports MISMATCH if a published
+figure and its source disagree. Current status: **all_reconciled: True**.
+
+### Claim
+
+> Built an execution-verified evaluation harness for a tool-using LangGraph SQL
+> agent over the full pinned Spider 1.0 dev set (1,034 tasks, 20 databases). The
+> agent is given no schema: it discovers structure through `inspect_schema` and
+> validates candidate queries through `execute_sql` against per-episode isolated
+> read-only SQLite copies, and its final answer is scored by the official Spider
+> evaluator using single-database execution accuracy. Measured **73.31%** with
+> **zero** model, tool, or evaluator infrastructure failures, across 10,432
+> persisted trajectory records reconciling exactly against 13,832 OpenTelemetry
+> spans.
+
+### Benchmark facts
+
+Configuration: `gpt-4o-mini` at temperature 0, prompt `sql_agent_v1`, tools
+`spider_tools_v2`, `max_steps=10` (**a model-turn cap**), dataset version
+`spider-1.0:dev:30d64a3fccde`, 72.4 min sequential.
+
+**Primary metric — single-database execution accuracy: 758 / 1,034 = 73.31%.**
+
+Complete termination breakdown, summing exactly to 1,034:
+
+| Termination | Count | Share |
+|---|---:|---:|
+| `SUCCESS` | 758 | 73.31% |
+| `VERIFICATION_FAILED` | 226 | 21.86% |
+| `MAX_STEPS` | 48 | 4.64% |
+| `SQL_ERROR` | 2 | 0.19% |
+| `MODEL_ERROR` | 0 | 0.00% |
+| `TOOL_ERROR` | 0 | 0.00% |
+| `NO_FINAL_SQL` | 0 | 0.00% |
+
+Step metrics — three distinct quantities, per successful task. The previously
+published "9.36 steps" conflated the first two:
+
+| Quantity | Definition | Mean | Median |
+|---|---|---:|---:|
+| Model turns | one model API call; **what `max_steps` caps** | 4.67 | 4.00 |
+| Tool calls | one tool invocation | 4.67 | 4.00 |
+| Trajectory records | rows in `steps.jsonl` = turns + tool calls | 9.34 | 8.00 |
+
+SQL errors — two metrics, two denominators, never combined:
+
+| | Value | Denominator |
+|---|---:|---|
+| `execute_sql` error rate | 16 / 1,379 = **1.16%** | tool calls |
+| `SQL_ERROR` terminations | 2 / 1,034 = **0.19%** | episodes |
+
+The gap is recovery: 9 episodes contained a failed `execute_sql`; 3 still
+succeeded.
+
+Economics — estimated from published list price, **not billed**, and re-derivable
+because cached-input tokens are persisted:
+
+| | |
+|---|---:|
+| Input / cached / output tokens | 3,782,629 / 478,848 / 141,545 |
+| Benchmark-only estimated cost | **$0.616408** |
+| Per episode | $0.000596 |
+| Per successful episode | $0.000526 |
+| **Total real API spend across all P0 dev+test runs** | **$1.2780** (2,139 episodes) |
+
+Verifier QA, frozen before any agent ran, and bit-for-bit reproducible:
+
+| | |
+|---|---:|
+| Gold queries passing | 1,034 / 1,034 |
+| Frozen exclusions | 0 |
+| Mutations attempted | 166 |
+| Detected as wrong | 136 / 136, 0 leaks |
+| Execution-result collisions | 30 (18.07% of attempted) |
+
+Observability: 10,432 trajectory records, 13,832 indexed spans, all seven span
+types reconciling exactly. Spans exceed step records because `eval.run`,
+`agent.episode`, `sqlite.query`, and `verifier.execution` are not agent steps:
+10,432 + 1 + 1,034 + 1,379 + 986 = 13,832.
+
+Artifacts, all under `runs/spider_benchmark/spider_full__p0_v2/`: `config.json`,
+`episodes.jsonl`, `steps.jsonl`, `payloads.jsonl`, `p0_metrics.json`,
+`failure_analysis.json`, `claims_audit.json`, `p0_completion.json`,
+`baseline_manifest.json`. Verifier QA: `runs/spider_verifier_qa/verifier_qa_dev.json`.
+Frozen pins: `docs/LOCKED_INPUTS.md`, `docs/P0_BASELINE.md`.
+
+### Scope
+
+**The 73.31% is not comparable to a published Spider leaderboard number.** Most
+published systems receive the full schema in the prompt and emit SQL in one
+generation. This agent receives only a question and a database ID and must
+discover the schema through tool calls. Different task.
+
+The metric is **single-database execution accuracy**. It is never to be called
+test-suite accuracy: the distilled multi-database test suite was not used.
+
+One run, one model, one prompt, one tool schema.
+
+### Must not say
+
+- ❌ *"73.3% on Spider"* without stating the tool-discovery protocol.
+- ❌ *"test-suite execution accuracy"* — the test-suite databases were not used.
+- ❌ *"0.51% SQL error rate"* — that was the superseded v1 figure; the current one
+  is 1.16%, and either way it is a **tool-call** rate, not an episode outcome rate.
+- ❌ *"9.36 steps per task"* — ambiguous. Say 4.67 model turns, or 9.34 trajectory
+  records, and say which.
+- ❌ *"$0.62 measured cost"* — estimated from list price, and it covers the
+  benchmark run only. Total P0 spend was $1.2780.
+- ❌ *"18% of the agent's passes are false positives"* — the collision rate
+  describes the mutation set, not the agent's query distribution.
+- ❌ Any claim of variance, confidence intervals, calibrated regression thresholds,
+  pass^k, bounded SQL repair, MCP, durable execution, idempotent tool side effects,
+  lease fencing, or crash recovery. None are established.
+
+### Debugging findings — not résumé claims
+
+**A tool that answered the wrong question convincingly.** `spider_tools_v1` of
+`inspect_schema` read only `table_name` and silently ignored other keys, so
+`inspect_schema({"table": "course"})` returned the *table list* — a
+successful-looking answer to a question never asked. The agent could not detect it
+and looped to its step cap. On 10 seeded tasks with `tool_schema_version` verified
+as the only differing config field, success went 5/10 to 8/10.
+
+**n=10, so the effect size is not established** — 49 of 1,034 tasks flip between
+two identical full runs, which is more than this comparison can resolve. What is
+established is the *mechanism*, visible directly in the trajectories, and that it
+persists at scale: the model still sent `{"table": ...}` 19 times in 1,034
+episodes, each now returning a corrective error naming the right parameter.
+
+**Empty results read as failure.** By coded rule, 39 of 48 max-step episodes
+(81.2%) executed a valid query returning zero rows and no error; 25 of 48 (52.1%)
+executed a query that **passes the evaluator** and never submitted it, established
+by re-verification rather than inspection. Frozen as a baseline finding and
+deliberately unfixed.
+
+**Three observability defects found by auditing our own numbers**: span
+reconciliation checked only 4 hand-listed span types and missed 1,009 tool steps
+that had no span at all; rejected tool calls persisted an empty payload;
+Elasticsearch capped the span count at exactly 10,000 and that cap was published as
+a total. All three are fixed with regression tests.
+
+### Two identical runs
+
+`spider_full__p0_v1` and `spider_full__p0_v2` have **zero differing configuration
+fields**. Aggregate moved 0.39 points (73.69% to 73.31%), but **49 of 1,034 tasks
+(4.7%) flipped outcome**. Aggregate stability hid per-task instability.
+
+**This is n=2 and is not a variance estimate.** It is recorded as direct evidence
+for why a regression threshold cannot be set from a single run.
+
+### Future hypotheses — unmeasured
+
+Prompting that an empty result may be correct might convert some max-step episodes
+(ceiling 77.95%, actual effect unknown). A larger `max_steps` might convert some,
+or might just spend more tokens on the same loops. Test-suite databases would
+tighten the metric's blind spot by an unquantified amount.
+
+### Interview answer
+
+> "The agent doesn't get the schema — it finds it with `inspect_schema`, tests
+> queries with `execute_sql`, and decides when to submit. Correctness is execution
+> against gold using the official Spider evaluator, so no judge opinion is
+> involved. 73.3% over all 1,034 dev tasks, zero infrastructure failures. I won't
+> compare that to the leaderboard, because those systems get the schema in the
+> prompt — different task. The thing I'd actually point at: I ran the same config
+> twice and the aggregate moved 0.4 points, but 49 individual tasks flipped. That's
+> why I won't set a CI threshold off one run — measuring that variance is next."
+
+---
+
 ## Cross-cutting
 
 Two claims that hold across every bullet and are worth making explicitly:

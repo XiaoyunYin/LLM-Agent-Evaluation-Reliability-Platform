@@ -36,6 +36,12 @@ Thumbs.db
 # BEIR source archives; the converted chunks/labels are committed instead.
 datasets/beir/_download/
 datasets/squad_v2/_download/
+
+# Spider 1.0 is ~1 GB of SQLite databases. datasets/spider/PIN.json is committed
+# so the exact archive is identified by sha256; re-fetch with
+# `python scripts/download_spider.py`.
+datasets/spider/*
+!datasets/spider/PIN.json
 runs/trace_measure/
 datasets/beir/*_train/chunks.jsonl
 
@@ -46,6 +52,14 @@ runs/gpu_window_rehearsal/
 runs/gpu_window_smoke/
 runs/judge_validation_rehearsal/
 runs/dual_judge_squad/rehearsal_mock7b_*
+runs/spider_benchmark/mockrehearsal_*
+
+# Spider run artifacts ARE committed - they are the evidence behind every
+# published number, and `scripts/audit_p0_claims.py` recomputes each claim from
+# them. `payloads.jsonl` (~20 MB per full run) is committed gzipped instead of
+# dropped: it compresses ~18x, and every reader goes through
+# `backend.app.spider.trajectory.open_jsonl`, which accepts either form.
+runs/spider_benchmark/*/payloads.jsonl
 
 # Personal editor and tooling config, not project configuration.
 .editor-rules.md

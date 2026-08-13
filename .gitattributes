@@ -1,0 +1,18 @@
+# Line-ending normalization must not touch anything whose sha256 is pinned.
+#
+# `docs/P0_BASELINE.md` and `runs/spider_benchmark/*/baseline_manifest.json`
+# record content hashes of the vendored evaluator and the run artifacts. If git
+# rewrote LF to CRLF on checkout, a fresh clone on Windows would compute
+# different hashes and `scripts/freeze_p0_baseline.py --verify` would report
+# drift that does not exist.
+
+# Vendored Spider evaluator: byte-identical to the published source, by design.
+backend/app/spider/official_eval/*.py -text
+
+# Benchmark artifacts: hashed in the baseline manifest.
+runs/spider_benchmark/**/*.jsonl -text
+runs/spider_benchmark/**/*.json -text
+runs/spider_verifier_qa/*.json -text
+
+# Compressed artifacts are binary.
+*.gz binary
