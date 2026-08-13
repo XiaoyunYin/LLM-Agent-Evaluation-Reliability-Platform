@@ -1,40 +1,40 @@
 {
   "label": "frozen_baseline",
   "runs": [
-    "support_base_01",
-    "support_base_02",
-    "support_base_03",
-    "support_base_04",
-    "support_base_05",
-    "support_base_06",
-    "support_base_07",
-    "support_base_08",
-    "support_base_09",
-    "support_base_10"
+    "support_b2_01",
+    "support_b2_02",
+    "support_b2_03",
+    "support_b2_04",
+    "support_b2_05",
+    "support_b2_06",
+    "support_b2_07",
+    "support_b2_08",
+    "support_b2_09",
+    "support_b2_10"
   ],
-  "episodes": 790,
+  "episodes": 800,
   "per_run_success": {
-    "support_base_01": 0.9240506329113924,
-    "support_base_02": 0.9113924050632911,
-    "support_base_03": 0.9240506329113924,
-    "support_base_04": 0.9367088607594937,
-    "support_base_05": 0.9240506329113924,
-    "support_base_06": 0.9493670886075949,
-    "support_base_07": 0.9367088607594937,
-    "support_base_08": 0.9367088607594937,
-    "support_base_09": 0.9493670886075949,
-    "support_base_10": 0.9367088607594937
+    "support_b2_01": 0.875,
+    "support_b2_02": 0.8625,
+    "support_b2_03": 0.875,
+    "support_b2_04": 0.9,
+    "support_b2_05": 0.8625,
+    "support_b2_06": 0.8875,
+    "support_b2_07": 0.8875,
+    "support_b2_08": 0.875,
+    "support_b2_09": 0.875,
+    "support_b2_10": 0.8875
   },
-  "mean_success": 0.9329113924050633,
-  "sd_success": 0.012008649342411548,
+  "mean_success": 0.87875,
+  "sd_success": 0.011858541225631403,
   "tier": {
     "core": {
-      "passed": 343,
+      "passed": 337,
       "total": 350
     },
     "hard": {
-      "passed": 394,
-      "total": 440
+      "passed": 366,
+      "total": 450
     }
   },
   "family": {
@@ -55,11 +55,11 @@
       "total": 60
     },
     "multi_ticket": {
-      "passed": 30,
+      "passed": 28,
       "total": 30
     },
     "conditional_escalation": {
-      "passed": 53,
+      "passed": 49,
       "total": 60
     },
     "chained_resolution": {
@@ -71,66 +71,91 @@
       "total": 100
     },
     "distractor_resolution": {
-      "passed": 54,
-      "total": 80
+      "passed": 66,
+      "total": 90
     },
     "noop_plus_mutation": {
       "passed": 80,
       "total": 80
     },
     "multi_ticket_conditional": {
-      "passed": 60,
+      "passed": 20,
       "total": 80
     }
   },
   "provenance": {
     "calibrated-core": {
-      "passed": 343,
+      "passed": 337,
       "total": 350
     },
     "hard-calibration-derived": {
-      "passed": 394,
-      "total": 440
+      "passed": 366,
+      "total": 450
     }
   },
   "consistency": {
-    "always": 72,
-    "never": 4,
-    "intermittent": 3
+    "always": 65,
+    "never": 7,
+    "intermittent": 8
   },
   "calls": {
-    "tool_calls": 4327,
-    "invalid_calls": 224,
-    "episodes_with_invalid": 224,
-    "episodes": 790
+    "tool_calls": 4597,
+    "invalid_calls": 236,
+    "episodes_with_invalid": 236,
+    "episodes": 800
   },
-  "cost_usd": 0.58260105,
+  "cost_usd": 0.6295706999999999,
   "taxonomy": {
-    "forbidden_mutation_made": 7,
-    "wrong_entity": 26,
-    "undeclared_mutation": 20
+    "forbidden_mutation_made": 11,
+    "wrong_entity": 24,
+    "incomplete_workflow": 47,
+    "undeclared_mutation": 15
   },
   "failing_tasks": {
-    "SUP-cond-002": {
+    "SUP-cond-001": {
+      "forbidden_mutation_made": 1
+    },
+    "SUP-cond-004": {
       "forbidden_mutation_made": 5
     },
     "SUP-distract-001": {
       "wrong_entity": 10
     },
-    "SUP-distract-003": {
+    "SUP-distract-002": {
       "wrong_entity": 10
     },
-    "SUP-distract-005": {
-      "wrong_entity": 6
+    "SUP-distract-003": {
+      "wrong_entity": 4
+    },
+    "SUP-mtcond-001": {
+      "incomplete_workflow": 10
+    },
+    "SUP-mtcond-003": {
+      "incomplete_workflow": 10
+    },
+    "SUP-mtcond-002": {
+      "incomplete_workflow": 10
+    },
+    "SUP-mtcond-004": {
+      "incomplete_workflow": 10
     },
     "SUP-mtcond-007": {
       "undeclared_mutation": 10
     },
-    "SUP-mtcond-006": {
-      "undeclared_mutation": 10
+    "SUP-cond-002": {
+      "forbidden_mutation_made": 5
     },
-    "SUP-cond-004": {
-      "forbidden_mutation_made": 2
+    "SUP-mtcond-005": {
+      "undeclared_mutation": 5
+    },
+    "SUP-mtcond-008": {
+      "incomplete_workflow": 3
+    },
+    "SUP-multiticket-001": {
+      "incomplete_workflow": 2
+    },
+    "SUP-mtcond-006": {
+      "incomplete_workflow": 2
     }
   }
 }

@@ -36,7 +36,7 @@ from backend.app.support.verifier import (
     TaskSpec,
 )
 
-TASK_FAMILY_VERSION = "support_tasks_v4"
+TASK_FAMILY_VERSION = "support_tasks_v5"
 
 CORE_FAMILIES = (
     "simple_update",
@@ -458,15 +458,23 @@ def _hard_families(tickets, customers, spec) -> list[dict[str, Any]]:
         hard.append({
             "spec": spec(
                 task_id=f"SUP-distract-{position + 1:03d}", family="distractor_resolution",
+                metadata={"selector_signal": "shipping_delay",
+                          "selector_customer": target["customer_id"]},
                 tier="hard", provenance="hard-calibration-derived",
                 attributes=attrs(reference_call_count=3, entities_involved=2,
                                  required_mutations=1, distractor_count=len(distractors),
                                  cross_entity_resolution=True),
+                # The prompt selects on the SIGNAL ("an order has not shipped"),
+                # not the topic ("shipping delays"). The topic spans two signals -
+                # shipping_delay and shipping_minor - and a customer holds both, so
+                # a topic-level selector named two tickets and the task was
+                # unresolvable by reading it. The fixture guarantees uniqueness per
+                # (customer, signal), so the prompt has to select at that grain.
                 prompt=(
-                    f"Several customers report shipping delays. Only the ticket "
-                    f"belonging to {customer['name']} is confirmed over 48 hours. "
-                    f"Set that one ticket to high priority. Leave the other shipping "
-                    f"tickets alone."
+                    f"Several customers report that an order has not shipped. Only "
+                    f"the ticket belonging to {customer['name']} is confirmed over "
+                    f"48 hours. Set that one ticket to high priority. Leave the "
+                    f"other not-shipped tickets alone."
                 ),
                 required_changes=[
                     _field_change("tickets", target["ticket_id"], "priority", "high")

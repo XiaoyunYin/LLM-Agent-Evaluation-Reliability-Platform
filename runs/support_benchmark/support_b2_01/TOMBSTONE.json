@@ -1,0 +1,16 @@
+{
+  "run_id": "support_b2_01",
+  "quarantined_at": "2026-08-13T18:44:57.848351+00:00",
+  "contamination_reason": "Measured a superseded suite. distractor_resolution prompts selected on the TOPIC (\"shipping delays\"), which spans the shipping_delay and shipping_minor signals; one customer holds both, so the target was not uniquely identifiable. Fixed in tasks v5 by selecting at signal grain. Suite hash changed.",
+  "detection_mechanism": "analyze_p3_baseline: SUP-distract-001/002 failing 10/10 with an identical wrong_entity signature, then trajectory inspection",
+  "exclusion_status": "EXCLUDED_FROM_ALL_ANALYSIS",
+  "data_retained": true,
+  "why_retained": "Deleting a contaminated run hides how the contamination happened. The data is unusable; the evidence is not.",
+  "evidence": {
+    "superseded_suite_sha256": "6820d75008d5",
+    "tasks": [
+      "SUP-distract-001",
+      "SUP-distract-002"
+    ]
+  }
+}

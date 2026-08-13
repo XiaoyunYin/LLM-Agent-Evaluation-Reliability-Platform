@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-13T18:28:15.044446+00:00",
+  "generated_at": "2026-08-13T18:44:35.808651+00:00",
   "fixture_sha256": "18d64bd9595c47f79810a37562b01b0e03eb6b31627ff50f489e083a55ff0efc",
   "versions": {
     "schema": "support_schema_v2",
@@ -7,10 +7,10 @@
     "normalization": "support_normalize_v1",
     "verifier": "support_verifier_v1",
     "tools": "support_tools_v2",
-    "task_families": "support_tasks_v4"
+    "task_families": "support_tasks_v5"
   },
   "tasks": 80,
-  "checks_run": 443,
+  "checks_run": 452,
   "checks_failed": 0,
   "by_check": {
     "no_noop_required_changes": {
@@ -46,6 +46,10 @@
       "bad": 0
     },
     "distractors_are_other_customers": {
+      "ok": 9,
+      "bad": 0
+    },
+    "prompt_selector_resolves_uniquely": {
       "ok": 9,
       "bad": 0
     },
@@ -3803,6 +3807,87 @@
       "ok": true,
       "outcome": "none",
       "detail": "a forbidden ticket owned by the target customer is an ambiguity"
+    },
+    {
+      "task_id": "SUP-distract-001",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0003'] vs target ['TKT-0003']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-002",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0013'] vs target ['TKT-0013']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-003",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0022'] vs target ['TKT-0022']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-004",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0032'] vs target ['TKT-0032']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-006",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0051'] vs target ['TKT-0051']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-007",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0070'] vs target ['TKT-0070']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-008",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0080'] vs target ['TKT-0080']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-009",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0089'] vs target ['TKT-0089']",
+      "detail": "the description the prompt uses must name exactly one ticket"
+    },
+    {
+      "task_id": "SUP-distract-010",
+      "check": "prompt_selector_resolves_uniquely",
+      "expected": "PASS",
+      "actual": "PASS",
+      "ok": true,
+      "outcome": "1 match(es) ['TKT-0099'] vs target ['TKT-0099']",
+      "detail": "the description the prompt uses must name exactly one ticket"
     },
     {
       "task_id": "SUP-polsel-001",
