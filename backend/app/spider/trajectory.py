@@ -82,14 +82,29 @@ class TerminationReason(str, Enum):
     MODEL_ERROR = "MODEL_ERROR"
     TOOL_ERROR = "TOOL_ERROR"
     NO_FINAL_SQL = "NO_FINAL_SQL"
+    # Provider quota or rate limit. Kept distinct from MODEL_ERROR because they
+    # demand different responses: MODEL_ERROR is a defect to investigate, whereas
+    # RATE_LIMITED means the run must stop and resume in the next quota window.
+    # Folding 429s into MODEL_ERROR once produced 90 "model failures" out of 92
+    # episodes and hid an exhausted daily quota behind what looked like a bug.
+    RATE_LIMITED = "RATE_LIMITED"
 
 
 # Terminations caused by this platform rather than by the agent's reasoning.
 # Reported separately in the metrics so an infrastructure problem can never be
 # read as a model quality result.
 INFRASTRUCTURE_TERMINATIONS = frozenset(
-    {TerminationReason.MODEL_ERROR, TerminationReason.TOOL_ERROR}
+    {
+        TerminationReason.MODEL_ERROR,
+        TerminationReason.TOOL_ERROR,
+        TerminationReason.RATE_LIMITED,
+    }
 )
+
+# Terminations that mean the run should stop rather than continue. An episode that
+# hit the provider's quota tells us nothing about the agent, and every subsequent
+# episode would fail the same way while still costing wall time.
+HALTING_TERMINATIONS = frozenset({TerminationReason.RATE_LIMITED})
 
 
 class AgentStep(BaseModel):
@@ -116,6 +131,12 @@ class AgentStep(BaseModel):
     cached_input_tokens: int = 0
     output_tokens: int = 0
     latency_ms: float = 0.0
+    # Time inside the provider call itself, excluding retry backoff. Latency
+    # metrics use this; `latency_ms` includes waiting and so is not a measure of
+    # the provider's speed.
+    api_latency_ms: float = 0.0
+    retry_wait_ms: float = 0.0
+    retry_attempts: int = 0
     estimated_cost: float = 0.0
 
     # What the provider actually served, as opposed to the alias requested.
@@ -163,6 +184,8 @@ class AgentEpisode(BaseModel):
     output_tokens: int = 0
     estimated_cost: float = 0.0
     latency_ms: float = 0.0
+    api_latency_ms: float = 0.0
+    retry_wait_ms: float = 0.0
 
     trace_id: str | None = None
     error: str | None = None

@@ -47,6 +47,22 @@ from backend.app.spider.trajectory import (
     TerminationReason,
     TrajectoryStore,
 )
+
+
+def is_rate_limit_error(error: BaseException | None) -> bool:
+    """Recognise a provider rate-limit/quota refusal.
+
+    Matched structurally rather than by importing the provider's exception type,
+    so the mock client and any future provider work unchanged.
+    """
+    if error is None:
+        return False
+    if type(error).__name__ == "RateLimitError":
+        return True
+    status = getattr(error, "status_code", None) or getattr(error, "status", None)
+    if status == 429:
+        return True
+    return "rate limit" in str(error).lower() or "429" in str(error)[:80]
 from backend.app.tracing import (
     SERVICE_LAYER_JUDGE,
     SERVICE_LAYER_PROVIDER,
@@ -124,8 +140,13 @@ class AgentConfig:
     # Transient API failures are retried; a persistent one terminates the episode
     # as MODEL_ERROR and is reported as an infrastructure failure, never as a
     # wrong answer.
+    # Retries apply to TRANSIENT failures only. Rate limits are excluded: retrying
+    # into an exhausted quota burns wall time and, when the SDK does it silently,
+    # disguises a 429 as slow latency. Measured: a 5-token call appeared to take
+    # 18s when it was really two hidden retries against a spent daily quota.
     max_model_retries: int = 3
     retry_backoff_seconds: float = 2.0
+    retry_on_rate_limit: bool = False
     request_timeout_seconds: float = 120.0
 
 
@@ -228,8 +249,14 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         started = time.perf_counter()
         last_error: Exception | None = None
         response = None
+        api_seconds = 0.0
+        wait_seconds = 0.0
+        attempts = 0
+        rate_limited = False
 
         for attempt in range(agent_config.max_model_retries):
+            attempts = attempt + 1
+            call_started = time.perf_counter()
             try:
                 optional: dict[str, Any] = {}
                 if agent_config.top_p is not None:
@@ -251,28 +278,50 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                     max_tokens=agent_config.max_completion_tokens,
                     timeout=agent_config.request_timeout_seconds,
                 )
+                api_seconds += time.perf_counter() - call_started
                 break
-            except Exception as error:  # noqa: BLE001 - retried, then reported
+            except Exception as error:  # noqa: BLE001 - classified below
+                api_seconds += time.perf_counter() - call_started
                 last_error = error
+
+                if is_rate_limit_error(error) and not agent_config.retry_on_rate_limit:
+                    # Not a defect and not retried. The run halts and resumes in
+                    # the next quota window.
+                    rate_limited = True
+                    break
+
                 if attempt < agent_config.max_model_retries - 1:
-                    time.sleep(agent_config.retry_backoff_seconds * (2**attempt))
+                    backoff = agent_config.retry_backoff_seconds * (2**attempt)
+                    wait_started = time.perf_counter()
+                    time.sleep(backoff)
+                    wait_seconds += time.perf_counter() - wait_started
 
         latency_ms = (time.perf_counter() - started) * 1000.0
+        api_latency_ms = api_seconds * 1000.0
+        retry_wait_ms = wait_seconds * 1000.0
 
         if response is None:
             # The failure reason has to survive into the artifact. An earlier
             # version put it only on a span, so a run that failed 90 of 92
             # episodes could not be diagnosed from its own trajectory files.
             detail = f"{type(last_error).__name__}: {last_error}"
+            reason = (
+                TerminationReason.RATE_LIMITED
+                if rate_limited
+                else TerminationReason.MODEL_ERROR
+            )
             span.set_attribute("model.error", detail)
-            span.set_attribute("termination.reason", TerminationReason.MODEL_ERROR.value)
+            span.set_attribute("model.rate_limited", rate_limited)
+            span.set_attribute("termination.reason", reason.value)
             error_ref = context.store.store_payload(
                 _payload_ref(context.episode_id, step_index, "model_error"),
                 "model_error",
                 {
                     "error_type": type(last_error).__name__,
                     "error": str(last_error),
-                    "attempts": agent_config.max_model_retries,
+                    "rate_limited": rate_limited,
+                    "attempts": attempts,
+                    "retried": not rate_limited,
                     "model": agent_config.model,
                 },
             )
@@ -284,13 +333,16 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                     step_type=StepType.MODEL,
                     model_output_ref=error_ref,
                     latency_ms=latency_ms,
+                    api_latency_ms=api_latency_ms,
+                    retry_wait_ms=retry_wait_ms,
+                    retry_attempts=attempts,
                     trace_id=current_trace_id(),
                 )
             )
             return {
                 "step_index": step_index + 1,
                 "model_step_count": state["model_step_count"] + 1,
-                "termination_reason": TerminationReason.MODEL_ERROR.value,
+                "termination_reason": reason.value,
                 "messages": messages,
             }
 
@@ -361,6 +413,9 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 cached_input_tokens=cached_tokens,
                 output_tokens=output_tokens,
                 latency_ms=latency_ms,
+                api_latency_ms=api_latency_ms,
+                retry_wait_ms=retry_wait_ms,
+                retry_attempts=attempts,
                 estimated_cost=step_cost,
                 model_revision=model_revision,
                 system_fingerprint=system_fingerprint,
@@ -863,6 +918,8 @@ class SpiderSQLAgent:
                 output_tokens=sum(s.output_tokens for s in context.steps),
                 estimated_cost=sum(s.estimated_cost for s in context.steps),
                 latency_ms=(time.perf_counter() - started) * 1000.0,
+                api_latency_ms=sum(s.api_latency_ms for s in context.steps),
+                retry_wait_ms=sum(s.retry_wait_ms for s in context.steps),
                 trace_id=trace_id,
                 error=episode_error or context.model_error,
             )
@@ -888,6 +945,7 @@ class SpiderSQLAgent:
         if termination_raw in {
             TerminationReason.MODEL_ERROR.value,
             TerminationReason.TOOL_ERROR.value,
+            TerminationReason.RATE_LIMITED.value,
         }:
             return None, TerminationReason(termination_raw)
 
