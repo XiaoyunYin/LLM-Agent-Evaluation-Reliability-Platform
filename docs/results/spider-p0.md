@@ -213,10 +213,15 @@ mutated query in `runs/spider_verifier_qa/verifier_qa_dev.json`.
 
 ## 2. Repeat run: two executions of an identical recorded configuration
 
-`spider_full__p0_v1` and `spider_full__p0_v2` have **zero differing configuration
-fields** — same model, prompt hash, tool-spec hash, dataset, temperature,
-`max_steps`, and task set. The code changed only in observability (span placement,
-persisted fields), which cannot alter agent behaviour.
+`spider_full__p0_v1` and `spider_full__p0_v2` have **zero differing recorded
+configuration fields** — same model, prompt hash, tool-spec hash, dataset,
+temperature, `max_steps`, and task set.
+
+Both runs recorded commit `ff9a4945` with a **dirty working tree**, and the changes
+between them were observability-only (span placement, persisted fields) — provably
+unable to alter agent behaviour, but they mean this is **not a same-commit
+comparison**. It is two runs of an identical *recorded configuration* whose working
+trees differed. A true same-commit repeat measurement is P1 (`docs/P1_PREREGISTRATION.md`).
 
 | | v1 | v2 |
 |---|---:|---:|

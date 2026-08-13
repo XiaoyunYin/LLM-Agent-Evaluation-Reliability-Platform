@@ -116,6 +116,11 @@ class AgentConfig:
     top_p: float | None = None
     seed: int | None = None
     max_completion_tokens: int = 800
+    # Ablation switch. False reverts inspect_schema to the spider_tools_v1
+    # behaviour of silently ignoring unknown arguments, which is the defect the
+    # P0 smoke run surfaced. Recorded under its own tool-schema identifier so an
+    # ablation run can never be mistaken for a normal one.
+    validate_tool_arguments_enabled: bool = True
     # Transient API failures are retried; a persistent one terminates the episode
     # as MODEL_ERROR and is reported as an infrastructure failure, never as a
     # wrong answer.
@@ -394,7 +399,19 @@ def _run_tool(context: EpisodeContext, name: str, arguments: dict[str, Any]) -> 
         span.set_attribute("episode.id", context.episode_id)
         span.set_attribute("task.id", context.task.task_id)
 
-        argument_error = validate_tool_arguments(name, arguments)
+        argument_error = (
+            validate_tool_arguments(name, arguments)
+            if context.config.validate_tool_arguments_enabled
+            else None
+        )
+        # With validation off, an unknown argument is silently dropped and the tool
+        # answers the question it *can* answer - the v1 defect, reproduced exactly.
+        # It is still counted, so the mechanism is measurable either way.
+        if argument_error is None and not context.config.validate_tool_arguments_enabled:
+            if validate_tool_arguments(name, arguments) is not None:
+                context.bump("unvalidated_bad_argument_calls")
+                span.set_attribute("tool.unvalidated_bad_arguments", True)
+
         if argument_error:
             # A normal failed tool result, not an exception: a wrong argument name
             # is the model's mistake and it can fix it on the next turn.
@@ -405,6 +422,7 @@ def _run_tool(context: EpisodeContext, name: str, arguments: dict[str, Any]) -> 
             span.set_attribute("tool.success", False)
             span.set_attribute("tool.rejected_arguments", True)
             span.set_attribute("tool.error", argument_error)
+            context.bump("bad_argument_tool_calls")
             return ToolResult(
                 tool_name=name,
                 success=False,
@@ -488,7 +506,11 @@ def _tool_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
                 span.set_attribute("run.id", context.run_id)
                 span.set_attribute("episode.id", context.episode_id)
                 span.set_attribute("task.id", context.task.task_id)
-                argument_error = validate_tool_arguments(name, arguments)
+                argument_error = (
+                    validate_tool_arguments(name, arguments)
+                    if context.config.validate_tool_arguments_enabled
+                    else None
+                )
                 span.set_attribute("tool.success", not argument_error)
                 if argument_error:
                     span.set_attribute("tool.error", argument_error)
@@ -811,6 +833,10 @@ class SpiderSQLAgent:
                 ),
                 tool_steps=sum(1 for s in context.steps if s.step_type is StepType.TOOL),
                 schema_inspections=context.counters.get("schema_inspections", 0),
+                bad_argument_tool_calls=(
+                    context.counters.get("bad_argument_tool_calls", 0)
+                    + context.counters.get("unvalidated_bad_argument_calls", 0)
+                ),
                 sql_executions=context.counters.get("sql_executions", 0),
                 sql_execution_errors=context.counters.get("sql_execution_errors", 0),
                 input_tokens=sum(s.input_tokens for s in context.steps),

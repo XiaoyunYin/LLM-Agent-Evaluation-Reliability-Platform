@@ -54,10 +54,12 @@ use. See [docs/benchmark-protocol.md](docs/benchmark-protocol.md).
 Full write-up: [docs/results/spider-p0.md](docs/results/spider-p0.md).
 Frozen pins with content hashes: [docs/P0_BASELINE.md](docs/P0_BASELINE.md).
 
-**The most useful thing this run produced.** The same configuration was run twice
-with zero differing identity fields (`spider_full__p0_v1` → `spider_full__p0_v2`).
-The aggregate moved 0.39 points (73.69% → 73.31%), but the per-task ledger shows
-churn underneath it:
+**The most useful thing this run produced.** The same *recorded configuration* was
+run twice (`spider_full__p0_v1` → `spider_full__p0_v2`) with zero differing config
+fields. Both ran at commit `ff9a4945` with a dirty working tree and
+observability-only changes between them, so this is **not a same-commit repeat** —
+that measurement is P1. The aggregate moved 0.39 points (73.69% → 73.31%), but the
+per-task ledger shows churn underneath it:
 
 | | v2: PASS | v2: FAIL |
 |---|---:|---:|
