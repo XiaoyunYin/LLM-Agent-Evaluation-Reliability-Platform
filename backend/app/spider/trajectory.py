@@ -88,6 +88,10 @@ class TerminationReason(str, Enum):
     # Folding 429s into MODEL_ERROR once produced 90 "model failures" out of 92
     # episodes and hid an exhausted daily quota behind what looked like a bug.
     RATE_LIMITED = "RATE_LIMITED"
+    # P3: the agent stopped without declaring the task finished. Named separately
+    # from NO_FINAL_SQL because P3 produces state, not a final answer string.
+    # Additive, so frozen Spider artifacts are unaffected - they never emit it.
+    INCOMPLETE = "INCOMPLETE"
 
 
 # Terminations caused by this platform rather than by the agent's reasoning.

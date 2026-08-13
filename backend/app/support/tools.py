@@ -25,7 +25,33 @@ from pydantic import BaseModel, Field
 
 from backend.app.support.schema import PRIORITIES, STATUSES
 
-TOOL_SCHEMA_VERSION = "support_tools_v1"
+# Contract v0. Calibration-stage, deliberately NOT the frozen-final contract:
+# argument schemas, enums, return shapes, empty-result semantics and the error
+# payload format may still change during calibration, under the documented rules
+# in docs/P3_CONTRACT_V0.md. After the freeze, any agent-visible change to this
+# surface is an intervention requiring a bridge run.
+TOOL_SCHEMA_VERSION = "support_tools_v0"
+CONTRACT_STAGE = "calibration"
+
+# Adopted in P2 and generalized here. In Spider it applied to one tool; in P3 the
+# same ambiguity exists on every read that can legitimately match nothing - zero
+# tickets, zero policies - so the labelling is applied uniformly rather than per
+# tool. ON by default per config/adopted_agent_flags.json: a P3 baseline running
+# with it off would benchmark an agent older than the one that exists.
+EXECUTION_SUCCESS_NONEMPTY = "SUCCESS_NONEMPTY"
+EXECUTION_SUCCESS_EMPTY = "SUCCESS_EMPTY"
+EXECUTION_ERROR = "ERROR"
+
+EMPTY_RESULT_GUIDANCE = (
+    "The call succeeded and matched nothing. An empty result is a valid outcome "
+    "when nothing matches - it is not by itself evidence that the call was wrong. "
+    "Re-check the arguments against the task; if they are right, act on the empty "
+    "result rather than repeating the same call."
+)
+
+# Tools whose success can legitimately be empty. Effectful tools are excluded:
+# "updated nothing" is not a successful empty read, it is a failed update.
+EMPTY_CAPABLE_TOOLS = ("search_tickets", "search_policy")
 
 # Rows the model sees. Same reasoning as P0: the full result is persisted, the
 # model's context is not a function of how much data a query happened to match.
@@ -35,8 +61,27 @@ READ_ONLY_TOOLS = ("search_tickets", "get_ticket", "search_policy")
 EFFECTFUL_TOOLS = ("update_ticket", "assign_ticket", "add_comment")
 
 
+class ToolCallIdentity(BaseModel):
+    """Unique identity for one tool call inside one episode.
+
+    Added now rather than in P4, because P4's write-ahead intent log, idempotency
+    keys and fencing all need to name an individual call, and an identity cannot
+    be retrofitted onto already-persisted trajectories. Applies to read and
+    effectful calls alike so the numbering has no gaps.
+    """
+
+    episode_id: str
+    step_index: int
+    call_index: int
+
+    def key(self) -> str:
+        return f"{self.episode_id}:{self.step_index:03d}:{self.call_index:03d}"
+
+
 class ToolResult(BaseModel):
     tool_name: str
+    tool_schema_version: str = TOOL_SCHEMA_VERSION
+    identity: ToolCallIdentity | None = None
     success: bool
     effectful: bool
     model_visible: dict[str, Any]
@@ -361,6 +406,69 @@ def add_comment(environment, arguments: dict[str, Any]) -> ToolResult:
         mutation={"table": "comments", "key": comment_id,
                   "fields": {"ticket_id": ticket_id, "reason_code": reason_code}},
     )
+
+
+def apply_empty_result_policy(result: ToolResult, policy: str) -> ToolResult:
+    """Label the execution outcome on a finished tool result.
+
+    Applied centrally rather than at each `_finish` call site: twenty call sites
+    are twenty chances for one tool to drift out of the contract, and the whole
+    point of an explicit outcome field is that it means the same thing everywhere.
+
+    `baseline` leaves the payload byte-identical to the pre-adoption shape and
+    exists only to reproduce a pre-adoption run.
+    """
+    if policy == "baseline":
+        return result
+
+    visible = dict(result.model_visible)
+    if result.error is not None:
+        visible["outcome"] = EXECUTION_ERROR
+    elif (
+        result.tool_name in EMPTY_CAPABLE_TOOLS
+        and visible.get("row_count") == 0
+    ):
+        visible["outcome"] = EXECUTION_SUCCESS_EMPTY
+        visible["note_empty"] = EMPTY_RESULT_GUIDANCE
+    else:
+        visible["outcome"] = EXECUTION_SUCCESS_NONEMPTY
+
+    return result.model_copy(update={"model_visible": visible})
+
+
+def call_tool(
+    environment,
+    name: str,
+    arguments: dict[str, Any],
+    identity: ToolCallIdentity | None = None,
+    empty_result_policy: str = "accept_empty",
+) -> ToolResult:
+    """The single entry point the runtime uses.
+
+    Centralizes unknown-tool handling, identity stamping, and the empty-result
+    policy, so no caller can accidentally bypass one of them.
+    """
+    handler = TOOL_DISPATCH.get(name)
+    if handler is None:
+        result = ToolResult(
+            tool_name=name,
+            success=False,
+            effectful=False,
+            model_visible={
+                "error_kind": "UNKNOWN_TOOL",
+                "message": f"no tool named {name!r}",
+                "available_tools": sorted(TOOL_DISPATCH),
+            },
+            error=f"no tool named {name!r}",
+            error_kind="UNKNOWN_TOOL",
+        )
+    else:
+        result = handler(environment, dict(arguments))
+
+    result = apply_empty_result_policy(result, empty_result_policy)
+    if identity is not None:
+        result = result.model_copy(update={"identity": identity})
+    return result
 
 
 TOOL_DISPATCH = {
