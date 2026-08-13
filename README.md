@@ -47,9 +47,20 @@ published number and its source disagree.
 
 **The accuracy figure is not leaderboard-comparable.** Published Spider systems are
 handed the full schema and emit SQL in one shot; this agent has to go find the
-schema. Different task. The metric is **single-database execution accuracy** — not
-test-suite accuracy, which needs the distilled multi-database suite this does not
-use. See [docs/benchmark-protocol.md](docs/benchmark-protocol.md).
+schema. Different task. See [docs/benchmark-protocol.md](docs/benchmark-protocol.md).
+
+Two metrics are now measured over the **same** trajectories (the persisted SQL was
+rescored offline; no model was re-run):
+
+| Metric | `spider_full__p0_v2` |
+|---|---:|
+| Single-database execution accuracy | **73.31%** (758 / 1,034) |
+| Test-suite execution accuracy (695 distilled instances) | **65.38%** (676 / 1,034) |
+| Gap | 7.93pp |
+
+**10.82% of single-database passes are false positives** under the tighter
+substrate (82 of 758), and `fail → pass` was 0, as a strictly tighter metric
+requires. Details: [docs/results/p1-status.md](docs/results/p1-status.md).
 
 Full write-up: [docs/results/spider-p0.md](docs/results/spider-p0.md).
 Frozen pins with content hashes: [docs/P0_BASELINE.md](docs/P0_BASELINE.md).

@@ -36,9 +36,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from backend.app.spider.evaluator import (  # noqa: E402
-    EVALUATOR_METRIC,
+    DEFAULT_QUERY_TIMEOUT_SECONDS,
     EVALUATOR_NAME,
+    TEST_SUITE_QUERY_TIMEOUT_SECONDS,
+    set_query_timeout,
+    SUBSTRATE_DISPLAY_NAMES,
+    SUBSTRATE_METRIC_IDS,
+    SUBSTRATE_SINGLE_DB,
+    SUBSTRATE_TEST_SUITE,
     VerificationOutcome,
+    substrate_database_path,
+    substrate_instance_count,
     verify_sql,
 )
 from backend.app.spider.loader import (  # noqa: E402
@@ -49,6 +57,7 @@ from backend.app.spider.loader import (  # noqa: E402
 
 RESULT_DIR = REPO_ROOT / "runs" / "spider_verifier_qa"
 LOCKED_INPUTS_PATH = REPO_ROOT / "docs" / "LOCKED_INPUTS.md"
+TEST_SUITE_QA_DOC = REPO_ROOT / "docs" / "TEST_SUITE_SUBSTRATE.md"
 
 # Known-bad mutations. Each takes a gold query and returns a query that must not
 # pass, or None when the mutation does not apply to that query shape.
@@ -104,7 +113,7 @@ KNOWN_BAD_MUTATIONS = {
 }
 
 
-def run_gold_pass_qa(tasks, verbose: bool) -> dict:
+def run_gold_pass_qa(tasks, verbose: bool, substrate: str = SUBSTRATE_SINGLE_DB) -> dict:
     failures: list[dict] = []
     outcome_counts: dict[str, int] = {}
     started = time.perf_counter()
@@ -113,9 +122,10 @@ def run_gold_pass_qa(tasks, verbose: bool) -> dict:
         result = verify_sql(
             predicted_sql=task.gold_query,
             gold_sql=task.gold_query,
-            database_path=task.database_path,
+            database_path=substrate_database_path(task.database_id, substrate),
             task_id=task.task_id,
             database_id=task.database_id,
+            substrate=substrate,
         )
         outcome_counts[result.outcome.value] = outcome_counts.get(result.outcome.value, 0) + 1
 
@@ -135,6 +145,7 @@ def run_gold_pass_qa(tasks, verbose: bool) -> dict:
             print(f"  gold-pass {index}/{len(tasks)} ({len(failures)} failing)")
 
     return {
+        "substrate": substrate,
         "checked": len(tasks),
         "passed": outcome_counts.get("pass", 0),
         "outcome_counts": outcome_counts,
@@ -180,7 +191,9 @@ def _mutation_changes_result(database_path: str, gold: str, bad: str) -> bool:
     return sorted(map(str, gold_rows)) != sorted(map(str, bad_rows))
 
 
-def run_known_bad_qa(tasks, per_mutation: int, verbose: bool) -> dict:
+def run_known_bad_qa(
+    tasks, per_mutation: int, verbose: bool, substrate: str = SUBSTRATE_SINGLE_DB
+) -> dict:
     checks: list[dict] = []
     leaks: list[dict] = []
     collisions: list[dict] = []
@@ -216,9 +229,10 @@ def run_known_bad_qa(tasks, per_mutation: int, verbose: bool) -> dict:
             result = verify_sql(
                 predicted_sql=bad_sql,
                 gold_sql=task.gold_query,
-                database_path=task.database_path,
+                database_path=substrate_database_path(task.database_id, substrate),
                 task_id=task.task_id,
                 database_id=task.database_id,
+                substrate=substrate,
             )
             applied += 1
             record = {
@@ -237,6 +251,7 @@ def run_known_bad_qa(tasks, per_mutation: int, verbose: bool) -> dict:
             print(f"  known-bad {name}: {applied} checks applied")
 
     return {
+        "substrate": substrate,
         "checked": len(checks),
         "rejected": sum(1 for c in checks if c["rejected"]),
         "leaked": leaks,
@@ -383,9 +398,108 @@ def write_locked_inputs(report: dict) -> None:
     LOCKED_INPUTS_PATH.write_text("\n".join(lines), encoding="utf-8")
 
 
+def write_test_suite_doc(report: dict) -> None:
+    """Write the test-suite substrate QA, with its own exclusions and denominator."""
+    gold = report["gold_pass"]
+    known_bad = report["known_bad"]
+    excluded = gold["failures"]
+    valid = gold["checked"] - len(excluded)
+
+    lines = [
+        "# Test-Suite Substrate QA",
+        "",
+        "The distilled Spider test suite scores a query against **every** database",
+        "instance for its schema, not just the one shipped copy. It is a strictly",
+        "tighter metric, and it is reported **beside** single-database execution",
+        "accuracy — never as a replacement, so the frozen P0 number stays",
+        "comparable to itself.",
+        "",
+        f"Generated: {report['generated_at']}",
+        "",
+        "## Substrate",
+        "",
+        "| | |",
+        "|---|---:|",
+        f"| Metric id | `{report['substrate_metric']}` |",
+        f"| Database instances | {report['substrate_instances_total']:,} |",
+        f"| Instances per `db_id` (mean) | "
+        f"{report['substrate_instances_total'] / len(report['substrate_instances_per_db']):.1f} |",
+        f"| Evaluator flags | `plug_value=False`, `keep_distinct=False` |",
+        "",
+        "`plug_value` stays False because this agent predicts its own literal",
+        "values; plugging gold values in would measure a different system.",
+        "",
+        "## Gold-pass QA on this substrate",
+        "",
+        "| | |",
+        "|---|---:|",
+        f"| Gold queries checked | {gold['checked']:,} |",
+        f"| Passing on every instance | {gold['passed']:,} |",
+        f"| Failing (excluded from the test-suite metric only) | {len(excluded):,} |",
+        f"| **Denominator for the test-suite metric** | **{valid:,}** |",
+        "",
+    ]
+
+    if excluded:
+        lines += [
+            "These tasks are excluded from the **test-suite metric only**. The",
+            "single-database metric keeps its full 1,034-task denominator: a gold",
+            "query that fails on a distilled instance is a property of that instance,",
+            "not evidence the task is bad.",
+            "",
+            "| Task ID | Database | Outcome | Reason |",
+            "|---|---|---|---|",
+        ]
+        for row in excluded[:80]:
+            reason = (row.get("error") or "").replace("|", "\\|").replace("\n", " ")[:140]
+            lines.append(
+                f"| `{row['task_id']}` | `{row['database_id']}` | {row['outcome']} | {reason} |"
+            )
+        if len(excluded) > 80:
+            lines.append(f"| … | | | {len(excluded) - 80} more in the JSON artifact |")
+        lines.append("")
+    else:
+        lines += ["No exclusions: every gold query passes on every instance.", ""]
+
+    lines += [
+        "## Adversarial QA on this substrate",
+        "",
+        "| | |",
+        "|---|---:|",
+        f"| Mutations attempted | {known_bad.get('mutations_attempted', 0):,} |",
+        f"| Detected as wrong | {known_bad['rejected']:,} |",
+        f"| Leaked (wrongly passed) | {len(known_bad['leaked']):,} |",
+        f"| Execution-result collisions | {known_bad['skipped_denotationally_equivalent']:,} |",
+        f"| Collision rate | "
+        f"{(known_bad.get('collision_rate_on_attempted_mutations') or 0):.4f} |",
+        "",
+        "**The collision rate describes this mutation set, not the agent.** It is not",
+        "an estimate of the share of the agent's passes that are false positives.",
+        "",
+        "## Reproduce",
+        "",
+        "```powershell",
+        "python scripts/download_spider_test_suite.py",
+        "python scripts/qa_spider_evaluator.py --split dev --substrate test_suite",
+        "```",
+        "",
+    ]
+    TEST_SUITE_QA_DOC.write_text("\n".join(lines), encoding="utf-8")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--split", default="dev", help="Spider split to QA.")
+    parser.add_argument(
+        "--substrate",
+        default=SUBSTRATE_SINGLE_DB,
+        choices=[SUBSTRATE_SINGLE_DB, SUBSTRATE_TEST_SUITE],
+        help=(
+            "Which database substrate to QA. The single-database substrate is the "
+            "frozen P0 pin; the test-suite substrate is scored separately and "
+            "never overwrites it."
+        ),
+    )
     parser.add_argument(
         "--limit",
         type=int,
@@ -403,10 +517,30 @@ def main() -> int:
         action="store_true",
         help="Skip writing docs/LOCKED_INPUTS.md.",
     )
+    parser.add_argument(
+        "--query-timeout-seconds",
+        type=int,
+        default=None,
+        help=(
+            "Per-query execution budget. Defaults to 60s (upstream) on the "
+            "single-database substrate and 15s on the test suite, where ~35 "
+            "instances multiply the cost. Applied symmetrically to gold and "
+            "prediction."
+        ),
+    )
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
     verbose = not args.quiet
+
+    timeout = args.query_timeout_seconds
+    if timeout is None:
+        timeout = (
+            TEST_SUITE_QUERY_TIMEOUT_SECONDS
+            if args.substrate == SUBSTRATE_TEST_SUITE
+            else DEFAULT_QUERY_TIMEOUT_SECONDS
+        )
+    set_query_timeout(timeout)
 
     pin = load_pin()
     integrity = verify_split_integrity(args.split)
@@ -418,16 +552,35 @@ def main() -> int:
     if args.limit:
         tasks = tasks[: args.limit]
 
+    instances = {
+        db: substrate_instance_count(db, args.substrate)
+        for db in sorted({task.database_id for task in tasks})
+    }
     print(f"Spider {args.split}: {len(tasks):,} tasks, {integrity['databases']} databases")
+    print(f"Query timeout: {timeout}s per query per database instance")
+    print(f"Substrate: {args.substrate} "
+          f"({SUBSTRATE_DISPLAY_NAMES[args.substrate]}), "
+          f"{sum(instances.values()):,} database instances total, "
+          f"{sum(instances.values()) / len(instances):.1f} per db_id")
     print("Running gold-pass QA ...")
-    gold_report = run_gold_pass_qa(tasks, verbose)
+    gold_report = run_gold_pass_qa(tasks, verbose, args.substrate)
 
     print("Running known-bad QA ...")
-    known_bad_report = run_known_bad_qa(tasks, args.per_mutation, verbose)
+    known_bad_report = run_known_bad_qa(tasks, args.per_mutation, verbose, args.substrate)
 
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "split": args.split,
+        "substrate": args.substrate,
+        "substrate_metric": SUBSTRATE_METRIC_IDS[args.substrate],
+        "substrate_instances_per_db": instances,
+        "substrate_instances_total": sum(instances.values()),
+        "query_timeout_seconds": timeout,
+        "query_timeout_note": (
+            "Per-query execution budget, applied symmetrically to gold and "
+            "prediction. A gold query exceeding it makes the task a substrate "
+            "exclusion rather than stalling the run."
+        ),
         "limited_to": args.limit,
         "pin": pin,
         "integrity": integrity,
@@ -436,7 +589,8 @@ def main() -> int:
     }
 
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
-    result_path = RESULT_DIR / f"verifier_qa_{args.split}.json"
+    suffix = "" if args.substrate == SUBSTRATE_SINGLE_DB else f"__{args.substrate}"
+    result_path = RESULT_DIR / f"verifier_qa_{args.split}{suffix}.json"
     result_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
 
     print()
@@ -459,10 +613,17 @@ def main() -> int:
     print(f"Report:     {result_path}")
 
     if args.limit and not args.no_freeze:
-        print("Refusing to freeze LOCKED_INPUTS.md from a --limit run.")
+        print("Refusing to freeze from a --limit run.")
     elif not args.no_freeze:
-        write_locked_inputs(report)
-        print(f"Frozen:     {LOCKED_INPUTS_PATH}")
+        if args.substrate == SUBSTRATE_SINGLE_DB:
+            write_locked_inputs(report)
+            print(f"Frozen:     {LOCKED_INPUTS_PATH}")
+        else:
+            # The test-suite substrate gets its own document. It must never
+            # overwrite the frozen P0 pin, whose exclusion list and denominator
+            # belong to the single-database metric.
+            write_test_suite_doc(report)
+            print(f"Frozen:     {TEST_SUITE_QA_DOC}")
 
     # A leaked known-bad query means the verifier does not discriminate. That is
     # a hard stop: every downstream accuracy number would be untrustworthy.

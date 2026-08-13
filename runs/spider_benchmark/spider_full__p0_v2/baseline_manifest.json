@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-08-13T05:20:50.253461+00:00",
+  "frozen_at": "2026-08-13T07:44:03.058750+00:00",
   "run_id": "spider_full__p0_v2",
   "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
   "code_working_tree_dirty": true,
@@ -103,8 +103,8 @@
       "bytes": 36422
     },
     "claims_audit.json": {
-      "sha256": "c621d07ff6f995a0d2eb12cf7dc99e3b23b81992658d4bfecff17f9081c15552",
-      "bytes": 18948
+      "sha256": "f51346e5b90fde521de8e156075f10ec4519fac3ea59f1ca168820554d2c15ae",
+      "bytes": 19358
     }
   }
 }

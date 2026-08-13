@@ -142,6 +142,7 @@ class EpisodeContext:
     client: Any
     steps: list[AgentStep] = field(default_factory=list)
     counters: dict[str, int] = field(default_factory=dict)
+    model_error: str | None = None
 
     def bump(self, key: str, amount: int = 1) -> None:
         self.counters[key] = self.counters.get(key, 0) + amount
@@ -259,13 +260,29 @@ def _model_node(state: AgentState, config: RunnableConfig) -> dict[str, Any]:
         latency_ms = (time.perf_counter() - started) * 1000.0
 
         if response is None:
-            span.set_attribute("model.error", str(last_error))
+            # The failure reason has to survive into the artifact. An earlier
+            # version put it only on a span, so a run that failed 90 of 92
+            # episodes could not be diagnosed from its own trajectory files.
+            detail = f"{type(last_error).__name__}: {last_error}"
+            span.set_attribute("model.error", detail)
             span.set_attribute("termination.reason", TerminationReason.MODEL_ERROR.value)
+            error_ref = context.store.store_payload(
+                _payload_ref(context.episode_id, step_index, "model_error"),
+                "model_error",
+                {
+                    "error_type": type(last_error).__name__,
+                    "error": str(last_error),
+                    "attempts": agent_config.max_model_retries,
+                    "model": agent_config.model,
+                },
+            )
+            context.model_error = detail
             context.steps.append(
                 AgentStep(
                     episode_id=context.episode_id,
                     step_index=step_index,
                     step_type=StepType.MODEL,
+                    model_output_ref=error_ref,
                     latency_ms=latency_ms,
                     trace_id=current_trace_id(),
                 )
@@ -847,7 +864,7 @@ class SpiderSQLAgent:
                 estimated_cost=sum(s.estimated_cost for s in context.steps),
                 latency_ms=(time.perf_counter() - started) * 1000.0,
                 trace_id=trace_id,
-                error=episode_error,
+                error=episode_error or context.model_error,
             )
             store.record_episode(episode)
             return episode

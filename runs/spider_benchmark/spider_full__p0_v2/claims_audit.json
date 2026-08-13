@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-13T05:21:27.649234+00:00",
+  "generated_at": "2026-08-13T07:43:50.874182+00:00",
   "provenance": {
     "run_id": "spider_full__p0_v2",
     "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
@@ -454,6 +454,19 @@
         "estimated_cost_usd": 0.6164077499999999
       },
       {
+        "run_id": "spider_rpt__on_2",
+        "stage": "full",
+        "is_mock": false,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v2",
+        "episodes": 171,
+        "successes": 1,
+        "input_tokens": 53256,
+        "output_tokens": 1518,
+        "estimated_cost_usd": 0.0088992
+      },
+      {
         "run_id": "spider_single__step9",
         "stage": "single",
         "is_mock": false,
@@ -494,11 +507,11 @@
       }
     ],
     "real_api_spend": {
-      "runs": 6,
-      "episodes": 2139,
-      "input_tokens": 7829743,
-      "output_tokens": 293765,
-      "estimated_cost_usd": 1.27804845
+      "runs": 7,
+      "episodes": 2310,
+      "input_tokens": 7882999,
+      "output_tokens": 295283,
+      "estimated_cost_usd": 1.2869476499999999
     },
     "mock_rehearsal_no_spend": {
       "runs": 4,
