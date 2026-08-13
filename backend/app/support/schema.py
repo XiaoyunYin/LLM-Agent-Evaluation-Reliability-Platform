@@ -88,7 +88,9 @@ CREATE TABLE policies (
 POLICIES = [
     ("POL-001", "Enterprise escalation window", "technical",
      "Enterprise-tier customers reporting an outage must be escalated within one "
-     "business hour and assigned to the technical team. Set priority to urgent."),
+     "business hour and assigned to the technical team. Set the escalated flag to "
+     "true (this is the escalated field, not the status field) and set priority "
+     "to urgent. Leave status unchanged."),
     ("POL-002", "Billing dispute handling", "billing",
      "Billing disputes are assigned to the billing team at normal priority. Do not "
      "escalate a billing dispute unless the disputed amount exceeds 5000."),
@@ -105,8 +107,10 @@ POLICIES = [
      "Free-tier customers are handled at low priority unless the issue is a "
      "security report, which is always urgent."),
     ("POL-007", "Security report handling", "technical",
-     "Security reports are escalated immediately, set to urgent, assigned to the "
-     "technical team, and require a comment with reason code SECURITY_TRIAGE."),
+     "Security reports must have the escalated flag set to true (this is the "
+     "escalated field, not the status field), priority set to urgent, and be "
+     "assigned to the technical team. Leave status unchanged. They require a "
+     "comment with reason code SECURITY_TRIAGE."),
     ("POL-008", "Waiting on customer", "technical",
      "A ticket blocked on customer information moves to status waiting_customer "
      "and keeps its current priority."),

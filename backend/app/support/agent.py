@@ -81,6 +81,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "parameters": {"type": "object", "properties": {
             "status": {"type": "string"}, "priority": {"type": "string"},
             "customer_id": {"type": "string"}, "team_id": {"type": "string"},
+            "customer_name": {"type": "string"},
             "query": {"type": "string"}}, "required": []}}},
     {"type": "function", "function": {
         "name": "get_ticket",
@@ -93,6 +94,10 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "parameters": {"type": "object", "properties": {
             "query": {"type": "string"}, "topic": {"type": "string"}},
             "required": ["query"]}}},
+    {"type": "function", "function": {
+        "name": "list_reference_data",
+        "description": "List valid team and agent identifiers. Use this before assigning.",
+        "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {
         "name": "update_ticket",
         "description": "Change a ticket's priority, status, or escalation flag.",

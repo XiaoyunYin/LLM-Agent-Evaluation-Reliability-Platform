@@ -30,7 +30,7 @@ from backend.app.support.schema import PRIORITIES, STATUSES
 # payload format may still change during calibration, under the documented rules
 # in docs/P3_CONTRACT_V0.md. After the freeze, any agent-visible change to this
 # surface is an intervention requiring a bridge run.
-TOOL_SCHEMA_VERSION = "support_tools_v0"
+TOOL_SCHEMA_VERSION = "support_tools_v1"
 CONTRACT_STAGE = "calibration"
 
 # Adopted in P2 and generalized here. In Spider it applied to one tool; in P3 the
@@ -57,7 +57,7 @@ EMPTY_CAPABLE_TOOLS = ("search_tickets", "search_policy")
 # model's context is not a function of how much data a query happened to match.
 MAX_VISIBLE_ROWS = 20
 
-READ_ONLY_TOOLS = ("search_tickets", "get_ticket", "search_policy")
+READ_ONLY_TOOLS = ("search_tickets", "get_ticket", "search_policy", "list_reference_data")
 EFFECTFUL_TOOLS = ("update_ticket", "assign_ticket", "add_comment")
 
 
@@ -163,7 +163,10 @@ def _finish(
 def search_tickets(environment, arguments: dict[str, Any]) -> ToolResult:
     started = time.perf_counter()
     try:
-        _unknown_arguments(arguments, {"status", "priority", "customer_id", "team_id", "query"})
+        _unknown_arguments(
+            arguments,
+            {"status", "priority", "customer_id", "customer_name", "team_id", "query"},
+        )
         clauses, params = [], []
         for field in ("status", "priority", "customer_id", "team_id"):
             if arguments.get(field) is not None:
@@ -173,6 +176,34 @@ def search_tickets(environment, arguments: dict[str, Any]) -> ToolResult:
                     _require_enum(arguments, "priority", PRIORITIES)
                 clauses.append(f"{field} = ?")
                 params.append(arguments[field])
+        if arguments.get("customer_id"):
+            # A customer_id that matches nothing is refused rather than answered
+            # with an empty result. Measured in calibration: the agent passed the
+            # customer NAME into customer_id, got zero rows, correctly concluded
+            # no such ticket existed, and stopped. That is the same
+            # silently-wrong-answer class as the P0 inspect_schema defect - the
+            # tool accepted something wrong and returned a plausible answer.
+            known = environment.connect().execute(
+                "SELECT 1 FROM customers WHERE customer_id = ?",
+                (arguments["customer_id"],),
+            ).fetchone()
+            if known is None:
+                raise ValidationFailure(
+                    "customer_id",
+                    f"no customer with id {arguments['customer_id']!r}; "
+                    "if you have the customer's NAME, use customer_name instead",
+                    ["customer_name"],
+                )
+
+        if arguments.get("customer_name"):
+            # Calibration fix: tasks name the customer, and without this the only
+            # route from a name to a ticket was guessing the id. Measured on the
+            # first calibration run as every lookup_update episode returning zero
+            # rows and correctly giving up.
+            clauses.append(
+                "customer_id IN (SELECT customer_id FROM customers WHERE name = ?)"
+            )
+            params.append(arguments["customer_name"])
         if arguments.get("query"):
             clauses.append("(subject LIKE ? OR body LIKE ?)")
             params += [f"%{arguments['query']}%"] * 2
@@ -264,6 +295,32 @@ def search_policy(environment, arguments: dict[str, Any]) -> ToolResult:
         {"policies": hits, "row_count": len(hits)},
         full={"policies": ranked, "row_count": len(ranked)},
     )
+
+
+def list_reference_data(environment, arguments: dict[str, Any]) -> ToolResult:
+    """Valid team and agent identifiers.
+
+    Calibration fix. Tasks require assigning to a team, but nothing exposed the
+    identifiers, so the agent had to guess: the first calibration run shows it
+    trying `team_id="technical"` against a real id of `TEAM-technical`, then
+    burning turns searching for the id it could not discover. Guessing an opaque
+    identifier is not the capability under test.
+    """
+    started = time.perf_counter()
+    try:
+        _unknown_arguments(arguments, set())
+    except ValidationFailure as failure:
+        return _finish("list_reference_data", started, failure.as_payload(),
+                       error=failure.message, error_kind="INVALID_ARGUMENTS")
+
+    connection = environment.connect()
+    teams = [dict(r) for r in connection.execute(
+        "SELECT team_id, name, queue FROM teams ORDER BY team_id")]
+    agents = [dict(r) for r in connection.execute(
+        "SELECT agent_id, name, team_id FROM agents WHERE active = 1 ORDER BY agent_id")]
+    return _finish("list_reference_data", started,
+                   {"teams": teams, "agents": agents,
+                    "row_count": len(teams) + len(agents)})
 
 
 # ---------------------------------------------------------------- effectful
@@ -475,6 +532,7 @@ TOOL_DISPATCH = {
     "search_tickets": search_tickets,
     "get_ticket": get_ticket,
     "search_policy": search_policy,
+    "list_reference_data": list_reference_data,
     "update_ticket": update_ticket,
     "assign_ticket": assign_ticket,
     "add_comment": add_comment,
