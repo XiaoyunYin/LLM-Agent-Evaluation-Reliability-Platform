@@ -1,0 +1,666 @@
+{
+  "generated_at": "2026-08-13T08:11:37.882064+00:00",
+  "run_id": "spider_full__p0_v2",
+  "episodes": 1034,
+  "config": {
+    "dataset_version": "spider-1.0:dev:30d64a3fccde",
+    "model_version": "gpt-4o-mini",
+    "prompt_version": "sql_agent_v1",
+    "tool_schema_version": "spider_tools_v2",
+    "agent_version": "spider_langgraph_agent_v1",
+    "adapter_version": "spider_adapter_v1",
+    "max_steps": 10,
+    "temperature": 0.0,
+    "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
+    "stage": "full",
+    "is_mock": false
+  },
+  "termination_breakdown": {
+    "counts": {
+      "SUCCESS": 758,
+      "VERIFICATION_FAILED": 226,
+      "SQL_ERROR": 2,
+      "MAX_STEPS": 48,
+      "MODEL_ERROR": 0,
+      "TOOL_ERROR": 0,
+      "NO_FINAL_SQL": 0
+    },
+    "total": 1034,
+    "episodes_on_file": 1034,
+    "sums_exactly": true,
+    "unexpected_reasons": []
+  },
+  "step_decomposition": {
+    "definitions": {
+      "model_turns": "One completed call to the model API. This is what max_steps caps.",
+      "tool_calls": "One tool invocation record (inspect_schema, execute_sql, or submit_answer).",
+      "trajectory_records": "Rows written to steps.jsonl = model_turns + tool_calls."
+    },
+    "max_steps_config": 10,
+    "max_steps_is_a_model_turn_cap": true,
+    "successful_tasks": {
+      "model_turns": {
+        "mean": 4.6688654353562,
+        "median": 4.0,
+        "min": 4.0,
+        "max": 9.0
+      },
+      "tool_calls": {
+        "mean": 4.6688654353562,
+        "median": 4.0,
+        "min": 4.0,
+        "max": 9.0
+      },
+      "trajectory_records": {
+        "mean": 9.3377308707124,
+        "median": 8.0,
+        "min": 8.0,
+        "max": 18.0
+      },
+      "schema_inspections": {
+        "mean": 2.6187335092348283,
+        "median": 2.0,
+        "min": 2.0,
+        "max": 5.0
+      },
+      "sql_executions": {
+        "mean": 1.050131926121372,
+        "median": 1.0,
+        "min": 1.0,
+        "max": 5.0
+      }
+    },
+    "all_tasks": {
+      "model_turns": {
+        "mean": 5.044487427466151,
+        "median": 5.0,
+        "min": 4.0,
+        "max": 10.0
+      },
+      "tool_calls": {
+        "mean": 5.044487427466151,
+        "median": 5.0,
+        "min": 4.0,
+        "max": 10.0
+      },
+      "trajectory_records": {
+        "mean": 10.088974854932301,
+        "median": 10.0,
+        "min": 8.0,
+        "max": 20.0
+      }
+    },
+    "totals": {
+      "model_turns": 5216,
+      "tool_calls": 5216,
+      "trajectory_records": 10432,
+      "step_records_on_file": 10432
+    },
+    "identity_holds": true,
+    "episodes_reaching_the_model_turn_cap": 51
+  },
+  "tool_vs_episode_errors": {
+    "tool_call_level": {
+      "definition": "Counted per tool invocation. A failure here is one call going wrong; the episode may recover from it.",
+      "calls_by_tool": {
+        "inspect_schema": 2851,
+        "execute_sql": 1379,
+        "submit_answer": 986
+      },
+      "failures_by_tool": {
+        "inspect_schema": 19,
+        "execute_sql": 16
+      },
+      "execute_sql_calls": 1379,
+      "execute_sql_failures": 16,
+      "execute_sql_error_rate": 0.011602610587382161,
+      "execute_sql_failure_messages": [
+        {
+          "task_id": "spider_dev_0089",
+          "error": "OperationalError: no such column: c.ContId"
+        },
+        {
+          "task_id": "spider_dev_0151",
+          "error": "OperationalError: no such column: mn.Model"
+        },
+        {
+          "task_id": "spider_dev_0152",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0152",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0152",
+          "error": "OperationalError: no such column: cd.ModelId"
+        },
+        {
+          "task_id": "spider_dev_0152",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0176",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0176",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0176",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0176",
+          "error": "OperationalError: no such column: cd.Model"
+        },
+        {
+          "task_id": "spider_dev_0227",
+          "error": "OperationalError: 1st ORDER BY term does not match any column in the result set"
+        },
+        {
+          "task_id": "spider_dev_0254",
+          "error": "OperationalError: unrecognized token: \"}\""
+        },
+        {
+          "task_id": "spider_dev_0576",
+          "error": "OperationalError: no such column: degree_summary_name"
+        },
+        {
+          "task_id": "spider_dev_0576",
+          "error": "OperationalError: no such column: degree_summary_name"
+        },
+        {
+          "task_id": "spider_dev_0637",
+          "error": "OperationalError: near \";\": syntax error"
+        },
+        {
+          "task_id": "spider_dev_0955",
+          "error": "OperationalError: no such column: t.treatment_date"
+        }
+      ]
+    },
+    "episode_level": {
+      "definition": "Counted per episode, from termination_reason. SQL_ERROR means the episode's FINAL SUBMITTED query does not execute.",
+      "sql_error_terminations": 2,
+      "episodes_containing_at_least_one_execute_sql_failure": 9,
+      "of_those_that_still_succeeded": 3,
+      "episodes_containing_any_tool_failure_that_still_succeeded": 18
+    },
+    "why_they_differ": "A failed execute_sql is a tool-call event the agent can see and fix. SQL_ERROR is an episode outcome. These are different denominators (tool calls vs episodes) and must not appear in the same table."
+  },
+  "max_steps_analysis": {
+    "total_max_step_episodes": 48,
+    "rules": {
+      "empty_result_loop_broad": "Episode terminated MAX_STEPS AND executed at least one execute_sql call that returned row_count == 0 with error == None (a valid query returning no rows).",
+      "empty_result_loop_strict": "Episode terminated MAX_STEPS AND executed at least two execute_sql calls that each returned row_count == 0 with error == None.",
+      "abandoned_a_correct_query": "Episode terminated MAX_STEPS AND at least one query it executed during the episode passes the official evaluator against gold. Established by re-running each executed query through verify_sql, not by inspection."
+    },
+    "empty_result_loop_broad": {
+      "count": 39,
+      "share_of_max_steps": 0.8125,
+      "task_ids": [
+        "spider_dev_0060",
+        "spider_dev_0105",
+        "spider_dev_0106",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0152",
+        "spider_dev_0158",
+        "spider_dev_0175",
+        "spider_dev_0176",
+        "spider_dev_0201",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0233",
+        "spider_dev_0234",
+        "spider_dev_0235",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0249",
+        "spider_dev_0250",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0293",
+        "spider_dev_0354",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0549",
+        "spider_dev_0550",
+        "spider_dev_0576",
+        "spider_dev_0642",
+        "spider_dev_0809",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0909"
+      ]
+    },
+    "empty_result_loop_strict": {
+      "count": 36,
+      "share_of_max_steps": 0.75,
+      "task_ids": [
+        "spider_dev_0060",
+        "spider_dev_0105",
+        "spider_dev_0106",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0158",
+        "spider_dev_0175",
+        "spider_dev_0201",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0233",
+        "spider_dev_0234",
+        "spider_dev_0235",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0249",
+        "spider_dev_0250",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0293",
+        "spider_dev_0354",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0549",
+        "spider_dev_0550",
+        "spider_dev_0642",
+        "spider_dev_0809",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0909"
+      ]
+    },
+    "abandoned_a_correct_query": {
+      "verified": true,
+      "count": 18,
+      "share_of_max_steps": 0.375,
+      "share_of_benchmark_pp": 1.7408123791102514,
+      "share_of_benchmark_meaning": "Observed theoretical headroom: the share of the benchmark where a verifier-passing query was already executed and never submitted. It is NOT guaranteed recoverable accuracy - no intervention has been measured, and any intervention that changes behaviour here would change it on other episodes too.",
+      "task_ids": [
+        "spider_dev_0043",
+        "spider_dev_0201",
+        "spider_dev_0233",
+        "spider_dev_0234",
+        "spider_dev_0235",
+        "spider_dev_0247",
+        "spider_dev_0249",
+        "spider_dev_0250",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0293",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0532",
+        "spider_dev_0809",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0909"
+      ],
+      "cases": [
+        {
+          "task_id": "spider_dev_0043",
+          "database_id": "concert_singer",
+          "question": "Find the number of concerts happened in the stadium with the highest capacity .",
+          "gold_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc limit 1)",
+          "passing_query": "SELECT COUNT(*) AS NumberOfConcerts\nFROM concert\nWHERE Stadium_ID = (SELECT Stadium_ID FROM stadium ORDER BY Capacity DESC LIMIT 1);",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 6,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 1,
+          "passing_result_was_empty": false,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 1,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0201",
+          "database_id": "flight_2",
+          "question": "What are airport names at City 'Aberdeen'?",
+          "gold_query": "SELECT AirportName FROM AIRPORTS WHERE City = \"Aberdeen\"",
+          "passing_query": "SELECT AirportName FROM airports WHERE City = 'Aberdeen';",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 5,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": false,
+          "distinct_queries_executed": 5,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0233",
+          "database_id": "flight_2",
+          "question": "What are airlines that have some flight departing from airport 'AHD'?",
+          "gold_query": "SELECT T1.Airline FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T1.uid  =  T2.Airline WHERE T2.SourceAirport  =  \"AHD\"",
+          "passing_query": "SELECT DISTINCT a.Airline \nFROM airlines a \nJOIN flights f ON a.uid = f.Airline \nWHERE f.SourceAirport = 'AHD';",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 1,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0234",
+          "database_id": "flight_2",
+          "question": "Which airlines have a flight with source airport AHD?",
+          "gold_query": "SELECT T1.Airline FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T1.uid  =  T2.Airline WHERE T2.SourceAirport  =  \"AHD\"",
+          "passing_query": "SELECT DISTINCT a.Airline\nFROM airlines a\nJOIN flights f ON a.uid = f.Airline\nWHERE f.SourceAirport = 'AHD';",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 1,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0235",
+          "database_id": "flight_2",
+          "question": "What are airlines that have flights arriving at airport 'AHD'?",
+          "gold_query": "SELECT T1.Airline FROM AIRLINES AS T1 JOIN FLIGHTS AS T2 ON T1.uid  =  T2.Airline WHERE T2.DestAirport  =  \"AHD\"",
+          "passing_query": "SELECT DISTINCT a.Airline \nFROM airlines a \nJOIN flights f ON a.uid = f.Airline \nWHERE f.DestAirport = 'AHD';",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 1,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0247",
+          "database_id": "flight_2",
+          "question": "What are flight numbers of flights departing from Airport \"APG\"?",
+          "gold_query": "SELECT FlightNo FROM FLIGHTS WHERE SourceAirport  =  \"APG\"",
+          "passing_query": "SELECT FlightNo FROM flights WHERE SourceAirport = 'APG';",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 3,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0249",
+          "database_id": "flight_2",
+          "question": "What are flight numbers of flights arriving at Airport \"APG\"?",
+          "gold_query": "SELECT FlightNo FROM FLIGHTS WHERE DestAirport  =  \"APG\"",
+          "passing_query": "SELECT FlightNo FROM flights WHERE DestAirport = 'APG'",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 2,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0250",
+          "database_id": "flight_2",
+          "question": "Give the flight numbers of flights landing at APG.",
+          "gold_query": "SELECT FlightNo FROM FLIGHTS WHERE DestAirport  =  \"APG\"",
+          "passing_query": "SELECT FlightNo FROM flights WHERE DestAirport = 'APG';",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 3,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0252",
+          "database_id": "flight_2",
+          "question": "Give the flight numbers of flights leaving from Aberdeen.",
+          "gold_query": "SELECT T1.FlightNo FROM FLIGHTS AS T1 JOIN AIRPORTS AS T2 ON T1.SourceAirport   =  T2.AirportCode WHERE T2.City  =  \"Aberdeen\"",
+          "passing_query": "SELECT f.FlightNo FROM flights f JOIN airports a ON f.SourceAirport = a.AirportCode WHERE a.City = 'Aberdeen';",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": false,
+          "distinct_queries_executed": 7,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0254",
+          "database_id": "flight_2",
+          "question": "Give the flight numbers of flights arriving in Aberdeen.",
+          "gold_query": "SELECT T1.FlightNo FROM FLIGHTS AS T1 JOIN AIRPORTS AS T2 ON T1.DestAirport   =  T2.AirportCode WHERE T2.City  =  \"Aberdeen\"",
+          "passing_query": "SELECT FlightNo FROM flights WHERE DestAirport IN (SELECT AirportCode FROM airports WHERE City = 'Aberdeen')",
+          "first_passing_at_model_turn": 9,
+          "first_passing_at_sql_call": 6,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 1,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": false,
+          "distinct_queries_executed": 6,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0293",
+          "database_id": "employee_hire_evaluation",
+          "question": "Which district has both stores with less than 3000 products and stores with more than 10000 products?",
+          "gold_query": "SELECT district FROM shop WHERE Number_products  <  3000 INTERSECT SELECT district FROM shop WHERE Number_products  >  10000",
+          "passing_query": "SELECT District FROM shop WHERE Number_products < 3000 GROUP BY District HAVING COUNT(*) > 0 INTERSECT SELECT District FROM shop WHERE Number_products > 10000 GROUP BY District HAVING COUNT(*) > 0;",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 8,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 6,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0397",
+          "database_id": "course_teach",
+          "question": "Show the hometowns shared by at least two teachers.",
+          "gold_query": "SELECT Hometown FROM teacher GROUP BY Hometown HAVING COUNT(*)  >=  2",
+          "passing_query": "SELECT Hometown FROM teacher GROUP BY Hometown HAVING COUNT(Teacher_ID) >= 2;",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 8,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 7,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0398",
+          "database_id": "course_teach",
+          "question": "What are the towns from which at least two teachers come from?",
+          "gold_query": "SELECT Hometown FROM teacher GROUP BY Hometown HAVING COUNT(*)  >=  2",
+          "passing_query": "SELECT Hometown FROM teacher GROUP BY Hometown HAVING COUNT(Teacher_ID) >= 2;",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 8,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 4,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0532",
+          "database_id": "student_transcripts_tracking",
+          "question": "What is the department description for the one whose name has the word computer?",
+          "gold_query": "SELECT department_description FROM Departments WHERE department_name LIKE '%computer%'",
+          "passing_query": "SELECT department_description FROM Departments WHERE department_name LIKE '%computer%';",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 5,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 1,
+          "passing_result_was_empty": false,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 2,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0809",
+          "database_id": "world_1",
+          "question": "Give the names of countries that are in Europe and have a population equal to 80000.",
+          "gold_query": "SELECT Name FROM country WHERE continent  =  \"Europe\" AND Population  =  \"80000\"",
+          "passing_query": "SELECT Name FROM country WHERE Continent = 'Europe' AND Population = 80000;",
+          "first_passing_at_model_turn": 3,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 7,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 3,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0842",
+          "database_id": "orchestra",
+          "question": "Show the names of conductors that have conducted more than one orchestras.",
+          "gold_query": "SELECT T1.Name FROM conductor AS T1 JOIN orchestra AS T2 ON T1.Conductor_ID  =  T2.Conductor_ID GROUP BY T2.Conductor_ID HAVING COUNT(*)  >  1",
+          "passing_query": "SELECT c.Name\nFROM conductor c\nJOIN orchestra o ON c.Conductor_ID = o.Conductor_ID\nGROUP BY c.Conductor_ID\nHAVING COUNT(o.Orchestra_ID) > 1;",
+          "first_passing_at_model_turn": 6,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 5,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 4,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 2,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0843",
+          "database_id": "orchestra",
+          "question": "What are the names of conductors who have conducted at more than one orchestra?",
+          "gold_query": "SELECT T1.Name FROM conductor AS T1 JOIN orchestra AS T2 ON T1.Conductor_ID  =  T2.Conductor_ID GROUP BY T2.Conductor_ID HAVING COUNT(*)  >  1",
+          "passing_query": "SELECT c.Name\nFROM conductor c\nJOIN orchestra o ON c.Conductor_ID = o.Conductor_ID\nGROUP BY c.Conductor_ID\nHAVING COUNT(DISTINCT o.Orchestra_ID) > 1;",
+          "first_passing_at_model_turn": 5,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 6,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 5,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 2,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        },
+        {
+          "task_id": "spider_dev_0909",
+          "database_id": "network_1",
+          "question": "What are the names of students who have 2 or more likes?",
+          "gold_query": "SELECT T2.name FROM Likes AS T1 JOIN Highschooler AS T2 ON T1.student_id  =  T2.id GROUP BY T1.student_id HAVING count(*)  >=  2",
+          "passing_query": "SELECT h.name\nFROM Highschooler h\nJOIN Likes l ON h.ID = l.student_id\nGROUP BY h.ID\nHAVING COUNT(l.liked_id) >= 2;",
+          "first_passing_at_model_turn": 4,
+          "first_passing_at_sql_call": 1,
+          "total_sql_calls": 7,
+          "model_turns_used": 10,
+          "model_turns_remaining_after": 6,
+          "passing_result_row_count": 0,
+          "passing_result_was_empty": true,
+          "equivalent_query_repeated_later": true,
+          "distinct_queries_executed": 3,
+          "termination_cause": "reached the model-turn cap without calling submit_answer"
+        }
+      ]
+    },
+    "cohort_overlap": {
+      "definition": "Exact intersection of episodes that abandoned a verifier-passing query with those matching empty_result_loop_broad.",
+      "abandoned_correct_query": 18,
+      "empty_result_loop_broad": 39,
+      "in_both": 16,
+      "abandoned_only": [
+        "spider_dev_0043",
+        "spider_dev_0532"
+      ],
+      "empty_result_only": [
+        "spider_dev_0060",
+        "spider_dev_0105",
+        "spider_dev_0106",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0152",
+        "spider_dev_0158",
+        "spider_dev_0175",
+        "spider_dev_0176",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0354",
+        "spider_dev_0549",
+        "spider_dev_0550",
+        "spider_dev_0576",
+        "spider_dev_0642"
+      ],
+      "passing_query_itself_returned_empty": 16,
+      "equivalent_query_repeated_later": 15
+    },
+    "upper_bound_if_all_max_steps_were_solved": {
+      "current_success_rate": 0.7330754352030948,
+      "ceiling": 0.7794970986460348,
+      "note": "A ceiling, not a forecast. It assumes every max-step episode would convert to a pass, which the data does not establish."
+    }
+  },
+  "substrate": "test_suite"
+}

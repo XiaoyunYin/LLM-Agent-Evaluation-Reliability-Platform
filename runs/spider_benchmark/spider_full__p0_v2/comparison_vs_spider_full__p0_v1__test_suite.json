@@ -1,0 +1,162 @@
+{
+  "generated_at": "2026-08-13T08:12:33.586895+00:00",
+  "run_a": "spider_full__p0_v1",
+  "run_b": "spider_full__p0_v2",
+  "substrate": "test_suite",
+  "verdict_source": "rescore__test_suite.json (offline, no model re-run)",
+  "task_sets": {
+    "shared": 1034,
+    "only_in_a": [],
+    "only_in_b": [],
+    "identical": true
+  },
+  "configuration": {
+    "identity_field_differences": {},
+    "same_experiment": true,
+    "expected_differences": {
+      "run_id": {
+        "a": "spider_full__p0_v1",
+        "b": "spider_full__p0_v2"
+      },
+      "started_at": {
+        "a": "2026-08-13T01:36:31.024326+00:00",
+        "b": "2026-08-13T03:30:28.822716+00:00"
+      }
+    },
+    "other_differences": {},
+    "fields_compared": [
+      "dataset",
+      "dataset_version",
+      "split",
+      "archive_sha256",
+      "dev_json_sha256",
+      "model_version",
+      "prompt_version",
+      "tool_schema_version",
+      "adapter_version",
+      "agent_version",
+      "max_steps",
+      "temperature",
+      "max_visible_rows",
+      "valid_task_count",
+      "excluded_task_ids",
+      "sampled",
+      "sample_seed"
+    ]
+  },
+  "sampling": {
+    "run_a": {
+      "temperature": 0.0,
+      "top_p": "not recorded (parameter not sent; provider default applied)",
+      "seed": "not recorded (parameter not sent)",
+      "requested_model_alias": "gpt-4o-mini",
+      "resolved_model_revision": "not captured for this run; the alias above was requested",
+      "determinism_note": "No seed was sent. These are repeated runs under an identical recorded configuration, NOT seeded runs. OpenAI's seed parameter is best-effort and would not make them deterministic either."
+    },
+    "run_b": {
+      "temperature": 0.0,
+      "top_p": "not recorded (parameter not sent; provider default applied)",
+      "seed": "not recorded (parameter not sent)",
+      "requested_model_alias": "gpt-4o-mini",
+      "resolved_model_revision": "not captured for this run; the alias above was requested",
+      "determinism_note": "No seed was sent. These are repeated runs under an identical recorded configuration, NOT seeded runs. OpenAI's seed parameter is best-effort and would not make them deterministic either."
+    }
+  },
+  "accuracy": {
+    "run_a": {
+      "passes": 673,
+      "total": 1034,
+      "rate": 0.6508704061895552
+    },
+    "run_b": {
+      "passes": 676,
+      "total": 1034,
+      "rate": 0.6537717601547389
+    },
+    "net_change_tasks": 3,
+    "net_change_rate": 0.0029013539651837525
+  },
+  "pass_fail_ledger": {
+    "definition": "PASS means termination_reason == SUCCESS. Counted per task, joined on task_id across the two runs.",
+    "pass_to_pass": 660,
+    "pass_to_fail": 13,
+    "fail_to_pass": 16,
+    "fail_to_fail": 345,
+    "total_pass_fail_flips": 29,
+    "flip_rate": 0.02804642166344294,
+    "identities": {
+      "cells_sum_to_shared_tasks": {
+        "expected": 1034,
+        "actual": 1034,
+        "holds": true
+      },
+      "flips_equal_offdiagonal": {
+        "expected": 29,
+        "actual": 29,
+        "holds": true
+      },
+      "net_change_matches_pass_counts": {
+        "fail_to_pass_minus_pass_to_fail": 3,
+        "passes_b_minus_passes_a": 3,
+        "holds": true
+      }
+    },
+    "all_identities_hold": true
+  },
+  "termination_reason_churn": {
+    "definition": "Any change in termination_reason, INCLUDING fail-to-fail changes that did not alter the outcome. Strictly larger than the pass/fail flip count, and not a substitute for it.",
+    "total_reason_changes": 47,
+    "of_which_fail_to_fail": 18,
+    "of_which_changed_outcome": 29,
+    "transitions": {
+      "VERIFICATION_FAILED->SUCCESS": 14,
+      "SUCCESS->VERIFICATION_FAILED": 9,
+      "MAX_STEPS->VERIFICATION_FAILED": 9,
+      "VERIFICATION_FAILED->MAX_STEPS": 8,
+      "SUCCESS->MAX_STEPS": 3,
+      "MAX_STEPS->SUCCESS": 2,
+      "VERIFICATION_FAILED->SQL_ERROR": 1,
+      "SUCCESS->SQL_ERROR": 1
+    }
+  },
+  "flipped_task_ids": {
+    "pass_to_fail": [
+      "spider_dev_0036",
+      "spider_dev_0061",
+      "spider_dev_0201",
+      "spider_dev_0212",
+      "spider_dev_0234",
+      "spider_dev_0250",
+      "spider_dev_0428",
+      "spider_dev_0479",
+      "spider_dev_0488",
+      "spider_dev_0530",
+      "spider_dev_0551",
+      "spider_dev_0633",
+      "spider_dev_0815"
+    ],
+    "fail_to_pass": [
+      "spider_dev_0044",
+      "spider_dev_0063",
+      "spider_dev_0065",
+      "spider_dev_0171",
+      "spider_dev_0236",
+      "spider_dev_0284",
+      "spider_dev_0308",
+      "spider_dev_0336",
+      "spider_dev_0606",
+      "spider_dev_0645",
+      "spider_dev_0667",
+      "spider_dev_0668",
+      "spider_dev_0738",
+      "spider_dev_0774",
+      "spider_dev_0856",
+      "spider_dev_0861"
+    ]
+  },
+  "classification": {
+    "diagnostic_only": true,
+    "in_p1_variance_family": false,
+    "why": "Marked diagnostic. These runs are not part of the P1 variance family, which is defined as runs executed from the p1-runner tag with an identical recorded configuration. Their churn bounds the noise floor only approximately and must not be used to derive CI thresholds."
+  }
+}
