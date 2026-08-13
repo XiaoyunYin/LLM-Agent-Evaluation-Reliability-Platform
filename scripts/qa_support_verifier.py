@@ -205,6 +205,32 @@ def main() -> int:
             "detail": "a forbidden ticket owned by the target customer is an ambiguity",
         })
 
+    # A task that identifies its target by (customer, signal) must have exactly one
+    # ticket answering to that description. Distinct from the fixture-wide check:
+    # this asserts the SELECTOR THE PROMPT USES is unique, which is the thing that
+    # actually failed. distractor_resolution originally selected on the topic
+    # ("shipping delays"), and the topic spans two signals that one customer holds
+    # both of - so the fixture check passed while the task stayed ambiguous.
+    for entry in tasks:
+        spec = entry["spec"]
+        selector = (spec.metadata or {}).get("selector_signal")
+        customer = (spec.metadata or {}).get("selector_customer")
+        if not selector or not customer:
+            continue
+        matches = [
+            key for key, row in fixture_tickets.items()
+            if row["customer_id"] == customer
+            and signal_for_subject(row["subject"]) == selector
+        ]
+        targets = {c.key for c in spec.required_changes}
+        ok = len(matches) == 1 and set(matches) == targets
+        checks.append({
+            "task_id": spec.task_id, "check": "prompt_selector_resolves_uniquely",
+            "expected": "PASS", "actual": "PASS" if ok else "FAIL", "ok": ok,
+            "outcome": f"{len(matches)} match(es) {sorted(matches)} vs target {sorted(targets)}",
+            "detail": "the description the prompt uses must name exactly one ticket",
+        })
+
     # Policy-driven tasks must require everything the policy mandates. SUP-noop-003
     # required only the team assignment while POL-002 also mandates normal
     # priority, so an agent that applied the policy exactly was failed for an
