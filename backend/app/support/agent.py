@@ -137,7 +137,11 @@ class SupportAgentConfig:
     # Derived from the reference-trajectory distribution, not guessed:
     # longest reference is 4 tool calls + 1 finish_task = 5 model turns, and the
     # budget is 2x that. Recomputed and frozen after expansion to ~80 tasks.
-    max_steps: int = 10
+    # Frozen at 15 = ceil(2.5 x 6), where 6 is the longest legitimate reference
+    # (5 tool calls + finish_task) measured across all 79 references. The worst
+    # observed SUCCESSFUL episode used 9 turns, so nothing in the suite is
+    # budget-bound. Derivation: docs/P3_BUDGET_DERIVATION.md.
+    max_steps: int = 15
     temperature: float = 0.0
     top_p: float | None = None
     seed: int | None = None

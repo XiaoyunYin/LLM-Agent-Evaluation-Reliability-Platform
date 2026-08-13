@@ -40,7 +40,11 @@ from backend.app.spider.trajectory import TrajectoryStore  # noqa: E402
 from backend.app.support.agent import AGENT_VERSION, PROMPT_VERSION  # noqa: E402
 from backend.app.support.environment import SupportEnvironment  # noqa: E402
 from backend.app.support.normalize import NORMALIZATION_VERSION  # noqa: E402
-from backend.app.support.schema import SCHEMA_VERSION, build_fixture  # noqa: E402
+from backend.app.support.schema import (  # noqa: E402
+    DEFAULT_TICKET_COUNT,
+    SCHEMA_VERSION,
+    build_fixture,
+)
 from backend.app.support.tasks import TASK_FAMILY_VERSION, build_tasks  # noqa: E402
 from backend.app.support.tools import (  # noqa: E402
     CONTRACT_STAGE,
@@ -59,7 +63,7 @@ RESULT_DIR = REPO_ROOT / "runs" / "support_reference_replay"
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tickets", type=int, default=60)
+    parser.add_argument("--tickets", type=int, default=DEFAULT_TICKET_COUNT)
     parser.add_argument("--run-id", default="support_reference_replay")
     args = parser.parse_args()
 

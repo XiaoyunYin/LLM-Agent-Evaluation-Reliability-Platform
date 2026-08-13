@@ -52,7 +52,11 @@ from backend.app.support.agent import (  # noqa: E402
 )
 from backend.app.support.environment import SupportEnvironment  # noqa: E402
 from backend.app.support.normalize import NORMALIZATION_VERSION  # noqa: E402
-from backend.app.support.schema import SCHEMA_VERSION, build_fixture  # noqa: E402
+from backend.app.support.schema import (  # noqa: E402
+    DEFAULT_TICKET_COUNT,
+    SCHEMA_VERSION,
+    build_fixture,
+)
 from backend.app.support.tasks import TASK_FAMILY_VERSION, build_tasks  # noqa: E402
 from backend.app.support.tools import (  # noqa: E402
     CONTRACT_STAGE,
@@ -212,7 +216,7 @@ def main() -> int:
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--limit", type=int, default=None)
-    parser.add_argument("--tickets", type=int, default=60)
+    parser.add_argument("--tickets", type=int, default=DEFAULT_TICKET_COUNT)
     parser.add_argument("--stage", default="calibration")
     parser.add_argument("--empty-result-policy", default=None,
                         choices=["baseline", "accept_empty"])

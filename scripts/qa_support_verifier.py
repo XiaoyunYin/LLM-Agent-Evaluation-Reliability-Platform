@@ -39,6 +39,7 @@ if str(REPO_ROOT) not in sys.path:
 from backend.app.support.environment import SupportEnvironment  # noqa: E402
 from backend.app.support.normalize import NORMALIZATION_VERSION  # noqa: E402
 from backend.app.support.schema import (  # noqa: E402
+    DEFAULT_TICKET_COUNT,  # noqa: E402
     FIXTURE_VERSION,
     SCHEMA_VERSION,
     build_fixture,
@@ -62,7 +63,7 @@ def replay(task_spec, actions: list[tuple[str, dict]], workspace: Path) -> Any:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tickets", type=int, default=60)
+    parser.add_argument("--tickets", type=int, default=DEFAULT_TICKET_COUNT)
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
