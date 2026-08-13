@@ -27,7 +27,7 @@ SCHEMA_VERSION = "support_schema_v2"
 # bound below this, not design-bound.
 DEFAULT_TICKET_COUNT = 120
 
-FIXTURE_VERSION = "support_fixture_v4"
+FIXTURE_VERSION = "support_fixture_v5"
 FIXTURE_SEED = 20260813
 
 # Enums are closed sets. Tools validate against them, so an agent cannot invent a
@@ -192,10 +192,14 @@ _SUBJECTS = [
      "Security report: another customer's data visible in export.", "security"),
     ("Need invoice copy", "billing",
      "Requesting a copy of the February invoice.", "billing_general"),
+    # DISTINCT from shipping_delay on purpose. POL-004 applies only above 48
+    # hours, and more importantly a signal shared by two subjects re-creates the
+    # ambiguity the fixture fix removed: a customer could hold two tickets that
+    # both answer to "their shipping ticket". Signals must be 1:1 with subjects.
     ("Shipment delayed by one day", "shipping",
-     "Delivery is about 20 hours late.", "shipping_delay"),
+     "Delivery is about 20 hours late.", "shipping_minor"),
     ("Cannot add team member", "accounts",
-     "Seat limit reached when adding a user.", "lockout"),
+     "Seat limit reached when adding a user.", "seat_limit"),
     ("Dashboard loads slowly", "technical",
      "Reports take about 30 seconds to load.", "performance"),
 ]
