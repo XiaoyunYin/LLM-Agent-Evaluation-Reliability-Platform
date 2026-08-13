@@ -562,15 +562,28 @@ published systems receive the full schema in the prompt and emit SQL in one
 generation. This agent receives only a question and a database ID and must
 discover the schema through tool calls. Different task.
 
-The metric is **single-database execution accuracy**. It is never to be called
-test-suite accuracy: the distilled multi-database test suite was not used.
+The P0 headline metric is **single-database execution accuracy**, which is what
+the frozen baseline was measured and audited under.
+
+The distilled test suite has since been installed and both frozen runs rescored
+offline from their persisted SQL (no model re-run). On the canonical baseline:
+**test-suite execution accuracy 65.38%** (676 / 1,034) against single-database
+73.31%, a 7.93pp gap — meaning **10.82% of single-database passes are false
+positives** under the tighter substrate. `fail → pass` was 0, as a strictly tighter
+metric requires.
+
+Quote the two together. Neither replaces the other, and neither may be called by
+the other's name.
 
 One run, one model, one prompt, one tool schema.
 
 ### Must not say
 
 - ❌ *"73.3% on Spider"* without stating the tool-discovery protocol.
-- ❌ *"test-suite execution accuracy"* — the test-suite databases were not used.
+- ❌ Calling the 73.31% figure *"test-suite execution accuracy"* — that name belongs
+  to the 65.38% figure, measured on the distilled suite.
+- ❌ Quoting 65.38% as "the" accuracy without the single-database figure beside it,
+  or vice versa.
 - ❌ *"0.51% SQL error rate"* — that was the superseded v1 figure; the current one
   is 1.16%, and either way it is a **tool-call** rate, not an episode outcome rate.
 - ❌ *"9.36 steps per task"* — ambiguous. Say 4.67 model turns, or 9.34 trajectory

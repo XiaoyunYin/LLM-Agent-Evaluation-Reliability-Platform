@@ -1,0 +1,82 @@
+{
+  "policy_version": "p1_draft_unarmed",
+  "status": "NOT ARMED",
+  "why_not_armed": [
+    "Thresholds must be derived from measured same-commit repeat variability, per docs/P1_PREREGISTRATION.md.",
+    "Those repeats are blocked on the OpenAI requests-per-day quota (10,000/day; one full run costs ~5,200 requests).",
+    "Until the variance table exists, every threshold below is null. A gate with an invented threshold is worse than no gate: it manufactures confidence."
+  ],
+  "threshold_formula": "max(2 x observed_spread_across_repeats, minimum_detectable_change)",
+  "threshold_formula_source": "docs/P1_PREREGISTRATION.md, fixed before any repeat ran",
+  "superseded": {
+    "previous_policy": "eval score drop > 5%, latency increase > 15%, cost increase > 15%",
+    "why_superseded": "Those numbers were chosen by judgement, not measured. The two P0 full runs differed by 34 pass/fail flips under an identical recorded configuration, so a 5% accuracy threshold was never anchored to anything observed."
+  },
+  "gate": {
+    "description": "Fails CI when exceeded. Only metrics whose same-commit variability has been measured may be armed here.",
+    "metrics": {
+      "task_success_rate": {
+        "definition": "SUCCESS episodes / episodes measured, single-database execution accuracy",
+        "direction": "decrease_is_bad",
+        "threshold": null,
+        "armed": false
+      },
+      "consistency_pass_pow_k": {
+        "definition": "Share of tasks passing in every repeat of a run set",
+        "direction": "decrease_is_bad",
+        "threshold": null,
+        "armed": false,
+        "note": "Requires k repeats per side; cannot be evaluated from a single run."
+      },
+      "mean_model_turns_per_success": {
+        "definition": "Model API calls per successful episode",
+        "direction": "increase_is_bad",
+        "threshold": null,
+        "armed": false
+      },
+      "tool_validity_rate": {
+        "definition": "1 - (tool calls with arguments not matching the declared schema / tool calls)",
+        "direction": "decrease_is_bad",
+        "threshold": null,
+        "armed": false
+      },
+      "estimated_cost_per_success": {
+        "definition": "Total estimated cost / successful episodes, from token counts and the pricing snapshot",
+        "direction": "increase_is_bad",
+        "threshold": null,
+        "armed": false,
+        "note": "Token-derived, not billed. Insulated from provider latency, unlike wall-clock cost proxies."
+      }
+    }
+  },
+  "monitor": {
+    "description": "Reported on every run, never fails CI.",
+    "metrics": {
+      "external_api_p95_latency_ms": {
+        "why_monitor_only": "Dominated by provider-side variation this project does not control. Measured directly: a 5-token call ranged 0.5s to 18s within one hour, and the cause was the SDK silently retrying 429s. Gating on it would fail CI for someone else's incident.",
+        "armed": false
+      },
+      "termination_reason_distribution": {
+        "why_monitor_only": "The taxonomy is not yet stable enough to gate. Two runs of an identical recorded configuration produced 49 termination-reason changes, of which 15 were fail-to-fail (e.g. VERIFICATION_FAILED to MAX_STEPS). Gating on a distribution that churns without any outcome changing would fire on noise.",
+        "promotion_criterion": "Promote to gate once same-commit repeats show its fail-to-fail churn is small relative to the effect sizes worth catching.",
+        "armed": false
+      },
+      "episode_wall_clock_latency_ms": {
+        "why_monitor_only": "Same provider-side exposure as API latency, plus it now depends on the run's concurrency setting.",
+        "armed": false
+      }
+    }
+  },
+  "always_fail_regardless_of_threshold": {
+    "description": "Infrastructure correctness is not a tunable metric. Any non-zero value here invalidates the run's quality numbers, so it fails CI unconditionally.",
+    "conditions": [
+      "generation_infrastructure_failures > 0",
+      "tool_infrastructure_failures > 0",
+      "evaluator_infrastructure_failures > 0",
+      "gold_query_failures > 0",
+      "missing_trajectories > 0",
+      "duplicate_task_ids non-empty",
+      "trace_check.matches_trajectory is false"
+    ]
+  }
+}

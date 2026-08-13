@@ -7,7 +7,7 @@ Everything required to regenerate the P0 Spider benchmark. Content hashes
 sit beside version labels because a label does not change when the thing it
 names is edited — the hash does.
 
-Frozen at: 2026-08-13T05:20:50.253461+00:00  
+Frozen at: 2026-08-13T07:44:03.058750+00:00  
 Run ID: `spider_full__p0_v2`  
 Code commit: `ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7`  **(working tree dirty at run time)**
 
@@ -95,7 +95,7 @@ Repeated executions of this configuration are 'repeated runs under an identical 
 
 | File | Bytes | sha256 |
 |---|---:|---|
-| `claims_audit.json` | 18,948 | `c621d07ff6f995a0…` |
+| `claims_audit.json` | 19,358 | `f51346e5b90fde52…` |
 | `config.json` | 51,229 | `c01c1b3b2a4ed602…` |
 | `episodes.jsonl` | 1,409,724 | `1705b56e94ec7728…` |
 | `failure_analysis.json` | 36,422 | `cece8099b8762849…` |

@@ -31,7 +31,9 @@ import os
 import random
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -67,6 +69,8 @@ from backend.app.tracing import (  # noqa: E402
     force_flush_traces,
     get_tracer,
 )
+from opentelemetry import context as otel_context  # noqa: E402
+from opentelemetry.trace import set_span_in_context  # noqa: E402
 
 # Fixed so `--sample` selects the same tasks on every run. A benchmark whose task
 # subset changes between runs cannot support a regression comparison.
@@ -190,6 +194,17 @@ def main() -> int:
     )
     parser.add_argument("--workspace", default=None, help="Where episode DB copies go.")
     parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=1,
+        help=(
+            "Episodes to run in parallel. Episodes are independent - each gets its "
+            "own database copy and its own conversation - so concurrency changes "
+            "wall time, not per-episode behaviour. Recorded in the run config. "
+            "Default 1 preserves the sequential mode the P0 baseline used."
+        ),
+    )
+    parser.add_argument(
         "--disable-tool-validation",
         action="store_true",
         help=(
@@ -272,6 +287,7 @@ def main() -> int:
         "max_steps": args.max_steps,
         "temperature": args.temperature,
         "max_visible_rows": MAX_VISIBLE_ROWS,
+        "concurrency": args.concurrency,
         "selected_task_count": len(tasks),
         "selected_task_ids": [task.task_id for task in tasks],
         "sampled": args.sample,
@@ -285,6 +301,7 @@ def main() -> int:
     label = "MOCK REHEARSAL" if args.mock else f"stage={args.stage}"
     print(f"Run {run_id} [{label}]")
     print(f"  model            {args.model} (prompt {args.prompt_version}, max_steps {args.max_steps})")
+    print(f"  concurrency      {args.concurrency}")
     print(f"  dataset          {task_set.dataset_version}")
     print(f"  valid tasks      {len(task_set):,}  excluded {len(task_set.excluded)}")
     print(f"  selected         {len(tasks):,}  already done {len(already_done):,}  to run {len(pending):,}")
@@ -311,30 +328,63 @@ def main() -> int:
         run_span.set_attribute("tool_schema.version", TOOL_SCHEMA_VERSION)
         run_span.set_attribute("run.task_count", len(pending))
         run_span.set_attribute("run.is_mock", args.mock)
+        run_span.set_attribute("run.concurrency", args.concurrency)
         print(f"  trace_id         {current_trace_id()}\n")
 
-        for index, task in enumerate(pending, start=1):
-            episode = agent.run_episode(
-                task=task,
-                run_id=run_id,
-                store=store,
-                dataset_version=task_set.dataset_version,
-                workspace=args.workspace,
-            )
-            reason = episode.termination_reason.value
-            counts[reason] = counts.get(reason, 0) + 1
-            total_cost += episode.estimated_cost
-            if episode.termination_reason is TerminationReason.SUCCESS:
-                passed += 1
+        # Worker threads start with an empty OTel context, so an episode span
+        # opened there would become a root span and lose its eval.run parent.
+        # The run span's context is captured once and re-attached inside each
+        # worker, which keeps the trace tree identical to the sequential mode.
+        run_context = set_span_in_context(run_span)
+        progress_lock = threading.Lock()
+        completed = 0
 
-            if not args.quiet:
-                marker = "PASS" if episode.termination_reason is TerminationReason.SUCCESS else "    "
-                print(
-                    f"  [{index:>4}/{len(pending)}] {marker} {task.task_id} "
-                    f"{reason:<20} steps={episode.total_steps:<3} "
-                    f"tok={episode.input_tokens + episode.output_tokens:<6} "
-                    f"${episode.estimated_cost:.5f}"
+        def execute(task):
+            token = otel_context.attach(run_context)
+            try:
+                return task, agent.run_episode(
+                    task=task,
+                    run_id=run_id,
+                    store=store,
+                    dataset_version=task_set.dataset_version,
+                    workspace=args.workspace,
                 )
+            finally:
+                otel_context.detach(token)
+
+        def record(task, episode) -> None:
+            nonlocal passed, total_cost, completed
+            with progress_lock:
+                completed += 1
+                index = completed
+                reason = episode.termination_reason.value
+                counts[reason] = counts.get(reason, 0) + 1
+                total_cost += episode.estimated_cost
+                if episode.termination_reason is TerminationReason.SUCCESS:
+                    passed += 1
+                if not args.quiet:
+                    marker = (
+                        "PASS"
+                        if episode.termination_reason is TerminationReason.SUCCESS
+                        else "    "
+                    )
+                    print(
+                        f"  [{index:>4}/{len(pending)}] {marker} {task.task_id} "
+                        f"{reason:<20} steps={episode.total_steps:<3} "
+                        f"tok={episode.input_tokens + episode.output_tokens:<6} "
+                        f"${episode.estimated_cost:.5f}"
+                    )
+
+        if args.concurrency <= 1:
+            for task in pending:
+                _, episode = execute(task)
+                record(task, episode)
+        else:
+            with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
+                futures = [pool.submit(execute, task) for task in pending]
+                for future in as_completed(futures):
+                    task, episode = future.result()
+                    record(task, episode)
 
         elapsed = time.perf_counter() - started
         run_span.set_attribute("run.passed", passed)
