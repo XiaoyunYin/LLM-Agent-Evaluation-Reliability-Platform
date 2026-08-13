@@ -633,33 +633,62 @@ Add a short benchmark-protocol note stating:
 
 ## Step 18 — Verify P0 Completion
 
-P0 is complete only when:
+**Status: complete.** Frozen baseline run `spider_full__p0_v2`, verified by
+`scripts/verify_p0_completion.py`: **25 passed, 0 failed, 0 unverified**.
 
-- [ ] Spider dev tasks run through the existing evaluation runner.
-- [ ] Dataset and benchmark versions are pinned.
-- [ ] A frozen verifier exclusion list exists if needed.
-- [ ] Every episode uses an isolated SQLite database.
-- [ ] Agent SQL access is read-only.
-- [ ] `inspect_schema` works.
-- [ ] `execute_sql` works.
-- [ ] SQL results shown to the model are capped.
-- [ ] Full SQL results are persisted separately.
-- [ ] The SUT is a LangGraph tool-using agent.
-- [ ] SQL correctness uses execution-based verification.
-- [ ] Gold/reference QA passes for all non-excluded tasks.
-- [ ] Known-bad verifier QA fails as expected.
-- [ ] Complete trajectories are persisted.
-- [ ] Model/tool/verifier steps emit OTel spans.
-- [ ] Trace data matches persisted trajectory data.
-- [ ] The full benchmark completes without unexplained infrastructure failures.
-- [ ] Task success is measured.
-- [ ] Steps per successful task are measured.
-- [ ] SQL execution-error rate is measured.
-- [ ] Token and cost metrics are measured.
-- [ ] Failure categories are measured.
-- [ ] The exact benchmark configuration is saved.
-- [ ] The benchmark protocol limitation is documented.
-- [ ] Metrics are reproducible from the stored run.
+Each criterion names the artifact that proves it. `R/` abbreviates
+`runs/spider_benchmark/spider_full__p0_v2/`.
+
+| # | Criterion | Evidence | Artifact |
+|---|---|---|---|
+| 1 | Spider dev tasks run through the evaluation runner | 1,034 episodes, `split=dev` | `R/episodes.jsonl`, `R/config.json` |
+| 2 | Dataset and benchmark versions are pinned | `spider-1.0:dev:30d64a3fccde`; archive sha256 `5ddff97bb1d4…` | `datasets/spider/PIN.json`, `R/baseline_manifest.json` |
+| 3 | A frozen verifier exclusion list exists if needed | 0 exclusions — every gold query passes | `docs/LOCKED_INPUTS.md` |
+| 4 | Every episode uses an isolated SQLite database | live probe: separate copies ✓, one DB per episode dir ✓, cleaned up ✓ | `R/p0_completion.json` |
+| 5 | Agent SQL access is read-only | guard blocked 5/5; SQLite `mode=ro` blocked 5/5 **with the guard bypassed** | `R/p0_completion.json` |
+| 6 | `inspect_schema` works | 2,832 successful of 2,851 calls | `R/steps.jsonl` (`tool_name="inspect_schema"`) |
+| 7 | `execute_sql` works | 1,363 successful of 1,379 calls | `R/steps.jsonl` (`tool_name="execute_sql"`) |
+| 8 | SQL results shown to the model are capped | cap 20; 2,098 model-visible results checked, 0 over cap | `R/payloads.jsonl` (`kind="model_input"`) |
+| 9 | Full SQL results are persisted separately | largest persisted result **20,662 rows** vs 20 shown — proves truncation happened | `R/payloads.jsonl` (`kind="tool_result"`) |
+| 10 | The SUT is a LangGraph tool-using agent | compiled nodes `{model, tool, finish, max_steps}`; all 1,034 episodes made >1 tool call | `backend/app/spider/agent.py`, `R/episodes.jsonl` |
+| 11 | SQL correctness uses execution-based verification | `spider-test-suite-sql-eval`, single-database execution accuracy, `plug_value=False`, `keep_distinct=False` | `R/episodes.jsonl` `verification_result`, `docs/P0_BASELINE.md` |
+| 12 | Gold/reference QA passes for all non-excluded tasks | **1,034 / 1,034** | `runs/spider_verifier_qa/verifier_qa_dev.json` → `gold_pass` |
+| 13 | Known-bad verifier QA fails as expected | **136 / 136** rejected, 0 leaks, 30 collisions recorded individually | `runs/spider_verifier_qa/verifier_qa_dev.json` → `known_bad` |
+| 14 | Complete trajectories are persisted | 10,432 steps; 0 missing, 0 duplicate, 0 step-count disagreements | `R/steps.jsonl`, `R/episodes.jsonl` |
+| 15 | Model/tool/verifier steps emit OTel spans | 10,432 / 10,432 steps carry a trace ID; 0 episodes without | `R/steps.jsonl` `trace_id` |
+| 16 | Trace data matches persisted trajectory data | **exact on all 7 span types**, enumerated from the trajectory rather than hand-listed | ES query in `R/p0_metrics.json` → `trace_check.reconciliation` |
+| 17 | The full benchmark completes without unexplained infrastructure failures | generation 0, tool 0, evaluator 0, gold 0, missing trajectories 0 | `R/p0_metrics.json` → `infrastructure_correctness` |
+| 18 | Task success is measured | **758 / 1,034 = 73.31%** single-database execution accuracy | `R/p0_metrics.json` → `primary`, `R/claims_audit.json` |
+| 19 | Steps per successful task are measured | **4.67 model turns**, 4.67 tool calls, 9.34 trajectory records (mean); medians 4.00 / 4.00 / 8.00 | `R/failure_analysis.json` → `step_decomposition` |
+| 20 | SQL execution-error rate is measured | **16 / 1,379 = 1.16%** tool-call rate; separately, 2 `SQL_ERROR` episode terminations | `R/failure_analysis.json` → `tool_vs_episode_errors` |
+| 21 | Token and cost metrics are measured | 3,782,629 in (478,848 cached) / 141,545 out; $0.616408 total, $0.000526 per successful episode; **reconciles exactly** | `R/claims_audit.json` → `cost_algebra` |
+| 22 | Failure categories are measured | all 7 reasons incl. zeros, summing exactly to 1,034 | `R/failure_analysis.json` → `termination_breakdown` |
+| 23 | The exact benchmark configuration is saved | 10/10 required fields, plus prompt and tool-spec **content hashes** | `R/config.json`, `R/baseline_manifest.json`, `docs/P0_BASELINE.md` |
+| 24 | The benchmark protocol limitation is documented | tool-discovered schema, not leaderboard-comparable, controlled deltas | `docs/benchmark-protocol.md` |
+| 25 | Metrics are reproducible from the stored run | success rate and token totals recomputed from `episodes.jsonl` and matched; `audit_p0_claims` reports `all_reconciled: True` | `R/claims_audit.json` |
+
+Reproduce every row:
+
+```powershell
+python scripts/report_spider_metrics.py --run-id spider_full__p0_v2 --check-traces
+python scripts/analyze_spider_failures.py --run-id spider_full__p0_v2
+python scripts/audit_p0_claims.py --run-id spider_full__p0_v2
+python scripts/verify_p0_completion.py --run-id spider_full__p0_v2
+python scripts/freeze_p0_baseline.py --run-id spider_full__p0_v2 --verify
+```
+
+Note on criterion 11: the run persisted the metric's pre-rename identifier
+`execution_accuracy_original_db`. The metric is unchanged — same evaluator, same
+flags, same semantics — and is now named `single_database_execution_accuracy`
+everywhere. Frozen artifacts are immutable, so the verifier accepts the legacy ID
+and says so.
+
+Results: `docs/results/spider-p0.md`. Claim and scope: `docs/claims.md` §6.
+Frozen inputs: `docs/P0_BASELINE.md`.
+
+A superseded first run, `spider_full__p0_v1`, is retained. It measured 73.69%
+under an identical configuration and is the basis for the run-to-run comparison in
+`docs/results/spider-p0.md` §2.
 
 ---
 

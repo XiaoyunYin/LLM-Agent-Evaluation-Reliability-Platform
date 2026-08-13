@@ -2,7 +2,93 @@
 
 [![Eval Regression Gate](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform/actions/workflows/eval-regression-gate.yml)
 
-An end-to-end LLM evaluation and regression-testing platform for measuring RAG candidate answers, validating judge behavior, routing judge disagreements to review, and blocking regressions in CI.
+An end-to-end LLM evaluation and regression-testing platform. It measures two
+kinds of system against ground truth: RAG candidate answers scored by validated
+LLM judges, and **tool-using SQL agents scored by executing their SQL**.
+
+## Spider SQL-agent evaluation (P0)
+
+The newest capability, and the one with the strongest correctness signal, because
+nothing here depends on a judge's opinion: an agent's SQL either returns gold's
+rows or it does not.
+
+A minimal LangGraph agent gets a question, an isolated read-only SQLite database,
+and three tools — `inspect_schema`, `execute_sql`, `submit_answer`. It is **not**
+given the schema in its prompt; it has to discover it. Every model step, tool
+call, and verification is persisted as a trajectory and emitted as an OTel span.
+
+Frozen baseline: run `spider_full__p0_v2`. Every figure below is **recomputed from
+the raw artifact** by `scripts/audit_p0_claims.py`, which reports MISMATCH if a
+published number and its source disagree.
+
+| Metric | Measured | Definition / denominator |
+|---|---:|---|
+| Spider dev tasks (full pinned split) | **1,034** | 20 databases, 0 excluded |
+| **Single-database execution accuracy** | **73.31%** | 758 / 1,034 episodes |
+| Verification failures | 226 (21.86%) | episodes |
+| Max-step terminations | 48 (4.64%) | episodes |
+| `SQL_ERROR` terminations | 2 (0.19%) | episodes — *final submitted* query failed to run |
+| Infrastructure failures (model / tool / evaluator) | **0 / 0 / 0** | episodes |
+| `execute_sql` error rate | **1.16%** | 16 / 1,379 **tool calls** — not an episode rate |
+| Model turns per successful task | **4.67** mean, 4.00 median | `max_steps=10` caps model turns |
+| Tool calls per successful task | 4.67 mean, 4.00 median | |
+| Trajectory records per successful task | 9.34 mean, 8.00 median | = model turns + tool calls |
+| Episodes using both tools | **1,034 of 1,034** | |
+| Est. cost per successful episode | **$0.000526** | list price, not billed |
+| Benchmark-only estimated cost | $0.616408 | this run only |
+| Total real API spend, all P0 dev+test | **$1.2780** | 2,139 episodes across 6 runs |
+| Trajectory step records | 10,432 | |
+| Spans indexed in Elasticsearch | **13,832** | |
+| Trace ↔ trajectory reconciliation | **exact on all 7 span types** | enumerated from the data, not hand-listed |
+| Gold-pass verifier QA | **1,034 / 1,034**, 0 exclusions | frozen before any agent ran |
+| Known-bad verifier QA | **136 / 136** detected, 0 leaks | of 166 mutations attempted |
+| Execution-result collisions | 30 (18.07% of attempted) | a property of the mutation set, *not* the agent |
+| P0 completion criteria verified | **25 / 25** | `p0_completion.json` |
+
+**The accuracy figure is not leaderboard-comparable.** Published Spider systems are
+handed the full schema and emit SQL in one shot; this agent has to go find the
+schema. Different task. The metric is **single-database execution accuracy** — not
+test-suite accuracy, which needs the distilled multi-database suite this does not
+use. See [docs/benchmark-protocol.md](docs/benchmark-protocol.md).
+
+Full write-up: [docs/results/spider-p0.md](docs/results/spider-p0.md).
+Frozen pins with content hashes: [docs/P0_BASELINE.md](docs/P0_BASELINE.md).
+
+**The most useful thing this run produced.** The same configuration was run twice
+with zero differing config fields. The aggregate moved 0.39 points (73.69% →
+73.31%) — but **49 of 1,034 tasks (4.7%) flipped outcome**. Aggregate stability hid
+per-task instability. That is n=2 and is *not* a variance estimate; it is recorded
+as direct evidence for why a CI regression threshold cannot be set from one run.
+
+Two findings pulled out of the trajectories (debugging findings, not headline
+claims — see `docs/claims.md` §6 for the scope of each):
+
+- A tool that accepted a wrong argument name and returned a plausible-looking
+  wrong answer. `inspect_schema({"table": ...})` returned the *table list*, and the
+  agent looped to its step cap unable to detect it. The mechanism persists at
+  scale: the model still sends `{"table": ...}` 19 times in 1,034 episodes, now
+  answered with a corrective error.
+- **25 of 48** max-step terminations executed a query that **passes the evaluator**
+  and never submitted it — established by re-verifying every executed query, not by
+  inspection. The agent reads a valid zero-row result as proof it was wrong. Left
+  unfixed on purpose: P0 measures a baseline.
+
+```powershell
+python scripts/download_spider.py
+python scripts/qa_spider_evaluator.py --split dev
+python scripts/run_spider_benchmark.py --mock --limit 5     # free rehearsal
+python scripts/run_spider_benchmark.py --stage full
+python scripts/report_spider_metrics.py --run-id <run_id> --check-traces
+python scripts/analyze_spider_failures.py --run-id <run_id>
+python scripts/audit_p0_claims.py --run-id <run_id>
+python scripts/verify_p0_completion.py --run-id <run_id>
+python scripts/freeze_p0_baseline.py --run-id <run_id> --verify
+```
+
+## RAG evaluation and judge validation
+
+The original platform: measuring RAG candidate answers, validating judge
+behavior, routing judge disagreements to review, and blocking regressions in CI.
 
 ## At a Glance
 
@@ -582,7 +668,7 @@ The committed metric files are gate fixtures. They prove the blocking behavior; 
 - All four scale targets are met by measurement: 79 runs (60+), 9,480 candidate answers (8K+), 9,480 judged (8K+), and 32,412 trace spans (10K+). Generation and judging both completed with zero failures.
 - The 79 runs are 9 distinct retrieval/prompt configurations repeated at temperature 0.7. Measured, 95 of 120 answers differ between a temperature-0 baseline and a temperature-0.7 repeat, so repeats are genuine regression-stability samples rather than duplicates — but they are not 79 independent experiments.
 - Dense and hybrid retrieval quality results are pending because the saved measured artifact currently supports BM25-only quality numbers.
-- Elasticsearch holds only 3 span documents across 1 trace. The pipeline is proven, but no trace volume has been generated from real eval runs.
+- Trace volume is now generated by real eval runs: the Spider P0 benchmark indexed **13,832 spans** for a single run, and span counts reconcile exactly against the persisted trajectory records across all seven span types. The earlier note that Elasticsearch held only 3 smoke-test spans is superseded by that measurement.
 - Dashboard screenshots are pending; the README references them but the image files are not committed yet.
 - Bulk-judging average output tokens per answer and sustained bulk-run tok/s were not captured by the bulk script.
 

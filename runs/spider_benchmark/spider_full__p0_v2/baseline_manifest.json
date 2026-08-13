@@ -1,0 +1,98 @@
+{
+  "frozen_at": "2026-08-13T04:52:23.654574+00:00",
+  "run_id": "spider_full__p0_v2",
+  "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
+  "code_working_tree_dirty": true,
+  "dataset": {
+    "benchmark": "spider-1.0",
+    "split": "dev",
+    "dataset_version": "spider-1.0:dev:30d64a3fccde",
+    "archive_url": "https://drive.usercontent.google.com/download?id=1TqleXec_OykOYFREKKtschzY29dUcVAQ&export=download&confirm=t",
+    "archive_sha256": "5ddff97bb1d421282c593e8d30ce0ce107270f4dd4a21d60eba4bf287d5956b1",
+    "archive_bytes": 99736136,
+    "dev_json_sha256": "30d64a3fccde493226df79687aed9e4a1c0129525baf44f29c0573d914d758a4",
+    "tables_json_sha256": "61bb20aa401f03164e2d7f3b16509b7b5f79cc9c943ca7bd159046df1159e2ed",
+    "dev_examples": 1034,
+    "databases": 166
+  },
+  "evaluator": {
+    "name": "spider-test-suite-sql-eval",
+    "metric": "single_database_execution_accuracy",
+    "source": "https://raw.githubusercontent.com/taoyds/test-suite-sql-eval/master/",
+    "plug_value": false,
+    "keep_distinct": false,
+    "vendored_file_sha256": {
+      "evaluation.py": "7401e4014a8955376a7919c06903a7f0ab403c99e89f94204cd8f4c8e32ae779",
+      "exec_eval.py": "29d034db28904490c28037537a14fbb0150b6e86cef0049076c0511d6b6b77f7",
+      "parse.py": "ef04211a6e1c1e142571157f5c1999613e3451084c044083b2de1977f1f622c5",
+      "process_sql.py": "927fc564f7a8e34f09f009a2f5564a83fdf95226440dde84c87871fd65fe55a1"
+    }
+  },
+  "exclusions": {
+    "source": "docs/LOCKED_INPUTS.md",
+    "count": 0,
+    "task_ids": []
+  },
+  "model": {
+    "model_version": "gpt-4o-mini",
+    "temperature": 0.0,
+    "max_steps_model_turn_cap": 10,
+    "pricing_snapshot_usd_per_1m": {
+      "input": 0.15,
+      "cached_input": 0.075,
+      "output": 0.6
+    },
+    "pricing_basis": "published list price, not a billed invoice"
+  },
+  "prompt": {
+    "prompt_version": "sql_agent_v1",
+    "prompt_sha256": "8bb3c2b460bb130dcaf8b4bacf7ea3ddfcad10ac662adb5fd6749494fb040d55",
+    "prompt_chars": 773
+  },
+  "tools": {
+    "tool_schema_version": "spider_tools_v2",
+    "tool_spec_sha256": "a0ca63507c9d18913b8e3febfd1ba22fd698595ea796da8ac43603f1bc633a7a",
+    "tool_names": [
+      "inspect_schema",
+      "execute_sql",
+      "submit_answer"
+    ],
+    "max_visible_rows": 20,
+    "max_cell_chars": 200,
+    "query_timeout_seconds": 30.0
+  },
+  "agent": {
+    "agent_version": "spider_langgraph_agent_v1",
+    "adapter_version": "spider_adapter_v1"
+  },
+  "artifacts": {
+    "config.json": {
+      "sha256": "c01c1b3b2a4ed602f5bd2ba23a2a05d8e1a82e411292561c49b70e99092b8be9",
+      "bytes": 51229
+    },
+    "episodes.jsonl": {
+      "sha256": "1705b56e94ec77287e72f76f9d03b94e8a6b729c05c42663ceb018597a138c04",
+      "bytes": 1409724
+    },
+    "steps.jsonl": {
+      "sha256": "5112a98bd8a2324227956ba74790d9f4fc2ec6c7ce68a0af4ff0a462f83868d4",
+      "bytes": 5596027
+    },
+    "p0_metrics.json": {
+      "sha256": "5a93bd2e56009465b0a87c3ac4335e4eb8576ceebb99194fdcf3a32351287490",
+      "bytes": 4743
+    },
+    "p0_completion.json": {
+      "sha256": "fe59f883296d9ba3b8c201c3992cae457facf2cb864f91fa0156ab9aca7347e9",
+      "bytes": 5152
+    },
+    "failure_analysis.json": {
+      "sha256": "9da56f4817337d6a4fb879e9cfb4a340696e18156c0e50fceeee2e08e53ceea1",
+      "bytes": 11454
+    },
+    "claims_audit.json": {
+      "sha256": "6e2c341c20d07fb5c963704a7513a2e7fa4cea7de53eee32c508913a56512ca8",
+      "bytes": 15125
+    }
+  }
+}

@@ -1,0 +1,400 @@
+{
+  "generated_at": "2026-08-13T03:24:13.831206+00:00",
+  "provenance": {
+    "run_id": "spider_full__p0_v1",
+    "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
+    "code_working_tree_dirty": true,
+    "dataset_version": "spider-1.0:dev:30d64a3fccde",
+    "archive_sha256": "5ddff97bb1d421282c593e8d30ce0ce107270f4dd4a21d60eba4bf287d5956b1",
+    "model_version": "gpt-4o-mini",
+    "prompt_version": "sql_agent_v1",
+    "tool_schema_version": "spider_tools_v2",
+    "agent_version": "spider_langgraph_agent_v1",
+    "adapter_version": "spider_adapter_v1",
+    "max_steps": 10,
+    "temperature": 0.0
+  },
+  "claims": [
+    {
+      "name": "task_success_rate",
+      "value": 0.7369439071566731,
+      "definition": "Episodes terminating SUCCESS divided by episodes measured. SUCCESS means the submitted SQL passed single-database execution accuracy against gold.",
+      "numerator": 762,
+      "denominator": 1034,
+      "source": "episodes.jsonl (termination_reason == 'SUCCESS')",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "execute_sql_error_rate",
+      "value": 0.005090909090909091,
+      "definition": "Failed execute_sql TOOL CALLS divided by total execute_sql TOOL CALLS. Tool-call denominator, not episodes. Distinct from the SQL_ERROR termination reason, which is episode-level.",
+      "numerator": 7,
+      "denominator": 1375,
+      "source": "steps.jsonl (tool_name == 'execute_sql')",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "sql_error_terminations",
+      "value": 0,
+      "definition": "Episodes whose FINAL SUBMITTED query failed to execute. Episode denominator. Not to be reported alongside the tool-call error rate.",
+      "numerator": 0,
+      "denominator": 1034,
+      "source": "episodes.jsonl (termination_reason == 'SQL_ERROR')",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "mean_model_turns_per_successful_task",
+      "value": 4.679790026246719,
+      "definition": "Model API calls per successful episode. This is what max_steps caps.",
+      "numerator": null,
+      "denominator": "762 successful episodes",
+      "source": "episodes.jsonl field model_steps",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "median_model_turns_per_successful_task",
+      "value": 4.0,
+      "definition": "Median model API calls per successful episode.",
+      "numerator": null,
+      "denominator": "762 successful episodes",
+      "source": "episodes.jsonl field model_steps",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "mean_tool_calls_per_successful_task",
+      "value": 4.679790026246719,
+      "definition": "Tool invocations per successful episode, counting inspect_schema, execute_sql, and the single terminating submit_answer.",
+      "numerator": null,
+      "denominator": "762 successful episodes",
+      "source": "episodes.jsonl field tool_steps",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "mean_trajectory_records_per_successful_task",
+      "value": 9.359580052493438,
+      "definition": "Rows written to steps.jsonl per successful episode = model turns + tool calls. This is the quantity previously published as 'steps', which was ambiguous.",
+      "numerator": null,
+      "denominator": "762 successful episodes",
+      "source": "episodes.jsonl field total_steps",
+      "status": "OK",
+      "note": "Superseded the ambiguous 'mean steps per successful task'."
+    },
+    {
+      "name": "trajectory_step_records",
+      "value": 10430,
+      "definition": "Total rows in steps.jsonl across the run.",
+      "numerator": null,
+      "denominator": "1034 episodes",
+      "source": "steps.jsonl line count",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "indexed_spans",
+      "value": 12817,
+      "definition": "OTel span documents in Elasticsearch carrying attributes.run.id == this run. Exceeds trajectory records because spans also cover eval.run, agent.episode, sqlite.query, and verifier.execution, none of which are trajectory step rows.",
+      "numerator": null,
+      "denominator": "span documents for this run.id",
+      "source": "p0_metrics.json trace_check (track_total_hits enabled)",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "benchmark_only_estimated_cost_usd",
+      "value": 0.6167676,
+      "definition": "Sum of per-episode estimated cost for THIS run only. Estimated from published list price, not billed.",
+      "numerator": null,
+      "denominator": "1034 episodes",
+      "source": "episodes.jsonl field estimated_cost",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "estimated_cost_per_episode_usd",
+      "value": 0.0005964870406189555,
+      "definition": "Benchmark-only estimated cost divided by episodes measured.",
+      "numerator": 0.6167676,
+      "denominator": 1034,
+      "source": "episodes.jsonl",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "estimated_cost_per_successful_episode_usd",
+      "value": 0.0005278129921259842,
+      "definition": "Cost of SUCCESSFUL episodes divided by successful episodes. Note this is not total cost / successes - it excludes spend on failed episodes.",
+      "numerator": 0.4021935,
+      "denominator": 762,
+      "source": "episodes.jsonl",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "total_input_tokens",
+      "value": 3773624,
+      "definition": "Prompt tokens reported by the API, summed over the run.",
+      "numerator": null,
+      "denominator": "1034 episodes",
+      "source": "episodes.jsonl field input_tokens",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "total_output_tokens",
+      "value": 141388,
+      "definition": "Completion tokens reported by the API, summed over the run.",
+      "numerator": null,
+      "denominator": "1034 episodes",
+      "source": "episodes.jsonl field output_tokens",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "gold_pass_qa",
+      "value": "1034/1034",
+      "definition": "Gold queries fed to the evaluator as if they were predictions, and passing. Run before any agent episode; empty exclusion list follows.",
+      "numerator": 1034,
+      "denominator": 1034,
+      "source": "runs/spider_verifier_qa/verifier_qa_dev.json gold_pass",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "known_bad_detected",
+      "value": "136/136",
+      "definition": "Deliberately wrong queries correctly rejected, among mutations that were FIRST PROVEN to return different rows from gold.",
+      "numerator": 136,
+      "denominator": 136,
+      "source": "runs/spider_verifier_qa/verifier_qa_dev.json known_bad",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "mutation_execution_collisions",
+      "value": 30,
+      "definition": "Mutations that changed the SQL text but returned exactly gold's rows on the shipped database, so they were discarded rather than counted as verifier leaks.",
+      "numerator": 30,
+      "denominator": 166,
+      "source": "runs/spider_verifier_qa/verifier_qa_dev.json known_bad",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "mutation_collision_rate",
+      "value": 0.18072289156626506,
+      "definition": "Collisions divided by mutations ATTEMPTED. A property of this mutation set on this database. It is NOT an estimate of the share of the agent's passes that are false positives - the agent's queries are not drawn from this mutation distribution.",
+      "numerator": 30,
+      "denominator": 166,
+      "source": "runs/spider_verifier_qa/verifier_qa_dev.json known_bad",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "max_step_episodes",
+      "value": 48,
+      "definition": "Episodes terminating MAX_STEPS (model-turn cap reached without submitting).",
+      "numerator": 48,
+      "denominator": 1034,
+      "source": "failure_analysis.json",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "empty_result_loop_broad",
+      "value": 35,
+      "definition": "Episode terminated MAX_STEPS AND executed at least one execute_sql call that returned row_count == 0 with error == None (a valid query returning no rows).",
+      "numerator": 35,
+      "denominator": 48,
+      "source": "failure_analysis.json (task IDs stored)",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "abandoned_a_correct_query",
+      "value": 29,
+      "definition": "Episode terminated MAX_STEPS AND at least one query it executed during the episode passes the official evaluator against gold. Established by re-running each executed query through verify_sql, not by inspection.",
+      "numerator": 29,
+      "denominator": 48,
+      "source": "failure_analysis.json (task IDs stored)",
+      "status": "OK",
+      "note": ""
+    },
+    {
+      "name": "p0_criteria_verified",
+      "value": "25/25",
+      "definition": "P0 completion criteria passing in scripts/verify_p0_completion.py.",
+      "numerator": null,
+      "denominator": null,
+      "source": "p0_completion.json",
+      "status": "OK",
+      "note": ""
+    }
+  ],
+  "cost_algebra": {
+    "pricing_snapshot_usd_per_1m": {
+      "input": 0.15,
+      "cached_input": 0.075,
+      "output": 0.6
+    },
+    "total_input_tokens": 3773624,
+    "total_output_tokens": 141388,
+    "stored_total_cost_usd": 0.6167676,
+    "persisted_cached_input_tokens": null,
+    "cached_input_tokens_persisted": false,
+    "cost_at_full_input_price_usd": 0.6508764,
+    "cache_discount_usd": 0.03410880000000005,
+    "implied_cached_input_tokens": 454784.00000000064,
+    "implied_cached_share_of_input": 0.12051651144894156,
+    "reconciles_exactly": null,
+    "limitation": "This run did not persist cached_input_tokens, so the cached count is solved backwards from the cost rather than read from the record. The arithmetic closes, but it is a consistency check, not an independent derivation. Runs after this fix persist the field."
+  },
+  "cost_ledger": {
+    "pricing_snapshot_usd_per_1m_tokens": {
+      "gpt-4o-mini": {
+        "input": 0.15,
+        "cached_input": 0.075,
+        "output": 0.6
+      },
+      "gpt-4o": {
+        "input": 2.5,
+        "cached_input": 1.25,
+        "output": 10.0
+      },
+      "gpt-4.1-mini": {
+        "input": 0.4,
+        "cached_input": 0.1,
+        "output": 1.6
+      }
+    },
+    "pricing_basis": "Published list price at time of run. NOT a billed invoice amount. Cached-input pricing is applied when the API reports cached prompt tokens, so recomputing cost from headline input/output prices alone yields a slightly higher figure.",
+    "runs": [
+      {
+        "run_id": "mockrehearsal_dev1",
+        "stage": "adhoc",
+        "is_mock": true,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v1",
+        "episodes": 6,
+        "successes": 3,
+        "input_tokens": 6960,
+        "output_tokens": 960,
+        "estimated_cost_usd": 0.00162
+      },
+      {
+        "run_id": "mockrehearsal_final",
+        "stage": "adhoc",
+        "is_mock": true,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v2",
+        "episodes": 4,
+        "successes": 2,
+        "input_tokens": 4640,
+        "output_tokens": 640,
+        "estimated_cost_usd": 0.00108
+      },
+      {
+        "run_id": "mockrehearsal_span",
+        "stage": "adhoc",
+        "is_mock": true,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v1",
+        "episodes": 1,
+        "successes": 1,
+        "input_tokens": 1160,
+        "output_tokens": 160,
+        "estimated_cost_usd": 0.00027
+      },
+      {
+        "run_id": "spider_debug__step14",
+        "stage": "debug",
+        "is_mock": false,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v2",
+        "episodes": 50,
+        "successes": 35,
+        "input_tokens": 184943,
+        "output_tokens": 7743,
+        "estimated_cost_usd": 0.03044805
+      },
+      {
+        "run_id": "spider_full__p0_v1",
+        "stage": "full",
+        "is_mock": false,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v2",
+        "episodes": 1034,
+        "successes": 762,
+        "input_tokens": 3773624,
+        "output_tokens": 141388,
+        "estimated_cost_usd": 0.6167676
+      },
+      {
+        "run_id": "spider_single__step9",
+        "stage": "single",
+        "is_mock": false,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v1",
+        "episodes": 1,
+        "successes": 1,
+        "input_tokens": 2263,
+        "output_tokens": 74,
+        "estimated_cost_usd": 0.00038385
+      },
+      {
+        "run_id": "spider_smoke__step13",
+        "stage": "smoke",
+        "is_mock": false,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v1",
+        "episodes": 10,
+        "successes": 5,
+        "input_tokens": 48178,
+        "output_tokens": 1419,
+        "estimated_cost_usd": 0.007713299999999999
+      },
+      {
+        "run_id": "spider_smoke__step13_v2",
+        "stage": "smoke",
+        "is_mock": false,
+        "model_version": "gpt-4o-mini",
+        "prompt_version": "sql_agent_v1",
+        "tool_schema_version": "spider_tools_v2",
+        "episodes": 10,
+        "successes": 8,
+        "input_tokens": 38106,
+        "output_tokens": 1596,
+        "estimated_cost_usd": 0.0063279
+      }
+    ],
+    "real_api_spend": {
+      "runs": 5,
+      "episodes": 1105,
+      "input_tokens": 4047114,
+      "output_tokens": 152220,
+      "estimated_cost_usd": 0.6616407
+    },
+    "mock_rehearsal_no_spend": {
+      "runs": 3,
+      "episodes": 11,
+      "input_tokens": 12760,
+      "output_tokens": 1760,
+      "estimated_cost_usd": 0.00297
+    }
+  },
+  "mismatches": [],
+  "all_reconciled": true,
+  "unverified": []
+}

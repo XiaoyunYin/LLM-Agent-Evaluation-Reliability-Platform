@@ -1,0 +1,136 @@
+{
+  "run_id": "spider_debug__step14",
+  "checks": [
+    {
+      "name": "Spider dev tasks run through the evaluation runner",
+      "status": "PASS",
+      "evidence": "50 episodes on split=dev"
+    },
+    {
+      "name": "Dataset and benchmark versions are pinned",
+      "status": "PASS",
+      "evidence": "dataset_version=spider-1.0:dev:30d64a3fccde archive_sha256=5ddff97bb1d4"
+    },
+    {
+      "name": "A frozen verifier exclusion list exists",
+      "status": "PASS",
+      "evidence": "docs/LOCKED_INPUTS.md, 0 excluded task(s)"
+    },
+    {
+      "name": "Every episode uses an isolated SQLite database",
+      "status": "PASS",
+      "evidence": "separate copies=True, one db per episode dir=True, cleaned up=True"
+    },
+    {
+      "name": "Agent SQL access is read-only",
+      "status": "PASS",
+      "evidence": "guard blocked 5/5, SQLite mode=ro blocked 5/5 with guard bypassed"
+    },
+    {
+      "name": "inspect_schema works",
+      "status": "PASS",
+      "evidence": "133 successful inspect_schema calls in the run"
+    },
+    {
+      "name": "execute_sql works",
+      "status": "PASS",
+      "evidence": "77 successful execute_sql calls in the run"
+    },
+    {
+      "name": "SQL results shown to the model are capped",
+      "status": "PASS",
+      "evidence": "cap=20; 145 model-visible results checked, largest shown=20 rows, over cap=0; largest full result persisted=2,775 rows (proves truncation actually happened)"
+    },
+    {
+      "name": "Full SQL results are persisted separately from model context",
+      "status": "PASS",
+      "evidence": "214 tool_result payloads, 261 steps referencing them"
+    },
+    {
+      "name": "The SUT is a LangGraph tool-using agent",
+      "status": "PASS",
+      "evidence": "compiled LangGraph nodes=['finish', 'max_steps', 'model', 'tool']; 50 episodes made more than one tool call"
+    },
+    {
+      "name": "SQL correctness uses execution-based verification",
+      "status": "PASS",
+      "evidence": "evaluator=spider-test-suite-sql-eval, metric(s) recorded=['execution_accuracy_original_db']"
+    },
+    {
+      "name": "Gold/reference QA passes for all non-excluded tasks",
+      "status": "PASS",
+      "evidence": "1,034/1,034 gold queries pass"
+    },
+    {
+      "name": "Known-bad verifier QA fails as expected",
+      "status": "PASS",
+      "evidence": "136/136 rejected, 0 leaked, 30 discarded as equivalent"
+    },
+    {
+      "name": "Complete trajectories are persisted",
+      "status": "PASS",
+      "evidence": "50 episodes, 522 steps; missing=0, duplicates=0, step-count disagreements=0"
+    },
+    {
+      "name": "Model/tool/verifier steps emit OTel spans",
+      "status": "PASS",
+      "evidence": "522 steps carry trace IDs (0 without), 0 episodes without"
+    },
+    {
+      "name": "Trace data matches persisted trajectory data",
+      "status": "PASS",
+      "evidence": "650 spans indexed; agent.episode 50/50, agent.model_step 261/261, verifier.execution 47/47, tool.execute_sql 79/79"
+    },
+    {
+      "name": "Benchmark completes without unexplained infrastructure failures",
+      "status": "PASS",
+      "evidence": "generation=0, tool=0, evaluator=0, gold=0, missing trajectories=0"
+    },
+    {
+      "name": "Task success is measured",
+      "status": "PASS",
+      "evidence": "passed=35, episodes_measured=50, task_success_rate=0.7000"
+    },
+    {
+      "name": "Steps per successful task are measured",
+      "status": "PASS",
+      "evidence": "mean_steps_per_successful_task=9.3143, median_steps_per_successful_task=8.0000"
+    },
+    {
+      "name": "SQL execution-error rate is measured",
+      "status": "PASS",
+      "evidence": "sql_executions_total=79, sql_execution_errors_total=2, sql_execution_error_rate=0.0253"
+    },
+    {
+      "name": "Token and cost metrics are measured",
+      "status": "PASS",
+      "evidence": "mean_input_tokens_per_successful_task=2981.2286, mean_output_tokens_per_successful_task=124.2857, mean_estimated_cost_per_successful_task=0.0005"
+    },
+    {
+      "name": "Failure categories are measured",
+      "status": "PASS",
+      "evidence": "MAX_STEPS=3, SUCCESS=35, VERIFICATION_FAILED=12"
+    },
+    {
+      "name": "The exact benchmark configuration is saved",
+      "status": "PASS",
+      "evidence": "config.json has 10/10 required fields"
+    },
+    {
+      "name": "The benchmark protocol limitation is documented",
+      "status": "PASS",
+      "evidence": "docs/benchmark-protocol.md covers 3/3 required points"
+    },
+    {
+      "name": "Metrics are reproducible from the stored run",
+      "status": "PASS",
+      "evidence": "recomputed success 35/50 = 0.7000 vs stored 0.7; input tokens 184,943 vs 184,943"
+    }
+  ],
+  "counts": {
+    "PASS": 25,
+    "FAIL": 0,
+    "UNVERIFIED": 0
+  },
+  "p0_complete": true
+}

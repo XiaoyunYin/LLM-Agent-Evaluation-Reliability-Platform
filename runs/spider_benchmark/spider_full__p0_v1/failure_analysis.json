@@ -1,0 +1,309 @@
+{
+  "generated_at": "2026-08-13T03:21:52.055080+00:00",
+  "run_id": "spider_full__p0_v1",
+  "episodes": 1034,
+  "config": {
+    "dataset_version": "spider-1.0:dev:30d64a3fccde",
+    "model_version": "gpt-4o-mini",
+    "prompt_version": "sql_agent_v1",
+    "tool_schema_version": "spider_tools_v2",
+    "agent_version": "spider_langgraph_agent_v1",
+    "adapter_version": "spider_adapter_v1",
+    "max_steps": 10,
+    "temperature": 0.0,
+    "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
+    "stage": "full",
+    "is_mock": false
+  },
+  "termination_breakdown": {
+    "counts": {
+      "SUCCESS": 762,
+      "VERIFICATION_FAILED": 224,
+      "SQL_ERROR": 0,
+      "MAX_STEPS": 48,
+      "MODEL_ERROR": 0,
+      "TOOL_ERROR": 0,
+      "NO_FINAL_SQL": 0
+    },
+    "total": 1034,
+    "episodes_on_file": 1034,
+    "sums_exactly": true,
+    "unexpected_reasons": []
+  },
+  "step_decomposition": {
+    "definitions": {
+      "model_turns": "One completed call to the model API. This is what max_steps caps.",
+      "tool_calls": "One tool invocation record (inspect_schema, execute_sql, or submit_answer).",
+      "trajectory_records": "Rows written to steps.jsonl = model_turns + tool_calls."
+    },
+    "max_steps_config": 10,
+    "max_steps_is_a_model_turn_cap": true,
+    "successful_tasks": {
+      "model_turns": {
+        "mean": 4.679790026246719,
+        "median": 4.0,
+        "min": 3.0,
+        "max": 9.0
+      },
+      "tool_calls": {
+        "mean": 4.679790026246719,
+        "median": 4.0,
+        "min": 3.0,
+        "max": 9.0
+      },
+      "trajectory_records": {
+        "mean": 9.359580052493438,
+        "median": 8.0,
+        "min": 6.0,
+        "max": 18.0
+      },
+      "schema_inspections": {
+        "mean": 2.6246719160104988,
+        "median": 2.0,
+        "min": 1.0,
+        "max": 5.0
+      },
+      "sql_executions": {
+        "mean": 1.0551181102362204,
+        "median": 1.0,
+        "min": 1.0,
+        "max": 5.0
+      }
+    },
+    "all_tasks": {
+      "model_turns": {
+        "mean": 5.043520309477756,
+        "median": 5.0,
+        "min": 3.0,
+        "max": 10.0
+      },
+      "tool_calls": {
+        "mean": 5.043520309477756,
+        "median": 5.0,
+        "min": 3.0,
+        "max": 10.0
+      },
+      "trajectory_records": {
+        "mean": 10.087040618955513,
+        "median": 10.0,
+        "min": 6.0,
+        "max": 20.0
+      }
+    },
+    "totals": {
+      "model_turns": 5215,
+      "tool_calls": 5215,
+      "trajectory_records": 10430,
+      "step_records_on_file": 10430
+    },
+    "identity_holds": true,
+    "episodes_reaching_the_model_turn_cap": 50
+  },
+  "tool_vs_episode_errors": {
+    "tool_call_level": {
+      "definition": "Counted per tool invocation. A failure here is one call going wrong; the episode may recover from it.",
+      "calls_by_tool": {
+        "inspect_schema": 2854,
+        "execute_sql": 1375,
+        "submit_answer": 986
+      },
+      "failures_by_tool": {
+        "inspect_schema": 23,
+        "execute_sql": 7
+      },
+      "execute_sql_calls": 1375,
+      "execute_sql_failures": 7,
+      "execute_sql_error_rate": 0.005090909090909091,
+      "execute_sql_failure_messages": [
+        {
+          "task_id": "spider_dev_0089",
+          "error": "OperationalError: no such column: c.ContId"
+        },
+        {
+          "task_id": "spider_dev_0151",
+          "error": "OperationalError: no such column: mn.Model"
+        },
+        {
+          "task_id": "spider_dev_0252",
+          "error": "OperationalError: unrecognized token: \"}\""
+        },
+        {
+          "task_id": "spider_dev_0505",
+          "error": "OperationalError: no such column: b.location"
+        },
+        {
+          "task_id": "spider_dev_0637",
+          "error": "OperationalError: near \";\": syntax error"
+        },
+        {
+          "task_id": "spider_dev_0638",
+          "error": "OperationalError: near \";\": syntax error"
+        },
+        {
+          "task_id": "spider_dev_0955",
+          "error": "OperationalError: no such column: t.treatment_date"
+        }
+      ]
+    },
+    "episode_level": {
+      "definition": "Counted per episode, from termination_reason. SQL_ERROR means the episode's FINAL SUBMITTED query does not execute.",
+      "sql_error_terminations": 0,
+      "episodes_containing_at_least_one_execute_sql_failure": 7,
+      "of_those_that_still_succeeded": 3,
+      "episodes_containing_any_tool_failure_that_still_succeeded": 19
+    },
+    "why_they_differ": "A failed execute_sql is a tool-call event the agent can see and fix. SQL_ERROR is an episode outcome. These are different denominators (tool calls vs episodes) and must not appear in the same table."
+  },
+  "max_steps_analysis": {
+    "total_max_step_episodes": 48,
+    "rules": {
+      "empty_result_loop_broad": "Episode terminated MAX_STEPS AND executed at least one execute_sql call that returned row_count == 0 with error == None (a valid query returning no rows).",
+      "empty_result_loop_strict": "Episode terminated MAX_STEPS AND executed at least two execute_sql calls that each returned row_count == 0 with error == None.",
+      "abandoned_a_correct_query": "Episode terminated MAX_STEPS AND at least one query it executed during the episode passes the official evaluator against gold. Established by re-running each executed query through verify_sql, not by inspection."
+    },
+    "empty_result_loop_broad": {
+      "count": 35,
+      "share_of_max_steps": 0.7291666666666666,
+      "task_ids": [
+        "spider_dev_0059",
+        "spider_dev_0060",
+        "spider_dev_0105",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0158",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0224",
+        "spider_dev_0233",
+        "spider_dev_0235",
+        "spider_dev_0236",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0249",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0293",
+        "spider_dev_0354",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0458",
+        "spider_dev_0505",
+        "spider_dev_0549",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0908",
+        "spider_dev_0909",
+        "spider_dev_1033"
+      ]
+    },
+    "empty_result_loop_strict": {
+      "count": 34,
+      "share_of_max_steps": 0.7083333333333334,
+      "task_ids": [
+        "spider_dev_0059",
+        "spider_dev_0060",
+        "spider_dev_0105",
+        "spider_dev_0111",
+        "spider_dev_0112",
+        "spider_dev_0129",
+        "spider_dev_0130",
+        "spider_dev_0158",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0224",
+        "spider_dev_0233",
+        "spider_dev_0235",
+        "spider_dev_0236",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0249",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0293",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0458",
+        "spider_dev_0505",
+        "spider_dev_0549",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0908",
+        "spider_dev_0909",
+        "spider_dev_1033"
+      ]
+    },
+    "abandoned_a_correct_query": {
+      "verified": true,
+      "count": 29,
+      "share_of_max_steps": 0.6041666666666666,
+      "task_ids": [
+        "spider_dev_0043",
+        "spider_dev_0044",
+        "spider_dev_0060",
+        "spider_dev_0210",
+        "spider_dev_0221",
+        "spider_dev_0222",
+        "spider_dev_0223",
+        "spider_dev_0224",
+        "spider_dev_0233",
+        "spider_dev_0235",
+        "spider_dev_0236",
+        "spider_dev_0237",
+        "spider_dev_0238",
+        "spider_dev_0239",
+        "spider_dev_0240",
+        "spider_dev_0247",
+        "spider_dev_0249",
+        "spider_dev_0252",
+        "spider_dev_0254",
+        "spider_dev_0293",
+        "spider_dev_0397",
+        "spider_dev_0398",
+        "spider_dev_0505",
+        "spider_dev_0521",
+        "spider_dev_0532",
+        "spider_dev_0842",
+        "spider_dev_0843",
+        "spider_dev_0908",
+        "spider_dev_0909"
+      ],
+      "examples": [
+        {
+          "task_id": "spider_dev_0043",
+          "query": "SELECT COUNT(*) AS number_of_concerts\nFROM concert\nWHERE Stadium_ID = (SELECT Stadium_ID FROM stadium ORDER BY Capacity DESC LIMIT 1);"
+        },
+        {
+          "task_id": "spider_dev_0044",
+          "query": "SELECT COUNT(*) AS number_of_concerts FROM concert WHERE Stadium_ID = (SELECT Stadium_ID FROM stadium ORDER BY Capacity DESC LIMIT 1)"
+        },
+        {
+          "task_id": "spider_dev_0060",
+          "query": "SELECT DISTINCT s.Fname \nFROM Student s \nJOIN Has_Pet hp ON s.StuID = hp.StuID \nJOIN Pets p ON hp.PetID = p.PetID \nWHERE p.PetType IN ('Cat', 'Dog') \nGROUP BY s.StuID \nHAVING COUNT(DISTINCT p.PetType) = 2;"
+        },
+        {
+          "task_id": "spider_dev_0210",
+          "query": "SELECT COUNT(*) AS NumberOfFlights FROM flights f JOIN airports a ON f.DestAirport = a.AirportCode WHERE a.City = 'Aberdeen';"
+        },
+        {
+          "task_id": "spider_dev_0221",
+          "query": "SELECT a.City, COUNT(f.FlightNo) AS ArrivingFlights\nFROM flights f\nJOIN airports a ON f.DestAirport = a.AirportCode\nGROUP BY a.City\nORDER BY ArrivingFlights DESC\nLIMIT 1;"
+        }
+      ]
+    },
+    "upper_bound_if_all_max_steps_were_solved": {
+      "current_success_rate": 0.7369439071566731,
+      "ceiling": 0.7833655705996132,
+      "note": "A ceiling, not a forecast. It assumes every max-step episode would convert to a pass, which the data does not establish."
+    }
+  }
+}

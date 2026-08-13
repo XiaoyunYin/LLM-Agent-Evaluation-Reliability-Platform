@@ -1,0 +1,18 @@
+{
+  "benchmark": "spider-1.0",
+  "pinned_at": "2026-08-13T00:42:43.992186+00:00",
+  "archive_url": "https://drive.usercontent.google.com/download?id=1TqleXec_OykOYFREKKtschzY29dUcVAQ&export=download&confirm=t",
+  "archive_sha256": "5ddff97bb1d421282c593e8d30ce0ce107270f4dd4a21d60eba4bf287d5956b1",
+  "archive_bytes": 99736136,
+  "evaluator_source": "https://raw.githubusercontent.com/taoyds/test-suite-sql-eval/master/",
+  "evaluator_file_sha256": {
+    "evaluation.py": "7401e4014a8955376a7919c06903a7f0ab403c99e89f94204cd8f4c8e32ae779",
+    "exec_eval.py": "29d034db28904490c28037537a14fbb0150b6e86cef0049076c0511d6b6b77f7",
+    "process_sql.py": "927fc564f7a8e34f09f009a2f5564a83fdf95226440dde84c87871fd65fe55a1",
+    "parse.py": "ef04211a6e1c1e142571157f5c1999613e3451084c044083b2de1977f1f622c5"
+  },
+  "dev_examples": 1034,
+  "databases": 166,
+  "tables_json_sha256": "61bb20aa401f03164e2d7f3b16509b7b5f79cc9c943ca7bd159046df1159e2ed",
+  "dev_json_sha256": "30d64a3fccde493226df79687aed9e4a1c0129525baf44f29c0573d914d758a4"
+}

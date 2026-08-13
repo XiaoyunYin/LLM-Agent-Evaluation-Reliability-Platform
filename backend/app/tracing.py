@@ -20,6 +20,10 @@ SERVICE_LAYER_TOOL = "tool"
 SERVICE_LAYER_STORAGE = "storage"
 OTLP_ENDPOINT_ENV = "OTEL_EXPORTER_OTLP_ENDPOINT"
 OTLP_INSECURE_ENV = "OTEL_EXPORTER_OTLP_INSECURE"
+# Set to "false" to keep spans (and therefore trace IDs) without printing them.
+# A 1,000-episode benchmark emits ~10,000 spans; dumping those to the console
+# buries the run's own progress output and slows it down measurably.
+CONSOLE_EXPORTER_ENV = "OTEL_CONSOLE_EXPORTER"
 
 _tracing_configured = False
 
@@ -55,9 +59,11 @@ def configure_tracing(service_name: str = SERVICE_NAME) -> None:
                 )
             )
         )
-    else:
+    elif os.getenv(CONSOLE_EXPORTER_ENV, "true").strip().lower() != "false":
         provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
 
+    # With neither exporter the provider still records spans and issues real trace
+    # IDs, so trajectory records stay linkable even when nothing is collecting.
     trace.set_tracer_provider(provider)
     _tracing_configured = True
 

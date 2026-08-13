@@ -1,0 +1,1383 @@
+{
+  "generated_at": "2026-08-13T03:35:07.780764+00:00",
+  "split": "dev",
+  "limited_to": null,
+  "pin": {
+    "benchmark": "spider-1.0",
+    "pinned_at": "2026-08-13T00:42:43.992186+00:00",
+    "archive_url": "https://drive.usercontent.google.com/download?id=1TqleXec_OykOYFREKKtschzY29dUcVAQ&export=download&confirm=t",
+    "archive_sha256": "5ddff97bb1d421282c593e8d30ce0ce107270f4dd4a21d60eba4bf287d5956b1",
+    "archive_bytes": 99736136,
+    "evaluator_source": "https://raw.githubusercontent.com/taoyds/test-suite-sql-eval/master/",
+    "evaluator_file_sha256": {
+      "evaluation.py": "7401e4014a8955376a7919c06903a7f0ab403c99e89f94204cd8f4c8e32ae779",
+      "exec_eval.py": "29d034db28904490c28037537a14fbb0150b6e86cef0049076c0511d6b6b77f7",
+      "process_sql.py": "927fc564f7a8e34f09f009a2f5564a83fdf95226440dde84c87871fd65fe55a1",
+      "parse.py": "ef04211a6e1c1e142571157f5c1999613e3451084c044083b2de1977f1f622c5"
+    },
+    "dev_examples": 1034,
+    "databases": 166,
+    "tables_json_sha256": "61bb20aa401f03164e2d7f3b16509b7b5f79cc9c943ca7bd159046df1159e2ed",
+    "dev_json_sha256": "30d64a3fccde493226df79687aed9e4a1c0129525baf44f29c0573d914d758a4"
+  },
+  "integrity": {
+    "split": "dev",
+    "tasks": 1034,
+    "gold_rows": 1034,
+    "databases": 20,
+    "mismatches": [],
+    "ok": true
+  },
+  "gold_pass": {
+    "checked": 1034,
+    "passed": 1034,
+    "outcome_counts": {
+      "pass": 1034
+    },
+    "failures": [],
+    "elapsed_seconds": 20.04
+  },
+  "known_bad": {
+    "checked": 136,
+    "rejected": 136,
+    "leaked": [],
+    "per_mutation": 40,
+    "skipped_denotationally_equivalent": 30,
+    "mutations_attempted": 166,
+    "collision_rate_on_attempted_mutations": 0.18072289156626506,
+    "collision_rate_meaning": "Share of THIS mutation set that single-database execution accuracy cannot distinguish from gold. It is NOT an estimate of the share of the agent's passes that are false positives - the agent's queries are not drawn from this distribution.",
+    "execution_result_collisions": [
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0008",
+        "database_id": "concert_singer",
+        "gold_query": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+        "mutated_query": "SELECT DISTINCT country FROM singer",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0009",
+        "database_id": "concert_singer",
+        "gold_query": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+        "mutated_query": "SELECT DISTINCT country FROM singer",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0020",
+        "database_id": "concert_singer",
+        "gold_query": "SELECT count(*) FROM concert WHERE YEAR  =  2014 OR YEAR  =  2015",
+        "mutated_query": "SELECT count(*) FROM concert",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0021",
+        "database_id": "concert_singer",
+        "gold_query": "SELECT count(*) FROM concert WHERE YEAR  =  2014 OR YEAR  =  2015",
+        "mutated_query": "SELECT count(*) FROM concert",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0057",
+        "database_id": "pets_1",
+        "gold_query": "SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' OR T3.pettype  =  'dog'",
+        "mutated_query": "SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0058",
+        "database_id": "pets_1",
+        "gold_query": "SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' OR T3.pettype  =  'dog'",
+        "mutated_query": "SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0095",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.horsepower ASC LIMIT 1;",
+        "mutated_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.horsepower ASC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0096",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.horsepower ASC LIMIT 1;",
+        "mutated_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.horsepower ASC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0107",
+        "database_id": "car_1",
+        "gold_query": "SELECT T2.CountryName FROM CAR_MAKERS AS T1 JOIN COUNTRIES AS T2 ON T1.Country  =  T2.CountryId GROUP BY T1.Country ORDER BY Count(*) DESC LIMIT 1;",
+        "mutated_query": "SELECT T2.CountryName FROM CAR_MAKERS AS T1 JOIN COUNTRIES AS T2 ON T1.Country  =  T2.CountryId GROUP BY T1.Country ORDER BY Count(*) DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0108",
+        "database_id": "car_1",
+        "gold_query": "SELECT T2.CountryName FROM CAR_MAKERS AS T1 JOIN COUNTRIES AS T2 ON T1.Country  =  T2.CountryId GROUP BY T1.Country ORDER BY Count(*) DESC LIMIT 1;",
+        "mutated_query": "SELECT T2.CountryName FROM CAR_MAKERS AS T1 JOIN COUNTRIES AS T2 ON T1.Country  =  T2.CountryId GROUP BY T1.Country ORDER BY Count(*) DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0131",
+        "database_id": "car_1",
+        "gold_query": "SELECT T2.horsepower ,  T1.Make FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.cylinders  =  3 ORDER BY T2.horsepower DESC LIMIT 1;",
+        "mutated_query": "SELECT T2.horsepower ,  T1.Make FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.cylinders  =  3 ORDER BY T2.horsepower DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0132",
+        "database_id": "car_1",
+        "gold_query": "SELECT T2.horsepower ,  T1.Make FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.cylinders  =  3 ORDER BY T2.horsepower DESC LIMIT 1;",
+        "mutated_query": "SELECT T2.horsepower ,  T1.Make FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.cylinders  =  3 ORDER BY T2.horsepower DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0133",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.mpg DESC LIMIT 1;",
+        "mutated_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id ORDER BY T2.mpg DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0134",
+        "database_id": "car_1",
+        "gold_query": "select t1.model from car_names as t1 join cars_data as t2 on t1.makeid  =  t2.id order by t2.mpg desc limit 1;",
+        "mutated_query": "select t1.model from car_names as t1 join cars_data as t2 on t1.makeid  =  t2.id order by t2.mpg desc LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0141",
+        "database_id": "car_1",
+        "gold_query": "SELECT Model FROM CAR_NAMES GROUP BY Model ORDER BY count(*) DESC LIMIT 1;",
+        "mutated_query": "SELECT Model FROM CAR_NAMES GROUP BY Model ORDER BY count(*) DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0142",
+        "database_id": "car_1",
+        "gold_query": "SELECT Model FROM CAR_NAMES GROUP BY Model ORDER BY count(*) DESC LIMIT 1;",
+        "mutated_query": "SELECT Model FROM CAR_NAMES GROUP BY Model ORDER BY count(*) DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0155",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.horsepower FROM CARS_DATA AS T1 ORDER BY T1.accelerate DESC LIMIT 1;",
+        "mutated_query": "SELECT T1.horsepower FROM CARS_DATA AS T1 ORDER BY T1.accelerate DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0156",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.horsepower FROM CARS_DATA AS T1 ORDER BY T1.accelerate DESC LIMIT 1;",
+        "mutated_query": "SELECT T1.horsepower FROM CARS_DATA AS T1 ORDER BY T1.accelerate DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0157",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.cylinders FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T2.Model  =  'volvo' ORDER BY T1.accelerate ASC LIMIT 1;",
+        "mutated_query": "SELECT T1.cylinders FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T2.Model  =  'volvo' ORDER BY T1.accelerate ASC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0158",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.cylinders FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T2.Model  =  'volvo' ORDER BY T1.accelerate ASC LIMIT 1;",
+        "mutated_query": "SELECT T1.cylinders FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T2.Model  =  'volvo' ORDER BY T1.accelerate ASC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0165",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Cylinders  =  4 ORDER BY T2.horsepower DESC LIMIT 1;",
+        "mutated_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Cylinders  =  4 ORDER BY T2.horsepower DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0166",
+        "database_id": "car_1",
+        "gold_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Cylinders  =  4 ORDER BY T2.horsepower DESC LIMIT 1;",
+        "mutated_query": "SELECT T1.Model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Cylinders  =  4 ORDER BY T2.horsepower DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0595",
+        "database_id": "tvshow",
+        "gold_query": "SELECT Country ,  count(*) FROM TV_Channel GROUP BY Country ORDER BY count(*) DESC LIMIT 1;",
+        "mutated_query": "SELECT Country ,  count(*) FROM TV_Channel GROUP BY Country ORDER BY count(*) DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0596",
+        "database_id": "tvshow",
+        "gold_query": "SELECT Country ,  count(*) FROM TV_Channel GROUP BY Country ORDER BY count(*) DESC LIMIT 1;",
+        "mutated_query": "SELECT Country ,  count(*) FROM TV_Channel GROUP BY Country ORDER BY count(*) DESC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0605",
+        "database_id": "tvshow",
+        "gold_query": "SELECT LANGUAGE ,  count(*) FROM TV_Channel GROUP BY LANGUAGE ORDER BY count(*) ASC LIMIT 1;",
+        "mutated_query": "SELECT LANGUAGE ,  count(*) FROM TV_Channel GROUP BY LANGUAGE ORDER BY count(*) ASC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0606",
+        "database_id": "tvshow",
+        "gold_query": "SELECT LANGUAGE ,  count(*) FROM TV_Channel GROUP BY LANGUAGE ORDER BY count(*) ASC LIMIT 1;",
+        "mutated_query": "SELECT LANGUAGE ,  count(*) FROM TV_Channel GROUP BY LANGUAGE ORDER BY count(*) ASC LIMIT 1",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0014",
+        "database_id": "concert_singer",
+        "gold_query": "SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000",
+        "mutated_query": "SELECT * FROM (SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000) WHERE 1 = 0",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0015",
+        "database_id": "concert_singer",
+        "gold_query": "SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000",
+        "mutated_query": "SELECT * FROM (SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000) WHERE 1 = 0",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0059",
+        "database_id": "pets_1",
+        "gold_query": "select t1.fname from student as t1 join has_pet as t2 on t1.stuid  =  t2.stuid join pets as t3 on t3.petid  =  t2.petid where t3.pettype  =  'cat' intersect select t1.fname from student as t1 join has_pet as t2 on t1.stuid  =  t2.stuid join pets as t3 on t3.petid  =  t2.petid where t3.pettype  =  'dog'",
+        "mutated_query": "SELECT * FROM (select t1.fname from student as t1 join has_pet as t2 on t1.stuid  =  t2.stuid join pets as t3 on t3.petid  =  t2.petid where t3.pettype  =  'cat' intersect select t1.fname from student as t1 join has_pet as t2 on t1.stuid  =  t2.stuid join pets as t3 on t3.petid  =  t2.petid where t3.pettype  =  'dog') WHERE 1 = 0",
+        "reason": "returns identical rows to gold on the shipped database"
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0060",
+        "database_id": "pets_1",
+        "gold_query": "SELECT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' INTERSECT SELECT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog'",
+        "mutated_query": "SELECT * FROM (SELECT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' INTERSECT SELECT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog') WHERE 1 = 0",
+        "reason": "returns identical rows to gold on the shipped database"
+      }
+    ],
+    "checks": [
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0000",
+        "gold_query": "SELECT count(*) FROM singer",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0001",
+        "gold_query": "SELECT count(*) FROM singer",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0010",
+        "gold_query": "SELECT country ,  count(*) FROM singer GROUP BY country",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0011",
+        "gold_query": "SELECT country ,  count(*) FROM singer GROUP BY country",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0020",
+        "gold_query": "SELECT count(*) FROM concert WHERE YEAR  =  2014 OR YEAR  =  2015",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0021",
+        "gold_query": "SELECT count(*) FROM concert WHERE YEAR  =  2014 OR YEAR  =  2015",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0022",
+        "gold_query": "SELECT T2.name ,  count(*) FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id GROUP BY T1.stadium_id",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0023",
+        "gold_query": "SELECT T2.name ,  count(*) FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id GROUP BY T1.stadium_id",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0024",
+        "gold_query": "SELECT T2.name ,  T2.capacity FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  >=  2014 GROUP BY T2.stadium_id ORDER BY count(*) DESC LIMIT 1",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0025",
+        "gold_query": "select t2.name ,  t2.capacity from concert as t1 join stadium as t2 on t1.stadium_id  =  t2.stadium_id where t1.year  >  2013 group by t2.stadium_id order by count(*) desc limit 1",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0026",
+        "gold_query": "SELECT YEAR FROM concert GROUP BY YEAR ORDER BY count(*) DESC LIMIT 1",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0027",
+        "gold_query": "SELECT YEAR FROM concert GROUP BY YEAR ORDER BY count(*) DESC LIMIT 1",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0033",
+        "gold_query": "SELECT T2.concert_name ,  T2.theme ,  count(*) FROM singer_in_concert AS T1 JOIN concert AS T2 ON T1.concert_id  =  T2.concert_id GROUP BY T2.concert_id",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0034",
+        "gold_query": "select t2.concert_name ,  t2.theme ,  count(*) from singer_in_concert as t1 join concert as t2 on t1.concert_id  =  t2.concert_id group by t2.concert_id",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0035",
+        "gold_query": "SELECT T2.name ,  count(*) FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id GROUP BY T2.singer_id",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0036",
+        "gold_query": "SELECT T2.name ,  count(*) FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id GROUP BY T2.singer_id",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0043",
+        "gold_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc limit 1)",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0044",
+        "gold_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc limit 1)",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0045",
+        "gold_query": "SELECT count(*) FROM pets WHERE weight  >  10",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0046",
+        "gold_query": "SELECT count(*) FROM pets WHERE weight  >  10",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0051",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.age  >  20",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0052",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.age  >  20",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0053",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T2.petid  =  T3.petid WHERE T1.sex  =  'F' AND T3.pettype  =  'dog'",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0054",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T2.petid  =  T3.petid WHERE T1.sex  =  'F' AND T3.pettype  =  'dog'",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0055",
+        "gold_query": "SELECT count(DISTINCT pettype) FROM pets",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0056",
+        "gold_query": "SELECT count(DISTINCT pettype) FROM pets",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0079",
+        "gold_query": "SELECT count(*) ,  T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid GROUP BY T1.stuid",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0080",
+        "gold_query": "select count(*) ,  t1.stuid from student as t1 join has_pet as t2 on t1.stuid  =  t2.stuid group by t1.stuid",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0081",
+        "gold_query": "SELECT T1.fname ,  T1.sex FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid GROUP BY T1.stuid HAVING count(*)  >  1",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0082",
+        "gold_query": "SELECT T1.fname ,  T1.sex FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid GROUP BY T1.stuid HAVING count(*)  >  1",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0087",
+        "gold_query": "SELECT count(*) FROM CONTINENTS;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0088",
+        "gold_query": "SELECT count(*) FROM CONTINENTS;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0089",
+        "gold_query": "SELECT T1.ContId ,  T1.Continent ,  count(*) FROM CONTINENTS AS T1 JOIN COUNTRIES AS T2 ON T1.ContId  =  T2.Continent GROUP BY T1.ContId;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0090",
+        "gold_query": "SELECT T1.ContId ,  T1.Continent ,  count(*) FROM CONTINENTS AS T1 JOIN COUNTRIES AS T2 ON T1.ContId  =  T2.Continent GROUP BY T1.ContId;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0091",
+        "gold_query": "SELECT count(*) FROM COUNTRIES;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0092",
+        "gold_query": "SELECT count(*) FROM COUNTRIES;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0093",
+        "gold_query": "SELECT T1.FullName ,  T1.Id ,  count(*) FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker GROUP BY T1.Id;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0094",
+        "gold_query": "SELECT T1.FullName ,  T1.Id ,  count(*) FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker GROUP BY T1.Id;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0105",
+        "gold_query": "SELECT T1.Continent ,  count(*) FROM CONTINENTS AS T1 JOIN COUNTRIES AS T2 ON T1.ContId  =  T2.continent JOIN car_makers AS T3 ON T2.CountryId  =  T3.Country GROUP BY T1.Continent;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "constant_instead_of_count",
+        "task_id": "spider_dev_0106",
+        "gold_query": "SELECT T1.Continent ,  count(*) FROM CONTINENTS AS T1 JOIN COUNTRIES AS T2 ON T1.ContId  =  T2.continent JOIN car_makers AS T3 ON T2.CountryId  =  T3.Country GROUP BY T1.Continent;",
+        "bad_query": "SELECT 999999",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0004",
+        "gold_query": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+        "bad_query": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0005",
+        "gold_query": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+        "bad_query": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0012",
+        "gold_query": "SELECT song_name FROM singer WHERE age  >  (SELECT avg(age) FROM singer)",
+        "bad_query": "SELECT song_name FROM singer",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0013",
+        "gold_query": "SELECT song_name FROM singer WHERE age  >  (SELECT avg(age) FROM singer)",
+        "bad_query": "SELECT song_name FROM singer",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0014",
+        "gold_query": "SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000",
+        "bad_query": "SELECT LOCATION ,  name FROM stadium",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0015",
+        "gold_query": "SELECT LOCATION ,  name FROM stadium WHERE capacity BETWEEN 5000 AND 10000",
+        "bad_query": "SELECT LOCATION ,  name FROM stadium",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0028",
+        "gold_query": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+        "bad_query": "SELECT name FROM stadium",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0029",
+        "gold_query": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+        "bad_query": "SELECT name FROM stadium",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0031",
+        "gold_query": "SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  =  2014",
+        "bad_query": "SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0032",
+        "gold_query": "SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  =  2014",
+        "bad_query": "SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0037",
+        "gold_query": "SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id WHERE T3.year  =  2014",
+        "bad_query": "SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0038",
+        "gold_query": "SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id WHERE T3.year  =  2014",
+        "bad_query": "SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0039",
+        "gold_query": "SELECT name ,  country FROM singer WHERE song_name LIKE '%Hey%'",
+        "bad_query": "SELECT name ,  country FROM singer",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0040",
+        "gold_query": "SELECT name ,  country FROM singer WHERE song_name LIKE '%Hey%'",
+        "bad_query": "SELECT name ,  country FROM singer",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0045",
+        "gold_query": "SELECT count(*) FROM pets WHERE weight  >  10",
+        "bad_query": "SELECT count(*) FROM pets",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0046",
+        "gold_query": "SELECT count(*) FROM pets WHERE weight  >  10",
+        "bad_query": "SELECT count(*) FROM pets",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0051",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.age  >  20",
+        "bad_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0052",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.age  >  20",
+        "bad_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0053",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T2.petid  =  T3.petid WHERE T1.sex  =  'F' AND T3.pettype  =  'dog'",
+        "bad_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T2.petid  =  T3.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0054",
+        "gold_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T2.petid  =  T3.petid WHERE T1.sex  =  'F' AND T3.pettype  =  'dog'",
+        "bad_query": "SELECT count(*) FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T2.petid  =  T3.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0061",
+        "gold_query": "SELECT major ,  age FROM student WHERE stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT major ,  age FROM student",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0062",
+        "gold_query": "SELECT major ,  age FROM student WHERE stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT major ,  age FROM student",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0063",
+        "gold_query": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat'",
+        "bad_query": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0064",
+        "gold_query": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat'",
+        "bad_query": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0065",
+        "gold_query": "SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog' AND T1.stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0066",
+        "gold_query": "SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog' AND T1.stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0069",
+        "gold_query": "SELECT petid ,  weight FROM pets WHERE pet_age  >  1",
+        "bad_query": "SELECT petid ,  weight FROM pets",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0070",
+        "gold_query": "SELECT petid ,  weight FROM pets WHERE pet_age  >  1",
+        "bad_query": "SELECT petid ,  weight FROM pets",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0077",
+        "gold_query": "SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.Lname  =  'Smith'",
+        "bad_query": "SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0078",
+        "gold_query": "SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.Lname  =  'Smith'",
+        "bad_query": "SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0083",
+        "gold_query": "SELECT T1.lname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pet_age  =  3 AND T3.pettype  =  'cat'",
+        "bad_query": "SELECT T1.lname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0084",
+        "gold_query": "SELECT T1.lname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pet_age  =  3 AND T3.pettype  =  'cat'",
+        "bad_query": "SELECT T1.lname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0085",
+        "gold_query": "select avg(age) from student where stuid not in (select stuid from has_pet)",
+        "bad_query": "select avg(age) from student",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0086",
+        "gold_query": "select avg(age) from student where stuid not in (select stuid from has_pet)",
+        "bad_query": "select avg(age) from student",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0097",
+        "gold_query": "SELECT T1.model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Weight  <  (SELECT avg(Weight) FROM CARS_DATA)",
+        "bad_query": "SELECT T1.model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0098",
+        "gold_query": "SELECT T1.model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id WHERE T2.Weight  <  (SELECT avg(Weight) FROM CARS_DATA)",
+        "bad_query": "SELECT T1.model FROM CAR_NAMES AS T1 JOIN CARS_DATA AS T2 ON T1.MakeId  =  T2.Id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0099",
+        "gold_query": "SELECT DISTINCT T1.Maker FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker JOIN CAR_NAMES AS T3 ON T2.model  =  T3.model JOIN CARS_DATA AS T4 ON T3.MakeId  =  T4.id WHERE T4.year  =  '1970';",
+        "bad_query": "SELECT DISTINCT T1.Maker FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker JOIN CAR_NAMES AS T3 ON T2.model  =  T3.model JOIN CARS_DATA AS T4 ON T3.MakeId  =  T4.id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0100",
+        "gold_query": "SELECT DISTINCT T1.Maker FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker JOIN CAR_NAMES AS T3 ON T2.model  =  T3.model JOIN CARS_DATA AS T4 ON T3.MakeId  =  T4.id WHERE T4.year  =  '1970';",
+        "bad_query": "SELECT DISTINCT T1.Maker FROM CAR_MAKERS AS T1 JOIN MODEL_LIST AS T2 ON T1.Id  =  T2.Maker JOIN CAR_NAMES AS T3 ON T2.model  =  T3.model JOIN CARS_DATA AS T4 ON T3.MakeId  =  T4.id",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0101",
+        "gold_query": "SELECT T2.Make ,  T1.Year FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T1.Year  =  (SELECT min(YEAR) FROM CARS_DATA);",
+        "bad_query": "SELECT T2.Make ,  T1.Year FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "where_clause_removed",
+        "task_id": "spider_dev_0102",
+        "gold_query": "SELECT T2.Make ,  T1.Year FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId WHERE T1.Year  =  (SELECT min(YEAR) FROM CARS_DATA);",
+        "bad_query": "SELECT T2.Make ,  T1.Year FROM CARS_DATA AS T1 JOIN CAR_NAMES AS T2 ON T1.Id  =  T2.MakeId",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0043",
+        "gold_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc limit 1)",
+        "bad_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0044",
+        "gold_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc limit 1)",
+        "bad_query": "select count(*) from concert where stadium_id = (select stadium_id from stadium order by capacity desc LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0159",
+        "gold_query": "SELECT COUNT(*) FROM CARS_DATA WHERE Accelerate  >  ( SELECT Accelerate FROM CARS_DATA ORDER BY Horsepower DESC LIMIT 1 );",
+        "bad_query": "SELECT COUNT(*) FROM CARS_DATA WHERE Accelerate  >  ( SELECT Accelerate FROM CARS_DATA ORDER BY Horsepower DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0160",
+        "gold_query": "SELECT COUNT(*) FROM CARS_DATA WHERE Accelerate  >  ( SELECT Accelerate FROM CARS_DATA ORDER BY Horsepower DESC LIMIT 1 );",
+        "bad_query": "SELECT COUNT(*) FROM CARS_DATA WHERE Accelerate  >  ( SELECT Accelerate FROM CARS_DATA ORDER BY Horsepower DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0483",
+        "gold_query": "SELECT DISTINCT winner_name ,  winner_rank FROM matches ORDER BY winner_age LIMIT 3",
+        "bad_query": "SELECT DISTINCT winner_name ,  winner_rank FROM matches ORDER BY winner_age LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0484",
+        "gold_query": "SELECT DISTINCT winner_name ,  winner_rank FROM matches ORDER BY winner_age LIMIT 3",
+        "bad_query": "SELECT DISTINCT winner_name ,  winner_rank FROM matches ORDER BY winner_age LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0615",
+        "gold_query": "SELECT Episode ,  Rating FROM TV_series ORDER BY Rating DESC LIMIT 3;",
+        "bad_query": "SELECT Episode ,  Rating FROM TV_series ORDER BY Rating DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0616",
+        "gold_query": "SELECT Episode ,  Rating FROM TV_series ORDER BY Rating DESC LIMIT 3;",
+        "bad_query": "SELECT Episode ,  Rating FROM TV_series ORDER BY Rating DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0800",
+        "gold_query": "SELECT Name ,  SurfaceArea FROM country ORDER BY SurfaceArea DESC LIMIT 5",
+        "bad_query": "SELECT Name ,  SurfaceArea FROM country ORDER BY SurfaceArea DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0801",
+        "gold_query": "SELECT Name ,  SurfaceArea FROM country ORDER BY SurfaceArea DESC LIMIT 5",
+        "bad_query": "SELECT Name ,  SurfaceArea FROM country ORDER BY SurfaceArea DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0802",
+        "gold_query": "SELECT Name FROM country ORDER BY Population DESC LIMIT 3",
+        "bad_query": "SELECT Name FROM country ORDER BY Population DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0803",
+        "gold_query": "SELECT Name FROM country ORDER BY Population DESC LIMIT 3",
+        "bad_query": "SELECT Name FROM country ORDER BY Population DESC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0804",
+        "gold_query": "SELECT Name FROM country ORDER BY Population ASC LIMIT 3",
+        "bad_query": "SELECT Name FROM country ORDER BY Population ASC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0805",
+        "gold_query": "SELECT Name FROM country ORDER BY Population ASC LIMIT 3",
+        "bad_query": "SELECT Name FROM country ORDER BY Population ASC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0954",
+        "gold_query": "SELECT T1.name ,  T2.date_of_treatment FROM Dogs AS T1 JOIN Treatments AS T2 ON T1.dog_id  =  T2.dog_id WHERE T1.breed_code  =  ( SELECT breed_code FROM Dogs GROUP BY breed_code ORDER BY count(*) ASC LIMIT 1 )",
+        "bad_query": "SELECT T1.name ,  T2.date_of_treatment FROM Dogs AS T1 JOIN Treatments AS T2 ON T1.dog_id  =  T2.dog_id WHERE T1.breed_code  =  ( SELECT breed_code FROM Dogs GROUP BY breed_code ORDER BY count(*) ASC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "limit_narrowed",
+        "task_id": "spider_dev_0955",
+        "gold_query": "SELECT T1.name ,  T2.date_of_treatment FROM Dogs AS T1 JOIN Treatments AS T2 ON T1.dog_id  =  T2.dog_id WHERE T1.breed_code  =  ( SELECT breed_code FROM Dogs GROUP BY breed_code ORDER BY count(*) ASC LIMIT 1 )",
+        "bad_query": "SELECT T1.name ,  T2.date_of_treatment FROM Dogs AS T1 JOIN Treatments AS T2 ON T1.dog_id  =  T2.dog_id WHERE T1.breed_code  =  ( SELECT breed_code FROM Dogs GROUP BY breed_code ORDER BY count(*) ASC LIMIT 1",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0002",
+        "gold_query": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+        "bad_query": "SELECT * FROM (SELECT name ,  country ,  age FROM singer ORDER BY age DESC) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0003",
+        "gold_query": "SELECT name ,  country ,  age FROM singer ORDER BY age DESC",
+        "bad_query": "SELECT * FROM (SELECT name ,  country ,  age FROM singer ORDER BY age DESC) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0004",
+        "gold_query": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+        "bad_query": "SELECT * FROM (SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0005",
+        "gold_query": "SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France'",
+        "bad_query": "SELECT * FROM (SELECT avg(age) ,  min(age) ,  max(age) FROM singer WHERE country  =  'France') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0008",
+        "gold_query": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+        "bad_query": "SELECT * FROM (SELECT DISTINCT country FROM singer WHERE age  >  20) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0009",
+        "gold_query": "SELECT DISTINCT country FROM singer WHERE age  >  20",
+        "bad_query": "SELECT * FROM (SELECT DISTINCT country FROM singer WHERE age  >  20) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0012",
+        "gold_query": "SELECT song_name FROM singer WHERE age  >  (SELECT avg(age) FROM singer)",
+        "bad_query": "SELECT * FROM (SELECT song_name FROM singer WHERE age  >  (SELECT avg(age) FROM singer)) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0013",
+        "gold_query": "SELECT song_name FROM singer WHERE age  >  (SELECT avg(age) FROM singer)",
+        "bad_query": "SELECT * FROM (SELECT song_name FROM singer WHERE age  >  (SELECT avg(age) FROM singer)) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0016",
+        "gold_query": "select max(capacity), average from stadium",
+        "bad_query": "SELECT * FROM (select max(capacity), average from stadium) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0017",
+        "gold_query": "select avg(capacity) ,  max(capacity) from stadium",
+        "bad_query": "SELECT * FROM (select avg(capacity) ,  max(capacity) from stadium) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0028",
+        "gold_query": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+        "bad_query": "SELECT * FROM (SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0029",
+        "gold_query": "SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)",
+        "bad_query": "SELECT * FROM (SELECT name FROM stadium WHERE stadium_id NOT IN (SELECT stadium_id FROM concert)) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0030",
+        "gold_query": "SELECT country FROM singer WHERE age  >  40 INTERSECT SELECT country FROM singer WHERE age  <  30",
+        "bad_query": "SELECT * FROM (SELECT country FROM singer WHERE age  >  40 INTERSECT SELECT country FROM singer WHERE age  <  30) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0031",
+        "gold_query": "SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  =  2014",
+        "bad_query": "SELECT * FROM (SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  =  2014) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0032",
+        "gold_query": "SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  =  2014",
+        "bad_query": "SELECT * FROM (SELECT name FROM stadium EXCEPT SELECT T2.name FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.year  =  2014) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0037",
+        "gold_query": "SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id WHERE T3.year  =  2014",
+        "bad_query": "SELECT * FROM (SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id WHERE T3.year  =  2014) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0038",
+        "gold_query": "SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id WHERE T3.year  =  2014",
+        "bad_query": "SELECT * FROM (SELECT T2.name FROM singer_in_concert AS T1 JOIN singer AS T2 ON T1.singer_id  =  T2.singer_id JOIN concert AS T3 ON T1.concert_id  =  T3.concert_id WHERE T3.year  =  2014) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0039",
+        "gold_query": "SELECT name ,  country FROM singer WHERE song_name LIKE '%Hey%'",
+        "bad_query": "SELECT * FROM (SELECT name ,  country FROM singer WHERE song_name LIKE '%Hey%') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0040",
+        "gold_query": "SELECT name ,  country FROM singer WHERE song_name LIKE '%Hey%'",
+        "bad_query": "SELECT * FROM (SELECT name ,  country FROM singer WHERE song_name LIKE '%Hey%') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0041",
+        "gold_query": "SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2014 INTERSECT SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2015",
+        "bad_query": "SELECT * FROM (SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2014 INTERSECT SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2015) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0042",
+        "gold_query": "SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2014 INTERSECT SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2015",
+        "bad_query": "SELECT * FROM (SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2014 INTERSECT SELECT T2.name ,  T2.location FROM concert AS T1 JOIN stadium AS T2 ON T1.stadium_id  =  T2.stadium_id WHERE T1.Year  =  2015) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0049",
+        "gold_query": "SELECT max(weight) ,  petType FROM pets GROUP BY petType",
+        "bad_query": "SELECT * FROM (SELECT max(weight) ,  petType FROM pets GROUP BY petType) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0050",
+        "gold_query": "SELECT max(weight) ,  petType FROM pets GROUP BY petType",
+        "bad_query": "SELECT * FROM (SELECT max(weight) ,  petType FROM pets GROUP BY petType) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0057",
+        "gold_query": "SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' OR T3.pettype  =  'dog'",
+        "bad_query": "SELECT * FROM (SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' OR T3.pettype  =  'dog') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0058",
+        "gold_query": "SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' OR T3.pettype  =  'dog'",
+        "bad_query": "SELECT * FROM (SELECT DISTINCT T1.Fname FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat' OR T3.pettype  =  'dog') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0061",
+        "gold_query": "SELECT major ,  age FROM student WHERE stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT * FROM (SELECT major ,  age FROM student WHERE stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0062",
+        "gold_query": "SELECT major ,  age FROM student WHERE stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT * FROM (SELECT major ,  age FROM student WHERE stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0063",
+        "gold_query": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat'",
+        "bad_query": "SELECT * FROM (SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0064",
+        "gold_query": "SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat'",
+        "bad_query": "SELECT * FROM (SELECT stuid FROM student EXCEPT SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0065",
+        "gold_query": "SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog' AND T1.stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT * FROM (SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog' AND T1.stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0066",
+        "gold_query": "SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog' AND T1.stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')",
+        "bad_query": "SELECT * FROM (SELECT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'dog' AND T1.stuid NOT IN (SELECT T1.stuid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid JOIN pets AS T3 ON T3.petid  =  T2.petid WHERE T3.pettype  =  'cat')) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0069",
+        "gold_query": "SELECT petid ,  weight FROM pets WHERE pet_age  >  1",
+        "bad_query": "SELECT * FROM (SELECT petid ,  weight FROM pets WHERE pet_age  >  1) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0070",
+        "gold_query": "SELECT petid ,  weight FROM pets WHERE pet_age  >  1",
+        "bad_query": "SELECT * FROM (SELECT petid ,  weight FROM pets WHERE pet_age  >  1) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0071",
+        "gold_query": "SELECT avg(pet_age) ,  max(pet_age) ,  pettype FROM pets GROUP BY pettype",
+        "bad_query": "SELECT * FROM (SELECT avg(pet_age) ,  max(pet_age) ,  pettype FROM pets GROUP BY pettype) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0072",
+        "gold_query": "SELECT avg(pet_age) ,  max(pet_age) ,  pettype FROM pets GROUP BY pettype",
+        "bad_query": "SELECT * FROM (SELECT avg(pet_age) ,  max(pet_age) ,  pettype FROM pets GROUP BY pettype) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0073",
+        "gold_query": "SELECT avg(weight) ,  pettype FROM pets GROUP BY pettype",
+        "bad_query": "SELECT * FROM (SELECT avg(weight) ,  pettype FROM pets GROUP BY pettype) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0074",
+        "gold_query": "SELECT avg(weight) ,  pettype FROM pets GROUP BY pettype",
+        "bad_query": "SELECT * FROM (SELECT avg(weight) ,  pettype FROM pets GROUP BY pettype) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0075",
+        "gold_query": "SELECT DISTINCT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid",
+        "bad_query": "SELECT * FROM (SELECT DISTINCT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0076",
+        "gold_query": "SELECT DISTINCT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid",
+        "bad_query": "SELECT * FROM (SELECT DISTINCT T1.fname ,  T1.age FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid) WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      },
+      {
+        "mutation": "forced_empty_result",
+        "task_id": "spider_dev_0077",
+        "gold_query": "SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.Lname  =  'Smith'",
+        "bad_query": "SELECT * FROM (SELECT T2.petid FROM student AS T1 JOIN has_pet AS T2 ON T1.stuid  =  T2.stuid WHERE T1.Lname  =  'Smith') WHERE 1 = 0",
+        "outcome": "fail",
+        "rejected": true
+      }
+    ],
+    "elapsed_seconds": 2.06
+  }
+}

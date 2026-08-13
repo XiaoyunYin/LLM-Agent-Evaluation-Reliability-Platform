@@ -1,0 +1,127 @@
+{
+  "generated_at": "2026-08-13T01:09:47.968509+00:00",
+  "run_id": "spider_debug__step14",
+  "is_mock": false,
+  "stage": "debug",
+  "configuration": {
+    "dataset": "spider",
+    "dataset_version": "spider-1.0:dev:30d64a3fccde",
+    "split": "dev",
+    "model_version": "gpt-4o-mini",
+    "prompt_version": "sql_agent_v1",
+    "tool_schema_version": "spider_tools_v2",
+    "adapter_version": "spider_adapter_v1",
+    "agent_version": "spider_langgraph_agent_v1",
+    "max_steps": 10,
+    "temperature": 0.0,
+    "max_visible_rows": 20,
+    "code_commit_sha": "ff9a4945be7cc1d8ac9bcdc5c9f19c7e97a1cea7",
+    "code_working_tree_dirty": true,
+    "archive_sha256": "5ddff97bb1d421282c593e8d30ce0ce107270f4dd4a21d60eba4bf287d5956b1",
+    "valid_task_count": 1034,
+    "excluded_task_ids": [],
+    "sampled": true,
+    "sample_seed": 20260812,
+    "model_pricing_usd_per_1m": {
+      "input": 0.15,
+      "cached_input": 0.075,
+      "output": 0.6
+    }
+  },
+  "primary": {
+    "episodes_measured": 50,
+    "tasks_selected": 50,
+    "passed": 35,
+    "task_success_rate": 0.7
+  },
+  "agent_efficiency": {
+    "mean_steps_per_successful_task": 9.314285714285715,
+    "median_steps_per_successful_task": 8.0,
+    "mean_steps_all_tasks": 10.44,
+    "median_steps_all_tasks": 10.0,
+    "mean_model_steps_all_tasks": 5.22
+  },
+  "tool_behavior": {
+    "sql_executions_total": 79,
+    "sql_execution_errors_total": 2,
+    "sql_execution_error_rate": 0.02531645569620253,
+    "schema_inspections_per_episode": 2.7,
+    "sql_executions_per_episode": 1.58,
+    "episodes_with_zero_schema_inspections": 0,
+    "episodes_with_zero_sql_executions": 0
+  },
+  "economics": {
+    "pricing_basis": "published list price, not a billed invoice",
+    "mean_input_tokens_per_successful_task": 2981.2285714285713,
+    "mean_output_tokens_per_successful_task": 124.28571428571429,
+    "mean_estimated_cost_per_successful_task": 0.0005052985714285714,
+    "mean_estimated_cost_per_episode": 0.000608961,
+    "total_estimated_cost": 0.03044805,
+    "total_input_tokens": 184943,
+    "total_output_tokens": 7743
+  },
+  "failure_breakdown": {
+    "termination_counts": {
+      "SUCCESS": 35,
+      "VERIFICATION_FAILED": 12,
+      "MAX_STEPS": 3
+    },
+    "verification_failures": 12,
+    "sql_errors": 0,
+    "max_step_terminations": 3,
+    "model_failures": 0,
+    "tool_failures": 0,
+    "missing_final_sql": 0
+  },
+  "infrastructure_correctness": {
+    "generation_infrastructure_failures": 0,
+    "tool_infrastructure_failures": 0,
+    "evaluator_infrastructure_failures": 0,
+    "gold_query_failures": 0,
+    "infrastructure_failure_rate": 0.0,
+    "missing_trajectories": 0,
+    "missing_trajectory_task_ids": [],
+    "duplicate_task_ids": {},
+    "episodes_without_trace_id": 0,
+    "steps_without_trace_id": 0,
+    "step_count_disagreements": 0,
+    "total_step_records": 522
+  },
+  "latency": {
+    "mean_episode_latency_ms": 4188.662106000265,
+    "median_episode_latency_ms": 3331.687949998013
+  },
+  "trace_check": {
+    "available": true,
+    "span_documents": 650,
+    "by_span_name": {
+      "agent.model_step": 261,
+      "tool.inspect_schema": 133,
+      "sqlite.query": 79,
+      "tool.execute_sql": 79,
+      "agent.episode": 50,
+      "verifier.execution": 47,
+      "eval.run": 1
+    },
+    "reconciliation": {
+      "agent.episode": {
+        "expected": 50,
+        "found": 50
+      },
+      "agent.model_step": {
+        "expected": 261,
+        "found": 261
+      },
+      "verifier.execution": {
+        "expected": 47,
+        "found": 47
+      },
+      "tool.execute_sql": {
+        "expected": 79,
+        "found": 79
+      }
+    },
+    "matches_trajectory": true
+  },
+  "run_is_clean": true
+}
