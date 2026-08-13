@@ -59,6 +59,7 @@ from backend.app.spider.tools import (  # noqa: E402
 )
 from backend.app.spider.trajectory import (  # noqa: E402
     DEFAULT_RUN_ROOT,
+    HALTING_TERMINATIONS,
     TerminationReason,
     TrajectoryStore,
 )
@@ -113,7 +114,11 @@ def build_client(model: str, mock: bool, answers: dict[str, str] | None):
         raise SystemExit(
             "OPENAI_API_KEY is not set. Set it in .env, or pass --mock to rehearse."
         )
-    return OpenAI(api_key=api_key)
+    # max_retries=0 is deliberate. The SDK's default retry silently re-sends on
+    # 429, which turns an exhausted quota into what looks like provider latency:
+    # a 5-token call measured 18s that was really two hidden retries. Retries are
+    # handled explicitly in the agent, where they can be classified and recorded.
+    return OpenAI(api_key=api_key, max_retries=0)
 
 
 def select_tasks(task_set, limit: int | None, sample: bool, task_ids: list[str] | None):
@@ -278,7 +283,7 @@ def main() -> int:
         "agent_version": AGENT_VERSION,
         "prompt_version": args.prompt_version,
         "tool_schema_version": effective_tool_schema,
-        "tool_argument_validation_enabled": agent_config.validate_tool_arguments_enabled,
+        "tool_argument_validation": agent_config.validate_tool_arguments_enabled,
         "adapter_version": ADAPTER_VERSION,
         "top_p": agent_config.top_p,
         "seed": agent_config.seed,
@@ -338,8 +343,14 @@ def main() -> int:
         run_context = set_span_in_context(run_span)
         progress_lock = threading.Lock()
         completed = 0
+        halt = threading.Event()
 
         def execute(task):
+            if halt.is_set():
+                # A halting condition was already hit. Skipping keeps the episode
+                # unrecorded so a resume re-runs it, rather than persisting a
+                # quota artefact that later analysis would read as a measurement.
+                return task, None
             token = otel_context.attach(run_context)
             try:
                 return task, agent.run_episode(
@@ -354,6 +365,10 @@ def main() -> int:
 
         def record(task, episode) -> None:
             nonlocal passed, total_cost, completed
+            if episode is None:
+                return
+            if episode.termination_reason in HALTING_TERMINATIONS:
+                halt.set()
             with progress_lock:
                 completed += 1
                 index = completed
@@ -377,6 +392,8 @@ def main() -> int:
 
         if args.concurrency <= 1:
             for task in pending:
+                if halt.is_set():
+                    break
                 _, episode = execute(task)
                 record(task, episode)
         else:
@@ -392,11 +409,15 @@ def main() -> int:
 
     force_flush_traces()
 
+    halted = counts.get(TerminationReason.RATE_LIMITED.value, 0) > 0
+    done_now = sum(counts.values())
+
     print()
-    print(f"Ran {len(pending):,} episodes in {elapsed / 60:.1f} min")
-    print(f"  passed         {passed:,}/{len(pending):,} ({passed / len(pending):.1%})")
+    print(f"Ran {done_now:,} episodes in {elapsed / 60:.1f} min")
+    print(f"  passed         {passed:,}/{max(done_now, 1):,} "
+          f"({passed / max(done_now, 1):.1%})")
     print(f"  estimated cost ${total_cost:.4f} (list price, not billed amount)")
-    print(f"  per task       ${total_cost / len(pending):.5f}")
+    print(f"  per task       ${total_cost / max(done_now, 1):.5f}")
     print("  terminations:")
     for reason, count in sorted(counts.items(), key=lambda item: -item[1]):
         print(f"    {reason:<22} {count:,}")
@@ -406,6 +427,24 @@ def main() -> int:
 
     if args.mock:
         print("\nThis was a MOCK rehearsal. It is not a measured result.")
+
+    if halted:
+        remaining = len(pending) - done_now
+        print()
+        print("=" * 68)
+        print("HALTED: provider rate limit / quota exhausted.")
+        print(f"  episodes completed this session : {done_now:,}")
+        print(f"  episodes still outstanding      : {remaining:,}")
+        print("  Completed episodes are checkpointed. Re-run the SAME command in")
+        print("  the next quota window; it resumes from episodes.jsonl and will")
+        print("  not re-run or re-pay for anything already recorded:")
+        print(f"    python scripts/run_spider_benchmark.py --stage {args.stage} "
+              f"--run-id {run_id} --concurrency {args.concurrency}")
+        print("  This run is INCOMPLETE and must not be scored until it finishes.")
+        print("=" * 68)
+        # Distinct from 1 so a wrapper can tell "quota, come back later" apart
+        # from "the run failed".
+        return 75
 
     return 0
 

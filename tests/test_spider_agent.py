@@ -625,3 +625,128 @@ def test_exclusion_list_is_frozen_and_parseable():
     assert len(task_set) + len(task_set.excluded) == 1034
     # dataset_version must change if the underlying data changes.
     assert task_set.dataset_version.startswith("spider-1.0:dev:")
+
+
+# --------------------------------------------------------------------------
+# Rate limiting as a first-class state
+#
+# Regression tests for a measured incident: the provider's daily request quota
+# was exhausted, the SDK retried the 429s silently, and the result was 90
+# MODEL_ERROR episodes out of 92 plus what looked like provider latency
+# degradation. A quota refusal is not a model defect and must not be recorded
+# as one.
+# --------------------------------------------------------------------------
+
+
+class _RateLimitError(Exception):
+    """Shaped like the provider's error, without importing the SDK."""
+
+
+def test_rate_limit_is_recognised_structurally():
+    from backend.app.spider.agent import is_rate_limit_error
+
+    assert is_rate_limit_error(_RateLimitError("Error code: 429 - rate limit reached"))
+    assert is_rate_limit_error(RuntimeError("Error code: 429 - RPD exceeded"))
+    assert not is_rate_limit_error(RuntimeError("connection reset by peer"))
+    assert not is_rate_limit_error(None)
+
+
+def test_rate_limit_terminates_as_rate_limited_not_model_error(task, tmp_path: Path):
+    class RateLimitedClient(MockOpenAIClient):
+        def _create(self, **kwargs):
+            raise _RateLimitError("Error code: 429 - rate limit reached, RPD")
+
+    agent = SpiderSQLAgent(
+        RateLimitedClient(),
+        AgentConfig(max_model_retries=3, retry_backoff_seconds=0),
+    )
+    episode = _run(agent, task, tmp_path)
+
+    assert episode.termination_reason is TerminationReason.RATE_LIMITED
+    assert episode.termination_reason is not TerminationReason.MODEL_ERROR
+    assert "429" in (episode.error or "")
+
+
+def test_rate_limits_are_not_retried(task, tmp_path: Path):
+    """Retrying into an exhausted quota burns wall time and hides the cause."""
+
+    class CountingClient(MockOpenAIClient):
+        calls = 0
+
+        def _create(self, **kwargs):
+            type(self).calls += 1
+            raise _RateLimitError("Error code: 429 - rate limit reached")
+
+    CountingClient.calls = 0
+    agent = SpiderSQLAgent(
+        CountingClient(),
+        AgentConfig(max_model_retries=3, retry_backoff_seconds=0),
+    )
+    _run(agent, task, tmp_path)
+
+    assert CountingClient.calls == 1, "a 429 must not be retried in benchmark mode"
+
+
+def test_transient_errors_are_still_retried(task, tmp_path: Path):
+    class FlakyClient(MockOpenAIClient):
+        calls = 0
+
+        def _create(self, **kwargs):
+            type(self).calls += 1
+            raise RuntimeError("connection reset by peer")
+
+    FlakyClient.calls = 0
+    agent = SpiderSQLAgent(
+        FlakyClient(),
+        AgentConfig(max_model_retries=3, retry_backoff_seconds=0),
+    )
+    episode = _run(agent, task, tmp_path)
+
+    assert FlakyClient.calls == 3, "transient failures must still be retried"
+    assert episode.termination_reason is TerminationReason.MODEL_ERROR
+
+
+def test_rate_limit_is_a_halting_termination():
+    from backend.app.spider.trajectory import (
+        HALTING_TERMINATIONS,
+        INFRASTRUCTURE_TERMINATIONS,
+    )
+
+    assert TerminationReason.RATE_LIMITED in HALTING_TERMINATIONS
+    assert TerminationReason.RATE_LIMITED in INFRASTRUCTURE_TERMINATIONS
+    # A quota refusal says nothing about the agent, so it must never be mistaken
+    # for a wrong answer.
+    assert TerminationReason.VERIFICATION_FAILED not in HALTING_TERMINATIONS
+
+
+def test_retry_wait_is_excluded_from_api_latency(task, tmp_path: Path):
+    """Latency metrics must measure the provider, not our own backoff."""
+
+    class SlowThenOkClient(MockOpenAIClient):
+        attempts = 0
+
+        def _create(self, **kwargs):
+            type(self).attempts += 1
+            if type(self).attempts == 1:
+                raise RuntimeError("connection reset by peer")
+            return super()._create(**kwargs)
+
+    SlowThenOkClient.attempts = 0
+    agent = SpiderSQLAgent(
+        SlowThenOkClient(answers={task.question: task.gold_query}),
+        AgentConfig(max_model_retries=3, retry_backoff_seconds=0.25),
+    )
+    store = TrajectoryStore("latency_run", tmp_path / "runs")
+    agent.run_episode(
+        task=task,
+        run_id="latency_run",
+        store=store,
+        dataset_version="test:v1",
+        workspace=str(tmp_path / "work"),
+    )
+
+    first = [s for s in store.iter_steps() if s["step_type"] == "model"][0]
+    assert first["retry_wait_ms"] >= 200, "backoff should be recorded"
+    assert first["api_latency_ms"] < first["latency_ms"], (
+        "api_latency_ms must exclude the backoff that latency_ms includes"
+    )
