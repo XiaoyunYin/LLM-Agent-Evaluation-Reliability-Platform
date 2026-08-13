@@ -127,7 +127,7 @@ def build_tasks(fixture_path: Path, fixture_sha: str, schema_version: str) -> li
                 required_changes=[_field_change("tickets", ticket_id, "status", "in_progress")],
             ),
             "reference": [
-                ("search_tickets", {"customer_id": customer["customer_id"]}),
+                ("search_tickets", {"customer_name": customer["name"]}),
                 ("update_ticket", {"ticket_id": ticket_id, "status": "in_progress"}),
             ],
         })
@@ -162,6 +162,7 @@ def build_tasks(fixture_path: Path, fixture_sha: str, schema_version: str) -> li
             "reference": [
                 ("search_policy", {"query": "security report handling"}),
                 ("update_ticket", {"ticket_id": ticket_id, "priority": "urgent", "escalated": True}),
+                ("list_reference_data", {}),
                 ("assign_ticket", {"ticket_id": ticket_id, "team_id": "TEAM-technical"}),
                 ("add_comment", {"ticket_id": ticket_id, "body": "Security triage started.",
                                  "reason_code": "SECURITY_TRIAGE"}),
