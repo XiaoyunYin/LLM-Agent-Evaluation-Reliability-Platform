@@ -1,9 +1,9 @@
 {
   "generated_at": "2026-08-14T03:00:25.997545+00:00",
-  "run_id": "spider_p2__treat_2",
+  "run_id": "VERIFY_gate_blocks_a_regression",
   "policy_version": "p1_armed_v1",
   "gate_metrics": {
-    "test_suite_task_success": 0.6634429400386848,
+    "test_suite_task_success": 0.6234429400386847,
     "mean_model_turns_per_success": 4.6426735218509,
     "tool_validity_rate": 0.995794111756459,
     "estimated_cost_per_success": 0.0007649145886889459
@@ -37,5 +37,5 @@
     "test_suite_rescore_artifact": "runs/spider_benchmark/spider_p2__treat_2/rescore__test_suite.json",
     "scored_from": "final_sql persisted in episodes.jsonl - no model call was made, so this metric describes exactly the same trajectories as the original"
   },
-  "note": "Frozen gate baseline. spider_p2__treat_2 runs the adopted configuration (empty_result_policy=accept_empty, adopted in P2) and is the median test-suite accuracy run of the treatment family, chosen by that rule rather than by which number looked best. It satisfies every always-fail condition."
+  "note": "Deliberate 4pp regression, about 1.5x the 2.71pp threshold. Opened only to prove the gate blocks the merge. Do not merge."
 }
