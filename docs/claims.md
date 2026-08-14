@@ -396,9 +396,10 @@ Latency and cost, from the baseline run (percentiles read from trace span durati
 ### Claim
 
 > Instrumented six service layers with OpenTelemetry exported through a Collector into
-> Elasticsearch, built a React/TypeScript dashboard whose type system makes rendering an
-> unmeasured metric a compile error, and added a CI regression gate blocking changes that
-> regress eval score >5% or latency/cost >15%.
+> Elasticsearch, built a React/TypeScript dashboard whose type system makes reading a
+> metric's numeric value without narrowing its provenance status a compile error, and
+> added a CI regression gate blocking changes that regress eval score >5% or
+> latency/cost >15%.
 
 ### Evidence
 
@@ -407,9 +408,19 @@ Latency and cost, from the baseline run (percentiles read from trace span durati
 | Six instrumented layers | gateway, retrieval, provider, judge, tool, storage — verified in `backend/app/tracing.py` |
 | Trace export path | Verified end to end into the `otel-traces` data stream |
 | Trace volume | **32,412 span documents across 13,950 traces** |
-| Dashboard | Builds; provenance union makes an unmeasured metric a compile error |
+| Dashboard | Builds; the `not_measured` variant has no `value` property, so reading a number without narrowing on `status` is a compile error |
 | CI gate logic | 8 tests pass; exit 0 on committed fixtures, exit 1 on a fake regression |
 | CI execution | **5 runs on `main`, all green** — Eval Regression Gate #1-#5, 25-41s each |
+
+### Precision note on the dashboard claim
+
+**Do not say** "rendering an unmeasured metric is a compile error." The dashboard
+renders the unmeasured *state* deliberately — `ProvenanceBadge` exists for exactly
+that. What the type system forbids is printing a **number** for something never
+measured, because the `NotMeasured` variant has no `value` property.
+
+The loose version collapses the moment someone asks how the dashboard shows a
+not-yet-run benchmark. The precise version answers that question by itself.
 
 The trace count read 0 for a long time because of three stacked faults, none visible to
 the application: the OTLP gRPC exporter was declared but never installed; the Collector's
@@ -953,4 +964,4 @@ Two claims that hold across every bullet and are worth making explicitly:
   system, not by convention.
 - **Negative results are recorded.** The degenerate kappa, the corpus duplication defect,
   the discarded label set, and the NFCorpus non-replication are all in
-  `docs/DEFECT_LEDGER.md` and the frozen result docs rather than removed.
+  `docs/build-log.md` rather than removed.
