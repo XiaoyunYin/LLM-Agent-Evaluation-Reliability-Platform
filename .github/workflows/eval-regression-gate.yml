@@ -45,10 +45,25 @@ jobs:
         run: python -m pytest tests -p no:cacheprovider
 
       - name: Test regression gate behavior
-        run: python -m pytest tests/test_regression_gate.py -p no:cacheprovider
+        run: >
+          python -m pytest tests/test_regression_gate.py tests/test_spider_gate.py
+          -p no:cacheprovider
 
-      - name: Compare current metrics against baseline
+      - name: Gate behavior fixtures (proves the comparator fails on a regression)
         run: >
           python scripts/compare_regression_metrics.py
           --baseline metrics/baseline_metrics.json
           --current metrics/current_metrics.json
+
+      # The armed gate over REAL measured metrics. Thresholds come from
+      # metrics/spider_gate_policy.json, where each was derived as
+      # max(2 x observed_spread, minimum_detectable_change) across four
+      # same-commit repeats - the measured noise envelope, not a judgement call.
+      # The superseded ">5% eval score" rule was ~3.7x wider than that envelope
+      # and would have passed real regressions silently.
+      - name: Spider regression gate (armed, real metrics)
+        run: >
+          python -m scripts.check_spider_gate
+          --policy metrics/spider_gate_policy.json
+          --baseline metrics/spider_baseline_metrics.json
+          --current metrics/spider_current_metrics.json
