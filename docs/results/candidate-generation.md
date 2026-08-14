@@ -1,5 +1,9 @@
 # Candidate Generation Status
 
+> **Historical snapshot:** this report records the 2026-08-07 state. The later
+> scale run totals are maintained in the
+> [claims ledger](../claims.md#2-scale--runs-candidate-answers-judged-answers).
+
 Generated at: 2026-08-07T03:24:08.866480+00:00
 
 ## Execution State

@@ -129,9 +129,9 @@ was going to fail anyway.
 noise floor now measured at 31–44 discordant tasks per pair. It was never an
 effect size and is now known not to be one.
 
-Honest reading: tool-argument validation is worth keeping because it makes the
-agent's tool use measurably cleaner and its failure modes cheaper — not because
-it has a demonstrated accuracy benefit. Establishing the latter would need
+Tool-argument validation is retained because it makes the agent's tool use
+measurably cleaner and its failure modes cheaper. This experiment did not
+demonstrate an accuracy benefit; establishing one would need
 multiple OFF repeats, and the pre-registration permits buying them and re-applying
 the same rule unchanged.
 

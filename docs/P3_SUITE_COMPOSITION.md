@@ -39,8 +39,7 @@ After this pass, difficulty tuning ends.
 
 ## 1b. Outcome of the pass — it did not create difficulty
 
-Recorded here because §1 pre-committed the pass and honesty requires the result
-next to the intent.
+This result is recorded next to the pre-committed rebalancing plan in §1.
 
 The pass added five families. Their first calibration read **49.2%**, which looked
 like restored discrimination. It was not: three benchmark defects were suppressing
