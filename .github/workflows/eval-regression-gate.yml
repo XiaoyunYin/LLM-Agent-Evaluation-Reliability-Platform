@@ -1,16 +1,14 @@
 name: Eval Regression Gate
 
 on:
+  # No `paths:` filter here, deliberately. regression-gate is a REQUIRED status
+  # check, and a required check that is skipped never reports - so any pull
+  # request touching only unfiltered paths would sit in "Expected - waiting for
+  # status" and could never be merged. A required check must run on every pull
+  # request or it is a deadlock waiting to happen.
   pull_request:
-    paths:
-      - "prompts/**"
-      - "config/**"
-      - "backend/app/**"
-      - "backend/main.py"
-      - "scripts/**"
-      - "metrics/**"
-      - "tests/test_regression_gate.py"
-      - ".github/workflows/eval-regression-gate.yml"
+  # Manual trigger, so the gate can be re-run without inventing a commit.
+  workflow_dispatch:
   push:
     branches:
       - main
