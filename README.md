@@ -714,7 +714,6 @@ Good limitations are specific, bounded, and paired with a next measurement. They
 
 ## Project Log
 
-- `docs/build-log.md`
 - `docs/results/candidate-generation.md`
 - `docs/results/scale-runs.md`
 - `docs/results/vllm-benchmark.md`
