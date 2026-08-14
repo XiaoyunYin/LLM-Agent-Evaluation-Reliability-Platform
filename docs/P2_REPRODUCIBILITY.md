@@ -72,9 +72,8 @@ The single regression is `spider_dev_0606`: baseline 3/4 = 0.75, treatment
 **Why rates and not counts.** Rates make the two sides commensurable despite the
 4-vs-3 imbalance. The cost is granularity: with 3 treatment runs a task's rate can
 only take the values 0, 1/3, 2/3, 1, so a task passing 3/4 at baseline and 2/3
-under treatment counts as *regressed* on a difference of 0.083. That is a
-deliberately strict reading — it can only understate the intervention, never
-flatter it.
+under treatment counts as *regressed* on a difference of 0.083. This conservative
+rule can only understate the intervention's effect.
 
 ---
 

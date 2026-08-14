@@ -17,9 +17,8 @@ post-P3 intervention-selection doctrine are pinned in
 
 ## 1. What is measured
 
-Not "did the model produce good-looking text". Every task declares the state
-change it requires, and the verifier compares the normalized before/after diff of
-a real SQLite world:
+Each task declares its required state change. The verifier compares the normalized
+before/after diff of a SQLite database:
 
 ```
 required ⊆ actual ⊆ required ∪ allowed        actual ∩ forbidden = ∅
@@ -48,8 +47,8 @@ forbidden-mutation cases carry the weight.
 | core tier (35 tasks) — regression canary | **97.7%** |
 | **hard tier (45 tasks) — primary discrimination** | **84.4%** |
 
-Tier roles were declared before any baseline ran, so the framing could not be
-chosen after seeing which number flattered the result.
+Tier roles were declared before any baseline ran and were not changed after the
+results were available.
 
 ### By family
 
@@ -124,7 +123,7 @@ floor of 8, so not underpowered.
 
 Global success 90.25% → 90.31%: unchanged.
 
-### Why that is the interesting result
+### Interpretation
 
 The selection rule triggered on the **frequency** of invalid calls. What actually
 matters is the frequency of invalid calls the agent **cannot recover from**, and

@@ -1,12 +1,16 @@
 # P4 Plan
 
-P4 has not started. This document is the protocol design and acceptance contract
-that must exist before any P4 implementation or fault-injection measurement.
+> **Status:** P4a is complete; see
+> [P4a matrix results](results/p4a-matrix.md). P4b has not started.
 
-P4 is split into two claims:
+This is the pre-implementation protocol and acceptance contract retained for
+comparison with the completed P4a work.
 
-- P4a proves crash-safe, idempotent, fenced agent effects in a Python-native
-  substrate independent of Java.
+P4 is split into two stages:
+
+- P4a tests crash-safe, idempotent agent effects in a Python-native substrate
+  independent of Java. The completed matrix does not establish stale-worker
+  fencing; that scope is recorded in the P4a audit.
 - P4b proves the same guarantees survive integration with the real Java
   orchestration platform.
 

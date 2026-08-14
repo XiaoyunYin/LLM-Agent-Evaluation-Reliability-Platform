@@ -1,5 +1,8 @@
 # P1 Status — Measured, and Blocked
 
+> **Historical status:** the quota block was later cleared and P1 completed. See
+> [`p1-frozen.md`](p1-frozen.md) for the final results.
+
 P1 was pre-registered in [`docs/P1_PREREGISTRATION.md`](../P1_PREREGISTRATION.md)
 before any run executed. This records what has been measured and what is blocked,
 without letting the second borrow credibility from the first.
@@ -51,8 +54,8 @@ the 30** mutations that single-database scoring could not tell apart from gold.
 Zero mutations became *less* distinguishable, which is the direction a strictly
 tighter substrate must move.
 
-The residual 12.05% is the honest limit: even 35 instances do not separate every
-wrong query from gold.
+The residual 12.05% is the remaining limit: even 35 instances do not separate
+every wrong query from gold.
 
 **This rate describes the mutation set, not the agent.** For the agent's actual
 false-positive rate, see §2 — and note the two numbers differ, which is exactly why

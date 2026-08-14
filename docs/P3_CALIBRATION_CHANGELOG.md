@@ -3,9 +3,9 @@
 Every change to a calibration task, fixture, verifier, or tool contract, with its
 category and rationale. Categories are fixed in `docs/P3_CONTRACT_V0.md` §5.
 
-**Poor model performance alone is never a valid category.** A task the agent fails
-for a real reason is a measurement. Editing it because the score disappoints turns
-the benchmark into a description of what the model already does.
+**Poor model performance alone is not a valid category.** Calibration edits must
+address a task, verifier, fixture, or runtime defect; a low score by itself does
+not qualify.
 
 | # | Date | Category | Target | Change | Rationale |
 |---|---|---|---|---|---|

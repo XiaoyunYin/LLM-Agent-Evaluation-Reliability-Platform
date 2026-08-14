@@ -178,8 +178,7 @@ the baseline arm**. A metric with no variance cannot be improved, so as written
 the experiment is guaranteed to return "no effect" for structural reasons rather
 than empirical ones.
 
-It also exposes a flaw in the §1 selection rule, which is worth stating plainly
-because it is the transferable lesson: **the rule triggered on the frequency of
+It also exposes a flaw in the §1 selection rule: **the rule triggered on the frequency of
 invalid calls, when what matters is the frequency of invalid calls the agent
 cannot recover from.** Frequency was a proxy chosen before there was evidence
 about recovery; recovery turned out to be perfect. By the corrected trigger,
@@ -191,9 +190,8 @@ pre-registration, not applied backwards to manufacture a different history.
 
 ## Revised plan, fixed before reading the replacement baselines
 
-1. The experiment still **runs**. It is cheap (~$0.06 per full pass), and a
-   measured null is worth more than an argued one. Declining to run and asserting
-   the outcome would be exactly the habit this project exists to avoid.
+1. The experiment still **runs**. It costs about $0.06 per full pass, and the
+   result should be measured rather than inferred.
 2. **If the replacement baselines also show zero episodes with ≥2 invalid calls**,
    the primary metric is reported as **DEGENERATE**, the verdict is **NO EFFECT
    ON THE PRIMARY METRIC**, and the finding published is the recovery rate itself

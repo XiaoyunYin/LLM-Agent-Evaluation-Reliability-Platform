@@ -29,8 +29,8 @@ every field its applicable policy mandates).
 **This number moved after the first derivation.** It was 5, giving a budget of 15,
 until a spec fix lengthened `multi_ticket_conditional` references from 4 to 7. Had
 the budget been frozen at the calibration-era value, part of the final suite would
-have been budget-impossible. That is the whole reason the budget was held unfrozen
-until the suite was final.
+have been budget-impossible. The budget therefore remained unfrozen until the suite
+was final.
 
 ## 2. Tool calls → model turns
 

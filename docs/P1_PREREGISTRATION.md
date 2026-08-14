@@ -1,5 +1,8 @@
 # P1 Pre-Registration
 
+> **Historical version:** decision rules were superseded by
+> [`P1_PREREGISTRATION_V2.md`](P1_PREREGISTRATION_V2.md) before the P1 runs.
+
 Written and committed **before** the runs it governs were executed. The point is
 that the decision rule cannot be adjusted after seeing the result — that is the
 difference between a measurement and a rationalisation.

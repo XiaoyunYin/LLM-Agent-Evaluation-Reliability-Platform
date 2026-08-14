@@ -1,12 +1,10 @@
+# P4a Durability Audit
 
-# P4a Audit — Is the Résumé Claim Supported?
+This audit checks six properties of the P4a durability matrix. Every number below
+was recomputed from the artifacts at `HEAD`, not copied from `p4a-matrix.md`.
 
-Independent audit of the P4a durability matrix against the six questions that gate
-the crash-safety résumé bullet. Every number below was recomputed from the
-artifacts at `HEAD`, not read from `p4a-matrix.md`.
-
-**Verdict: five of six clean. One — pause-class evidence — is absent, and the
-bullet is written to not depend on it.**
+**Result: five properties pass. Pause-class evidence is absent, so the published
+claim excludes fencing.**
 
 ---
 
@@ -15,9 +13,9 @@ bullet is written to not depend on it.**
 | | |
 |---|---|
 | tag | `p4a-frozen` |
-| commit | `07c1e9c` — *Freeze P4a durability matrix*, 2026-08-13 |
+| commit | `2eb3348` — *Freeze P4a durability matrix*, 2026-08-13 |
 | code + artifacts in that commit | `backend/app/support/durability.py` (896 lines), `scripts/run_p4a_matrix.py`, `scripts/audit_p4a_matrix.py`, `scripts/run_p4a_supplemental.py`, `tests/test_p4_durability.py`, `tests/test_p4_matrix_runner.py`, all three JSON artifacts |
-| commits after the freeze | one, `1ce4b95`, **documentation only** |
+| changes after the freeze | the runner can regenerate a missing deterministic fixture and verifies its content hash; the frozen matrix artifacts are unchanged |
 
 Artifact hashes recomputed from disk at `HEAD`, all matching the published values:
 
@@ -27,11 +25,11 @@ p4a_matrix_audit.json  D98222EAD20A0611175D7FD0C1AF0057A7DD7D3FE53507C1EAC4EF9C0
 p4a_supplemental.json  EEAD82EB8C1C298268D1DDEE899F2FA6332AAAB5CA420A6CCC633BDFF18ADB30
 ```
 
-**Clean.**
+**Status: pass.**
 
 ## 2. Matrix factorization
 
-915 is not a bag of cases; it factors exactly:
+The 915 cases factor as follows:
 
 ```
 167 effectful steps × 5 crash windows  =  835 crash cases
@@ -50,12 +48,11 @@ artifact independently reconstructs the expected
 `(task_id, crash_window, step_index, tool_name)` set from the frozen suite and
 confirms each combination appears exactly once.
 
-**Clean.**
+**Status: pass.**
 
-## 3. Is 915/915 the last clean full pass, under rerun-after-any-fix?
+## 3. Full-pass status
 
-Yes, and verified rather than assumed. The matrix was re-run at `HEAD` during this
-audit:
+The matrix was re-run at `HEAD` during this audit:
 
 ```
 run_id p4a_verify_rerun
@@ -66,12 +63,12 @@ acceptance totals all zero
 all_passed True
 ```
 
-No code has changed since the freeze — the only subsequent commit is
-documentation — so this is a reproduction, not a re-validation after a fix. The
-stronger property (a fix landed, everything re-run) has not been exercised because
-no fix has been needed since.
+Since the freeze, the runner's fixture-loading path was made portable to clean
+checkouts. It now regenerates a missing deterministic fixture and checks its
+content hash. The matrix cases, crash windows, durability implementation, and
+frozen result artifacts did not change.
 
-**Clean, with that scope stated.**
+**Status: pass within this scope.**
 
 ## 4. Pause-class results
 
@@ -88,15 +85,12 @@ So a stale token *was* generated and *was* rejected — but exactly once, in a
 **protocol-level simulation**, which `p4a-matrix.md` states plainly is *not* an OS
 SIGSTOP test. The matrix itself never exercises fencing at all.
 
-The distinction that matters to a distributed-systems interviewer: the mechanism
-is implemented and one synthetic stale token was refused; no worker was ever
-actually paused, expired, and resumed while holding a live handle. That is the
-evidence a fencing claim needs, and it does not exist yet.
+The mechanism is implemented and one synthetic stale token was refused. No worker
+was paused, allowed to expire, resumed, and then permitted to attempt a write with
+its stale handle. The current evidence therefore does not support a fencing claim.
 
-**Consequence: the word "fencing" stays off the résumé.** It returns when a
-pause-class test — real `SIGSTOP`, lease expiry, resume, then the paused worker
-attempting its write — reports stale-token rejections > 0. That is a small piece of
-work and is the single highest-value next step for P4.
+The next test should pause a worker with `SIGSTOP`, allow its lease to expire,
+resume it, and verify that its attempted write is rejected as stale.
 
 ## 5. Trajectory-level resume
 
@@ -109,12 +103,11 @@ rather than restarted from zero. The supplemental adds the harder case:
 | double-crash recovery | 2 crashes observed, 5 steps completed, 3 effect records, `runner_state: SUCCEEDED`, 0 duplicate business mutations |
 | poison-to-DLQ | dead-lettered after three failed attempts with **zero** effects applied |
 
-**Clean.**
+**Status: pass.**
 
-## 6. Are final states checked by the snapshot-diff verifier?
+## 6. Final-state verification
 
-Yes — this was the question most worth checking, because a durability harness that
-grades itself on its own bookkeeping proves nothing about the world.
+Final states are checked independently of the durability bookkeeping.
 
 All 915 cases carry a full P3 `verify()` result — same verifier, same
 normalization, same required/allowed/forbidden semantics as the frozen benchmark:
@@ -125,10 +118,10 @@ normalization_version  support_normalize_v1  (915/915)
 passed                 True                  (915/915)
 ```
 
-So the claim is not "the ledger looks consistent" but "the resulting database is
-the state the task required, after a crash at every effectful step."
+The resulting database therefore matches the state required by the task after a
+crash at every effectful step.
 
-**Clean.**
+**Status: pass.**
 
 ---
 
@@ -150,21 +143,22 @@ Protocol invariants, verified row-by-row by the audit script:
 
 ---
 
-## What the résumé bullet may therefore say
+## Supported claim
 
-> Proved crash-safe execution for effectful agents — zero duplicate effects, zero
-> lost effects, zero incorrect final states across 835 injected crashes plus 80
-> controls (915/915), covering five crash windows at every mutating step, with
-> write-ahead intents, idempotency keys and lease-based recovery, verified
-> deterministically with no model calls.
+> The deterministic P4a harness passed 835 injected crashes and 80 controls
+> (915/915) with no duplicate effects, lost effects, or incorrect final states.
+> It covers five crash windows at every mutating step and uses write-ahead intents,
+> idempotency keys, and lease-based recovery. No model calls are made during the
+> matrix.
 
-Supported by items 1, 2, 3, 5 and 6. It deliberately does not say "fencing", does
-not say "exactly-once", and does not claim a pause-class test.
+Items 1, 2, 3, 5, and 6 support this wording. It excludes fencing,
+exactly-once semantics, and pause-class testing.
 
-## What it may not say, until the work exists
+## Unsupported extensions
 
 - **"fencing tokens"** — needs a pause-class test with stale-token rejections > 0
-- **"exactly-once"** — the zeros are the stronger and unimpeachable claim
+- **"exactly-once"** — report the directly measured zero duplicate and zero lost
+  effect counts instead
 - **"survives worker failure in production"** — this is a deterministic harness on
   a single host with a simulated crash, not a distributed deployment. P4b
   integration with the Java substrate has not started.

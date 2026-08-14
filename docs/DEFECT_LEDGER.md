@@ -11,8 +11,7 @@ Note the precision: *aggregate accuracy*, not *any* aggregate. Defect 3
 an integrity count, as was its cousin the 2,042-row contaminated run. What none of
 the 11 would have shown up in is the accuracy number itself.
 
-This ledger exists so the count can be cited. A number on a résumé needs a list
-behind it.
+This ledger provides the itemized record behind the defect count.
 
 **Scope.** Included: defects in the evaluation substrate (tools, fixtures, task
 specs, resume/termination logic, the vendored evaluator) whose effect was a wrong

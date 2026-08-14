@@ -202,7 +202,7 @@ unless the bulk run itself logs sustained output tok/s across all Y answers.
 - Confirm the instance is no longer running in the AWS console.
 - Rotate or remove any temporary API keys from shell history if used.
 
-## Why This Matters
+## Measurement Notes
 
 - Mock 7B gives meaningless final judge-quality numbers, but it proves command
   shape, schema parsing, checkpointing, report writing, and recovery behavior.

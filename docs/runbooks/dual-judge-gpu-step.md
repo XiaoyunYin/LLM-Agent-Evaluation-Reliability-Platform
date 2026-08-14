@@ -88,7 +88,7 @@ judgments.
 
 ---
 
-## 4. Read the result honestly
+## 4. Check the result
 
 ```powershell
 python scripts/recompute_validation_report.py runs/dual_judge_squad/real_7b_report.json
