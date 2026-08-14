@@ -42,9 +42,9 @@ export const spiderAgent = {
   ),
   falsePositiveRate: measured(
     0.108,
-    'Share of single-database passes that fail the test suite. Zero movement in the other direction, which is what a strictly tighter metric must show',
+    `${P0_RUN}/rescore__test_suite.json — movement_vs_original_metric: 82 pass_to_fail of 758 single-database passes, and 0 fail_to_pass. Zero movement in the other direction is what a strictly tighter metric must show`,
     '2026-08-13',
-    'python scripts/compare_substrate_collisions.py --run-id spider_full__p0_v2',
+    'python scripts/rescore_with_substrate.py --run-id spider_full__p0_v2 --substrate test_suite',
   ),
   infrastructureFailures: measured(
     0,
@@ -60,15 +60,30 @@ export const spiderAgent = {
   ),
 } satisfies Record<string, Metric<number>>
 
-/** Termination reasons. These sum to exactly 1,034 — including the zeros. */
+/**
+ * Termination reasons. These sum to exactly 1,034 — including the zeros.
+ *
+ * Counts are `Metric<number>` rather than bare numbers on purpose. A zero here is
+ * a *measured* zero — no model, tool or evaluator failure occurred — and that is a
+ * different fact from "not measured". The union is what stops the two collapsing
+ * into the same rendered cell.
+ */
+const termination = (count: number, reason: string) =>
+  measured(
+    count,
+    `${P0_RUN}/p0_metrics.json — failure_breakdown.termination_counts.${reason}`,
+    '2026-08-13',
+    'python scripts/report_spider_metrics.py --run-id spider_full__p0_v2',
+  )
+
 export const spiderTerminations = [
-  { key: 'success', label: 'SUCCESS', count: 758, tone: 'good' as const },
-  { key: 'verification', label: 'VERIFICATION_FAILED', count: 226, tone: 'warn' as const },
-  { key: 'maxsteps', label: 'MAX_STEPS', count: 48, tone: 'warn' as const },
-  { key: 'sqlerror', label: 'SQL_ERROR', count: 2, tone: 'warn' as const },
-  { key: 'modelerror', label: 'MODEL_ERROR', count: 0, tone: 'muted' as const },
-  { key: 'toolerror', label: 'TOOL_ERROR', count: 0, tone: 'muted' as const },
-  { key: 'nofinalsql', label: 'NO_FINAL_SQL', count: 0, tone: 'muted' as const },
+  { key: 'success', label: 'SUCCESS', count: termination(758, 'SUCCESS') },
+  { key: 'verification', label: 'VERIFICATION_FAILED', count: termination(226, 'VERIFICATION_FAILED') },
+  { key: 'maxsteps', label: 'MAX_STEPS', count: termination(48, 'MAX_STEPS') },
+  { key: 'sqlerror', label: 'SQL_ERROR', count: termination(2, 'SQL_ERROR') },
+  { key: 'modelerror', label: 'MODEL_ERROR', count: termination(0, 'MODEL_ERROR') },
+  { key: 'toolerror', label: 'TOOL_ERROR', count: termination(0, 'TOOL_ERROR') },
+  { key: 'nofinalsql', label: 'NO_FINAL_SQL', count: termination(0, 'NO_FINAL_SQL') },
 ]
 
 /* ------------------------------------------------------------------ */
@@ -90,7 +105,7 @@ export const statefulAgent = {
   ),
   coreTier: measured(
     0.977,
-    '342/350 — the regression canary tier; a drop here means the substrate regressed, not that the benchmark got harder',
+    '342/350 — the regression canary tier. A drop here signals a regression in the evaluated system or the harness (agent, prompt, tool contract, model behaviour, or substrate), not that the benchmark became harder — the suite is frozen by content hash',
     '2026-08-13',
     'python -m scripts.analyze_p3_baseline --runs support_b3_01 ... support_b3_10',
   ),
@@ -152,7 +167,7 @@ export const durability = {
     915,
     `${P4A} — every recovered world verified by the same P3 snapshot-diff verifier, not by the harness's own bookkeeping`,
     '2026-08-13',
-    'python -m scripts.audit_p4a_matrix --run-id p4a_matrix_20260813',
+    'python -m scripts.audit_p4a_matrix --artifact runs/p4a_matrix/p4a_matrix_20260813/p4a_matrix.json',
   ),
   modelCalls: measured(
     0,
@@ -162,14 +177,25 @@ export const durability = {
   ),
 } satisfies Record<string, Metric<number>>
 
-/** The acceptance counters. All zero is the entire claim. */
+/**
+ * The acceptance counters. All zero is the entire claim — which is exactly why
+ * each one carries provenance rather than being a literal `0` in a table.
+ */
+const counter = (name: string) =>
+  measured(
+    0,
+    `${P4A} — summary.acceptance_totals.${name}, across all 915 cases`,
+    '2026-08-13',
+    'python -m scripts.audit_p4a_matrix --artifact runs/p4a_matrix/p4a_matrix_20260813/p4a_matrix.json',
+  )
+
 export const durabilityCounters = [
-  { key: 'dupe', label: 'duplicate_side_effects', meaning: 'the same business mutation applied twice', value: 0 },
-  { key: 'lost', label: 'lost_required_effects', meaning: 'a required mutation never landed', value: 0 },
-  { key: 'state', label: 'incorrect_final_states', meaning: 'the recovered world is not what the task required', value: 0 },
-  { key: 'orphan', label: 'orphan_effect_records', meaning: 'an effect recorded with no durable intent — write-ahead ordering violated', value: 0 },
-  { key: 'stale', label: 'stale_fenced_effects_accepted', meaning: "a fenced-out worker's write was accepted", value: 0 },
-  { key: 'invariant', label: 'invariant_violations', meaning: 'any protocol invariant broken', value: 0 },
+  { key: 'dupe', label: 'duplicate_side_effects', meaning: 'the same business mutation applied twice', value: counter('duplicate_side_effects') },
+  { key: 'lost', label: 'lost_required_effects', meaning: 'a required mutation never landed', value: counter('lost_required_effects') },
+  { key: 'state', label: 'incorrect_final_states', meaning: 'the recovered world is not what the task required', value: counter('incorrect_final_states') },
+  { key: 'orphan', label: 'orphan_effect_records', meaning: 'an effect recorded with no durable intent — write-ahead ordering violated', value: counter('orphan_effect_records') },
+  { key: 'stale', label: 'stale_fenced_effects_accepted', meaning: "a fenced-out worker's write was accepted", value: counter('stale_fenced_effects_accepted') },
+  { key: 'invariant', label: 'invariant_violations', meaning: 'any protocol invariant broken', value: counter('invariant_violations') },
 ]
 
 /* ------------------------------------------------------------------ */
@@ -180,6 +206,13 @@ export const durabilityCounters = [
  * Each threshold is `max(2 x observed_spread, minimum_detectable_change)` across
  * four same-commit repeats. The superseded policy was ">5% eval score", chosen by
  * judgement — about 3.7x wider than the noise it was meant to sit above.
+ */
+/**
+ * `spread` is measured — the observed range across four same-commit repeats.
+ * `threshold` is *policy* derived from it, and is read from
+ * metrics/spider_gate_policy.json rather than measured, so it is a plain number
+ * here. Keeping the distinction visible matters: one is an observation, the other
+ * is a decision made about that observation.
  */
 export const gateMetrics = [
   {
