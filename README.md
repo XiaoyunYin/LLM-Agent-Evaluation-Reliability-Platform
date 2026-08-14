@@ -1,16 +1,42 @@
 # LLM Agent Evaluation & Reliability Platform
 
-[![Eval Regression Gate](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform/actions/workflows/eval-regression-gate.yml)
+[![Eval Regression Gate](https://github.com/XiaoyunYin/LLM-Agent-Evaluation-Reliability-Platform/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/XiaoyunYin/LLM-Agent-Evaluation-Reliability-Platform/actions/workflows/eval-regression-gate.yml)
 
-An end-to-end LLM evaluation and regression-testing platform. It measures two
-kinds of system against ground truth: RAG candidate answers scored by validated
-LLM judges, and **tool-using SQL agents scored by executing their SQL**.
+An evaluation and reliability platform for **tool-using LLM agents**, where
+correctness is verified by execution rather than by a judge's opinion: an agent's
+SQL either returns gold's rows or it does not, and a stateful agent's work either
+produces the required database diff or it does not.
+
+Every published number is recomputed from a persisted artifact by a tool that
+fails on mismatch. Where a result is null, inconclusive, or retracted, it is
+reported as such.
+
+### Headline results
+
+| | |
+|---|---|
+| **Spider SQL agent**, schema discovered through tools | **65.4%** test-suite / **73.3%** single-database execution accuracy over all **1,034** dev tasks, zero infrastructure failures |
+| **Stateful agent benchmark**, correctness = verified DB state diff | **90.25% ± 1.75%** over 10 repeats (800 episodes), 80 frozen tasks |
+| **Crash-safety** for effectful agents | **915/915** cases — 835 injected crashes at every mutating step plus 80 controls — zero duplicate effects, zero lost effects, zero incorrect final states |
+| **Regression gate**, thresholds derived from measured noise | blocks merges on **>2.71pp** accuracy regression, calibrated from **1.35pp** same-commit variance |
+| **Shipped agent improvement** | cohort task completion **19.2% → 71.8%**, cohort frozen before the fix |
+
+### How it is organised
+
+| Phase | What it establishes |
+|---|---|
+| **P0** | Execution-verified Spider SQL-agent evaluation |
+| **P1** | Run-to-run variance, `pass^k` consistency, CI thresholds derived from measurement |
+| **P2** | Recoverable-headroom analysis, then one pre-registered intervention |
+| **P3** | Stateful agent benchmark with declarative state verification |
+| **P4a** | Durability and crash-safety for effectful agents |
+| Foundation | RAG evaluation and judge validation — the phase whose measured judge disagreement motivated everything above |
 
 ## Spider SQL-agent evaluation (P0)
 
-The newest capability, and the one with the strongest correctness signal, because
-nothing here depends on a judge's opinion: an agent's SQL either returns gold's
-rows or it does not.
+The first agent phase, and the clearest correctness signal in the project: nothing
+here depends on a judge's opinion — an agent's SQL either returns gold's rows or it
+does not.
 
 A minimal LangGraph agent gets a question, an isolated read-only SQLite database,
 and three tools — `inspect_schema`, `execute_sql`, `submit_answer`. It is **not**
@@ -114,16 +140,80 @@ python scripts/verify_p0_completion.py --run-id <run_id>
 python scripts/freeze_p0_baseline.py --run-id <run_id> --verify
 ```
 
-## RAG evaluation and judge validation
+## Stateful agent benchmark (P3)
 
-The original platform: measuring RAG candidate answers, validating judge
-behavior, routing judge disagreements to review, and blocking regressions in CI.
+Where P0 grades a *query*, P3 grades an agent's *effect on the world*. An 80-task
+support-ticket benchmark over a live SQLite database: the agent uses typed tools to
+search, update, assign and comment, and correctness is a normalized before/after
+state diff.
 
-## At a Glance
+```
+required ⊆ actual ⊆ required ∪ allowed        actual ∩ forbidden = ∅
+```
 
-The summary, architecture, features, and measured metrics come first, so the project reads quickly without overstating unfinished work.
+**Any undeclared mutation fails.** An agent that does the right thing *and*
+something extra has not done the right thing. No LLM judges correctness — comment
+checks are structured predicates on ticket, author and reason code.
 
-The sections after those go deeper: how the dataset was controlled, whether the benchmark avoids leakage, how runs resume after failures, how judge scores are validated, how tracing ties actions together, and whether the CI gate actually fails on regressions.
+| | |
+|---|---:|
+| Frozen suite | 80 tasks (35 core / 45 hard), pinned by content hash |
+| Baseline | **90.25%**, sd 1.75%, over 10 repeats / 800 episodes |
+| Core tier (regression canary) / hard tier (discrimination) | 97.7% / 84.4% |
+| Verifier QA, including adversarial known-bad cases | **452 / 452** |
+| Reference solutions replayed through the real runtime | **80 / 80**, zero model calls |
+
+Verifier QA carries the weight here: a verifier hardcoded to `PASS` scores 100% on
+gold references, so the suite includes partial-completion, wrong-value,
+unrelated-mutation and forbidden-mutation cases.
+
+**Reported honestly:** the suite is saturated for the model under test — seven of
+eleven families sit at 100% — and the one pre-registered intervention run against
+it returned **NO EFFECT**. Both are recorded rather than tuned away.
+
+## Durability and crash-safety (P4a)
+
+An agent that changes state must survive being killed mid-change. The durability
+protocol writes a **write-ahead intent** before acting, records the effect
+idempotently against a stable call identity, and recovers through **lease expiry**
+rather than restarting.
+
+Validated by injecting a crash at **five windows around every mutating step**, with
+no model calls, and checking each final world with the same P3 verifier:
+
+| | |
+|---|---:|
+| Cases | **915** = 167 effectful steps × 5 crash windows + 80 clean controls |
+| Passed | **915 / 915** |
+| Duplicate side effects / lost effects / incorrect final states | **0 / 0 / 0** |
+
+**Scope stated plainly:** this is a deterministic single-host harness. Fencing
+tokens are implemented and exercised once in a protocol-level simulation, not
+against a real paused worker, so no fencing claim is made. Distributed integration
+has not started.
+
+## RAG evaluation and judge validation — the foundation
+
+This phase came first, and its result is why the agent work above verifies by
+execution instead of by judge. Measuring two independent LLM judges against each
+other gave **65.0% raw agreement, Cohen's κ 0.264** — the "fair" band, on a
+*binary* pass/fail decision — with **43.3% of items routed to manual review**.
+
+A verifier that two instances of it disagree with a third of the time is not a
+correctness oracle. Everything after this phase moved correctness onto something
+executable.
+
+What this phase still contributes: hybrid retrieval tuned on a held-out split,
+scaled generation and judging with zero failures, a self-hosted judge on a single
+T4, six instrumented service layers, and the CI harness the regression gate is
+built on.
+
+## Reading the rest
+
+The sections below cover the RAG-phase substrate in depth: how the dataset was
+controlled, whether the benchmark avoids leakage, how runs resume after failures,
+how judge scores were validated, how tracing ties actions together, and whether
+the CI gate actually fails on a regression.
 
 ## Architecture
 
