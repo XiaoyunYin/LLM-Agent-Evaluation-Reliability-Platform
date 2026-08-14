@@ -52,6 +52,7 @@ capture() {
 
 echo "capturing from $BASE"
 capture overview      "/"
+capture agents        "/agents"
 capture retrieval     "/retrieval"
 capture judges        "/judges"
 capture runs          "/runs"

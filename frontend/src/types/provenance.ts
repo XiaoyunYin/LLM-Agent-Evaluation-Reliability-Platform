@@ -7,13 +7,20 @@
  * dashboard, because it launders guesses into screenshots.
  *
  * So a metric is a discriminated union, and `NotMeasured` has **no `value`
- * property at all**. That is the whole trick: TypeScript makes it a compile
- * error to render a number for something that was never measured. You cannot
- * forget, because the code will not build.
+ * property at all**. That is the whole trick: reading a metric's numeric value
+ * without first narrowing on `status` is a compile error. You cannot forget,
+ * because the code will not build.
  *
  *   const m: Metric = { status: 'not_measured', note: '...' }
  *   m.value          // ✗ Property 'value' does not exist on type ...
  *   if (m.status === 'measured') m.value   // ✓ narrowed, safe
+ *
+ * Note what this does NOT say. Rendering the unmeasured *state* is not just
+ * allowed, it is the point — `ProvenanceBadge` exists to show it. What the type
+ * system forbids is printing a *number* for something that was never measured.
+ * Those are different claims, and the looser one ("rendering an unmeasured
+ * metric is a compile error") is wrong in a way that falls apart the moment
+ * someone asks how the dashboard displays a not-yet-run benchmark.
  */
 
 export type MetricStatus = 'measured' | 'non_final' | 'placeholder' | 'not_measured'
