@@ -835,6 +835,87 @@ makes that bullet checkable rather than abstract.
 
 ---
 
+## 9. The armed Spider regression gate — what runs in CI
+
+**Status: Verified.** Previously this repo had two separate things that were easy
+to conflate: a CI workflow that ran on GitHub Actions against *fixtures*, and a
+threshold policy derived from measured variance that **nothing executed**. They are
+now the same system.
+
+### What executes
+
+`.github/workflows/eval-regression-gate.yml` runs `scripts/check_spider_gate.py`
+against real measured metrics on every PR and push touching agent code, prompts,
+config, scripts or metrics.
+
+| Armed metric | Threshold | Derived from |
+|---|---:|---|
+| `test_suite_task_success` | 0.027079 | measured spread 0.013540 across 4 same-commit repeats |
+| `mean_model_turns_per_success` | 0.055692 | measured spread 0.027846 |
+| `tool_validity_rate` | 0.001912 | measured spread 0.000956 |
+| `estimated_cost_per_success` | 0.000080 | measured spread 0.000040 |
+
+Formula, fixed before any family run executed:
+`max(2 x observed_spread, minimum_detectable_change)`.
+
+`consistency_pass_pow_4` is reported and **not armed** — it needs k repeats per
+side, which a single CI run cannot produce.
+
+**Always-fail conditions** (no thresholds — infrastructure correctness is not a
+tunable metric): wrong episode count, any `RATE_LIMITED` / `MODEL_ERROR` /
+`TOOL_ERROR` episode, evaluator failures, gold-query failures, missing
+trajectories, duplicate task ids, or trace/trajectory reconciliation mismatch.
+
+### Baseline provenance
+
+`metrics/spider_baseline_metrics.json` is extracted from **`spider_p2__treat_2`**,
+the median test-suite-accuracy run of the adopted-configuration family — chosen by
+that rule, not by which number looked best. It satisfies every always-fail
+condition, including exact trace reconciliation across all seven span types.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| Gate tests | **23 passing**, including one failing case per armed metric and per always-fail condition |
+| Full suite | 219 passing |
+| Simulated 4pp regression | correctly **FAILS**, exit 1 |
+| Committed baseline/current | **PASSES**, exit 0 |
+
+### Two defects found by building this
+
+1. **Silent default in the metrics extractor.** `bad_argument_tool_calls` was added
+   in P1, so P0-era runs do not carry it — and `.get(field, 0)` rendered "never
+   recorded" as "zero malformed calls", producing `tool_validity_rate = 1.0` for a
+   run that never measured it. That false green would have made every future real
+   run look like a 0.004 regression, over the 0.001912 threshold. The extractor now
+   **raises** rather than defaulting. This is the twelfth instance of the
+   absent-data-as-plausible-value pattern.
+
+2. **Trace verdicts were stale, not wrong.** Several runs recorded
+   `matches_trajectory: false` because the check ran moments after the run, before
+   Elasticsearch finished ingesting. Re-queried, `spider_p2__treat_2` reconciles
+   **exactly** on all seven span types. The extractor now recomputes the verdict
+   live and stamps it, leaving the frozen run artifact untouched.
+
+   Not everything was lag: `spider_rpt__on_1` returns 19,840 spans with
+   `eval.run: 3` and 2,322 `agent.episode` spans, which is genuine span bleed from a
+   reused run id. That run **cannot** serve as a gate baseline, and the gate says so
+   rather than averaging it away.
+
+### Must not say
+
+- ❌ *"CI re-runs the benchmark on every PR"* — it does not. 1,034 tasks is ~72
+  minutes and real money. The gate compares **recorded** metrics; a PR that changes
+  agent behaviour must re-run the benchmark and update
+  `metrics/spider_current_metrics.json`, and the gate blocks the update if it
+  regressed.
+- ❌ *"The gate has caught a production regression"* — it has caught a simulated
+  one and every case in its test suite. No real regression has occurred since it
+  was armed.
+
+---
+
 ## Cross-cutting
 
 Two claims that hold across every bullet and are worth making explicitly:

@@ -1,0 +1,41 @@
+{
+  "generated_at": "2026-08-14T03:00:25.997545+00:00",
+  "run_id": "spider_p2__treat_2",
+  "policy_version": "p1_armed_v1",
+  "gate_metrics": {
+    "test_suite_task_success": 0.6634429400386848,
+    "mean_model_turns_per_success": 4.6426735218509,
+    "tool_validity_rate": 0.995794111756459,
+    "estimated_cost_per_success": 0.0007649145886889459
+  },
+  "monitor_metrics": {
+    "single_database_execution_accuracy": 0.7524177949709865,
+    "sql_execution_error_rate": 0.007023705004389816,
+    "termination_reason_distribution": {
+      "MAX_STEPS": 10,
+      "SQL_ERROR": 1,
+      "SUCCESS": 778,
+      "VERIFICATION_FAILED": 245
+    }
+  },
+  "integrity": {
+    "episodes_measured": 1034,
+    "expected_episodes": 1034,
+    "infrastructure_terminations": 0,
+    "evaluator_infrastructure_failures": 0,
+    "gold_query_failures": 0,
+    "missing_trajectories": 0,
+    "duplicate_task_ids": {},
+    "trace_matches_trajectory": true,
+    "trace_checked_at": "2026-08-14T03:00:25.991787+00:00",
+    "trace_span_documents": 13184
+  },
+  "provenance": {
+    "tool_calls": 4993,
+    "malformed_tool_calls": 21,
+    "successes": 778,
+    "test_suite_rescore_artifact": "runs/spider_benchmark/spider_p2__treat_2/rescore__test_suite.json",
+    "scored_from": "final_sql persisted in episodes.jsonl - no model call was made, so this metric describes exactly the same trajectories as the original"
+  },
+  "note": "Frozen gate baseline. spider_p2__treat_2 runs the adopted configuration (empty_result_policy=accept_empty, adopted in P2) and is the median test-suite accuracy run of the treatment family, chosen by that rule rather than by which number looked best. It satisfies every always-fail condition."
+}
