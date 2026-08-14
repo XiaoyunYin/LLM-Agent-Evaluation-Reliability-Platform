@@ -40,6 +40,7 @@ from backend.app.support.schema import (  # noqa: E402
     DEFAULT_TICKET_COUNT,
     SCHEMA_VERSION,
     build_fixture,
+    fixture_content_sha256,
 )
 from backend.app.support.tasks import TASK_FAMILY_VERSION, build_tasks  # noqa: E402
 from backend.app.support.tools import EFFECTFUL_TOOLS, TOOL_SCHEMA_VERSION  # noqa: E402
@@ -71,13 +72,20 @@ def selected_entries(task_ids: set[str] | None) -> list[dict[str, Any]]:
     # is exactly what CI does - so build it when absent, then verify it byte for
     # byte against the frozen hash. Generating it is not trusting it.
     if not FIXTURE_PATH.exists():
-        built_sha = build_fixture(FIXTURE_PATH, DEFAULT_TICKET_COUNT)
-        if built_sha != fixture_sha:
-            raise RuntimeError(
-                f"regenerated fixture hash {built_sha} does not match the frozen "
-                f"manifest hash {fixture_sha}. The generator and the freeze have "
-                "diverged; do not run against it."
-            )
+        build_fixture(FIXTURE_PATH, DEFAULT_TICKET_COUNT)
+        # Verify CONTENT, not file bytes. SQLite's on-disk layout varies by library
+        # version and platform, so the same seed yields byte-different files - a
+        # Linux CI runner proved it. Comparing file hashes here rejected a fixture
+        # whose rows were identical.
+        expected = manifest.get("fixture_content_sha256")
+        if expected:
+            built = fixture_content_sha256(FIXTURE_PATH)
+            if built != expected:
+                raise RuntimeError(
+                    f"regenerated fixture content hash {built} does not match the "
+                    f"frozen manifest content hash {expected}. The generator and "
+                    "the freeze have diverged; do not run against it."
+                )
     entries = build_tasks(FIXTURE_PATH, fixture_sha, SCHEMA_VERSION)
     if task_ids is None:
         return entries

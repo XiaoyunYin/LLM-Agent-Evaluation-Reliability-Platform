@@ -903,6 +903,34 @@ condition, including exact trace reconciliation across all seven span types.
    reused run id. That run **cannot** serve as a gate baseline, and the gate says so
    rather than averaging it away.
 
+### A reproducibility defect this found
+
+CI regenerated the P3 fixture and got a **different hash than the freeze**, with
+identical rows. The cause: `sha256` over the `.sqlite` file. SQLite's page layout
+and encoding defaults vary by library version and platform, so the same seed
+produces byte-different files on Windows and Linux.
+
+That matters more than a red build. The fixture hash is stamped into **every task
+spec**, and the specs roll up into `suite_sha256` — so the entire frozen benchmark
+was verifiable **only on the machine that created it**. "Frozen by content hash"
+was true of the artifact and false of the property it was meant to guarantee.
+
+The fix hashes the fixture's **content** — every table in name order, its columns,
+and every row in primary-key order — which is identical anywhere the data is. The
+suite fingerprint changed as a consequence:
+
+| | |
+|---|---|
+| fixture pin | file bytes → `fixture_content_sha256` = `e561689ec552…` |
+| suite hash | `2cfcaedbb400` → `0bba80938319` |
+| what changed in the data | **nothing** — no task, required change, or measurement |
+
+Re-verified after the change with the fixture deleted from disk: 452/452 verifier
+QA checks, 80/80 references replayed, 219 tests, and `assert_p3_frozen` green.
+
+This is the thirteenth defect of the same family: a check that appeared to hold
+because it was keyed on something that only looked stable.
+
 ### Must not say
 
 - ❌ *"CI re-runs the benchmark on every PR"* — it does not. 1,034 tasks is ~72
