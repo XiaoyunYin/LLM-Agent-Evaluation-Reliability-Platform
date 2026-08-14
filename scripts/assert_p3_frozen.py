@@ -52,7 +52,11 @@ def observed() -> dict:
     config = SupportAgentConfig()
     return {
         "fixture_version": FIXTURE_VERSION,
-        "fixture_sha256": fixture_sha,
+        # The portable pin. `fixture_sha256` (file bytes) is retained in the
+        # manifest as a machine-local record but is NOT compared: SQLite file
+        # layout varies by platform, so byte equality is not a reproducibility
+        # property. Content equality is.
+        "fixture_content_sha256": fixture_sha,
         "ticket_count": DEFAULT_TICKET_COUNT,
         "schema_version": SCHEMA_VERSION,
         "task_family_version": TASK_FAMILY_VERSION,

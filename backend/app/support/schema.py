@@ -284,6 +284,38 @@ def _seeded_rows(count: int) -> tuple[list, list]:
     return customers, tickets
 
 
+def fixture_content_sha256(path: Path) -> str:
+    """Portable hash of the fixture's DATA, independent of SQLite's file layout.
+
+    `sha256` over the .sqlite file is NOT reproducible across machines: SQLite's
+    page layout, encoding defaults and freelist handling vary with library version
+    and platform, so the same seed produces byte-different files. CI caught this -
+    a Linux runner regenerated the fixture to a different file hash while holding
+    identical rows.
+
+    A freeze pinned to file bytes therefore pins "the fixture as built on one
+    machine", which is not a reproducibility guarantee. This hashes the logical
+    content instead: every table in name order, its column names, and every row in
+    primary-key order. Same data anywhere gives the same digest.
+    """
+    connection = sqlite3.connect(path)
+    digest = hashlib.sha256()
+    tables = [
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        )
+    ]
+    for table in tables:
+        columns = [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
+        digest.update(table.encode())
+        digest.update(json.dumps(columns, sort_keys=True).encode())
+        for row in connection.execute(f"SELECT * FROM {table} ORDER BY 1"):
+            digest.update(json.dumps(row, default=str, sort_keys=True).encode())
+    connection.close()
+    return digest.hexdigest()
+
+
 def build_fixture(path: Path, ticket_count: int = DEFAULT_TICKET_COUNT) -> str:
     """Create the seeded database and return its content hash.
 
@@ -316,8 +348,11 @@ def build_fixture(path: Path, ticket_count: int = DEFAULT_TICKET_COUNT) -> str:
     connection.commit()
     connection.close()
 
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for block in iter(lambda: handle.read(1 << 20), b""):
-            digest.update(block)
-    return digest.hexdigest()
+    # Returns the CONTENT hash, not the file hash. Hashing the .sqlite bytes is not
+    # reproducible across machines - SQLite's page layout and encoding defaults vary
+    # by library version and platform, so the same seed yields byte-different files.
+    # A Linux CI runner proved it by regenerating to a different digest while
+    # holding identical rows. Since this value is stamped into every TaskSpec and
+    # rolls up into the frozen suite hash, using file bytes made the entire freeze
+    # verifiable only on the machine that created it.
+    return fixture_content_sha256(path)

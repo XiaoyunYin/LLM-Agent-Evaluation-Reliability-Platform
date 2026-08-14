@@ -1,10 +1,10 @@
 {
   "fixture_version": "support_fixture_v5",
-  "fixture_sha256": "18d64bd9595c47f79810a37562b01b0e03eb6b31627ff50f489e083a55ff0efc",
+  "fixture_sha256": "e561689ec552781cdacbc9c9bc87ccfaa6b8c37d5dede45a8fb8d5bbfcc41dfc",
   "ticket_count": 120,
   "schema_version": "support_schema_v2",
   "task_family_version": "support_tasks_v5",
-  "suite_sha256": "2cfcaedbb4005e6d2ff52bcc69396dfffbb9ce1758c48b04945335d6478f396b",
+  "suite_sha256": "0bba80938319886e4d015d2208857f760772502fb304d420d98cfa4b06059573",
   "tool_schema_version": "support_tools_v2",
   "verifier_version": "support_verifier_v1",
   "normalization_version": "support_normalize_v1",
@@ -26,5 +26,11 @@
     "hard/multi_ticket_conditional": 8,
     "hard/noop_plus_mutation": 8,
     "hard/policy_selection": 10
+  },
+  "fixture_content_sha256": "e561689ec552781cdacbc9c9bc87ccfaa6b8c37d5dede45a8fb8d5bbfcc41dfc",
+  "fixture_sha256_note": "Content hash (tables, columns, rows), not file bytes. SQLite file layout varies by platform, so a byte hash pinned the fixture only on the machine that built it.",
+  "suite_sha256_previous": {
+    "value": "2cfcaedbb4005e6d2ff52bcc69396dfffbb9ce1758c48b04945335d6478f396b",
+    "why_changed": "Task specs embed the fixture hash, so the platform-dependent file hash propagated into the suite fingerprint. Switching to the portable content hash changes the fingerprint only - no task, required change, or measurement is altered."
   }
 }
