@@ -25,6 +25,14 @@ export const ROUTES: RouteMeta[] = [
     group: 'Evaluation',
   },
   {
+    path: '/agents',
+    label: 'Agent evaluation',
+    title: 'Agent evaluation',
+    description:
+      'Execution-verified agents: Spider SQL, stateful state diffs, durability under injected crashes, and the armed regression gate.',
+    group: 'Evaluation',
+  },
+  {
     path: '/retrieval',
     label: 'Retrieval',
     title: 'Retrieval benchmark',

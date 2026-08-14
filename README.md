@@ -571,6 +571,11 @@ window for the self-hosted judge.
 
 | View | What it shows |
 |---|---|
+| ![Agent evaluation](docs/screenshots/agent1.png) | Spider SQL agent: both accuracies, zero infrastructure failures, and the termination breakdown that sums to exactly 1,034. |
+| ![Stateful benchmark](docs/screenshots/agent2.png) | The 80-task stateful benchmark — correctness as a verified database state diff, with per-family success. |
+| ![Durability](docs/screenshots/agent3.png) | 915 crash-injection cases and the acceptance counters, each showing what it actually detects. |
+| ![Regression gate](docs/screenshots/agent4.png) | The armed gate: thresholds beside the measured run-to-run spread each was derived from. |
+| ![Observability](docs/screenshots/agent5.png) | Span volume and the P0 trace/trajectory reconciliation. |
 | ![Overview](docs/screenshots/overview.png) | Every headline number with its provenance: which artifact produced it and why. |
 | ![Retrieval](docs/screenshots/retrieval.png) | Dense, BM25, and hybrid RRF scored side by side on the same held-out queries. |
 | ![Judges](docs/screenshots/judges.png) | Dual-judge agreement, Cohen's kappa, and the pass rates that show the slice is not degenerate. |
@@ -578,8 +583,12 @@ window for the self-hosted judge.
 | ![Review queue](docs/screenshots/review-queue.png) | Disagreement cases routed for human inspection. |
 
 Regenerate them with `bash scripts/capture_screenshots.sh` while the backend and dev
-server are running. They are scripted rather than hand-captured so they cannot drift
-from the dashboard unnoticed.
+server are running. Scripted rather than hand-captured, so they cannot drift from the
+dashboard unnoticed — the same standard the metrics here are held to.
+
+The `agent*.png` frames are section crops of the single `/agents` page, captured by
+hand for framing; re-running the script produces the full-page `agents.png` from the
+same route, so the content stays reproducible even where the cropping was not.
 
 ## How To Run Locally
 
