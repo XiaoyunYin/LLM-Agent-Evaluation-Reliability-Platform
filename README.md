@@ -1,4 +1,4 @@
-# LLM Evaluation Regression Platform
+# LLM Agent Evaluation & Reliability Platform
 
 [![Eval Regression Gate](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform/actions/workflows/eval-regression-gate.yml/badge.svg)](https://github.com/XiaoyunYin/LLM-Evaluation-RAG-Observability-Platform/actions/workflows/eval-regression-gate.yml)
 
