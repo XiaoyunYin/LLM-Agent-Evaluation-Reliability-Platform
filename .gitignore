@@ -49,6 +49,11 @@ datasets/beir/*_train/chunks.jsonl
 # money, but never counted toward a measured claim, so it is noise in the history.
 runs/local_mock_*
 runs/gpu_window_rehearsal/
+# ...except the small mock artifacts the dashboard tests read. Without these a
+# clean checkout fails test_review_cases_include_saved_manual_review_queue_artifacts,
+# which meant the suite only passed on a machine that happened to have local
+# scratch. A test that needs data must ship it.
+!runs/gpu_window_rehearsal/gpu_window_validation_mock_12_*.jsonl
 runs/gpu_window_smoke/
 runs/judge_validation_rehearsal/
 runs/dual_judge_squad/rehearsal_mock7b_*

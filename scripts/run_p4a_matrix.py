@@ -36,7 +36,11 @@ from backend.app.support.durability import (  # noqa: E402
 )
 from backend.app.support.environment import SupportEnvironment  # noqa: E402
 from backend.app.support.normalize import NORMALIZATION_VERSION  # noqa: E402
-from backend.app.support.schema import SCHEMA_VERSION  # noqa: E402
+from backend.app.support.schema import (  # noqa: E402
+    DEFAULT_TICKET_COUNT,
+    SCHEMA_VERSION,
+    build_fixture,
+)
 from backend.app.support.tasks import TASK_FAMILY_VERSION, build_tasks  # noqa: E402
 from backend.app.support.tools import EFFECTFUL_TOOLS, TOOL_SCHEMA_VERSION  # noqa: E402
 from backend.app.support.verifier import VERIFIER_VERSION, verify  # noqa: E402
@@ -61,8 +65,19 @@ class MatrixCase:
 def selected_entries(task_ids: set[str] | None) -> list[dict[str, Any]]:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     fixture_sha = manifest["fixture_sha256"]
+    # The fixture is deliberately not committed: it is generated deterministically
+    # from a seed, and the manifest hash is the record of what it must be. Requiring
+    # the file to pre-exist made the repo unbuildable from a clean checkout, which
+    # is exactly what CI does - so build it when absent, then verify it byte for
+    # byte against the frozen hash. Generating it is not trusting it.
     if not FIXTURE_PATH.exists():
-        raise FileNotFoundError(f"missing frozen support fixture: {FIXTURE_PATH}")
+        built_sha = build_fixture(FIXTURE_PATH, DEFAULT_TICKET_COUNT)
+        if built_sha != fixture_sha:
+            raise RuntimeError(
+                f"regenerated fixture hash {built_sha} does not match the frozen "
+                f"manifest hash {fixture_sha}. The generator and the freeze have "
+                "diverged; do not run against it."
+            )
     entries = build_tasks(FIXTURE_PATH, fixture_sha, SCHEMA_VERSION)
     if task_ids is None:
         return entries
