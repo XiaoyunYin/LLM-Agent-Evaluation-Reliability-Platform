@@ -16,7 +16,11 @@ from backend.app.spider.trajectory import open_jsonl
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 RUN_ROOT = REPO_ROOT / "runs" / "support_benchmark"
-TOMBSTONE = "QUARANTINE.json"
+# Must match backend/app/support/quarantine.py::TOMBSTONE_NAME. It did not: this
+# read "QUARANTINE.json" while the writer emits "TOMBSTONE.json", so the exclusion
+# never fired - a guard that silently passed because it was looking for a file that
+# is never created. Imported rather than restated so the two cannot drift again.
+from backend.app.support.quarantine import TOMBSTONE_NAME as TOMBSTONE
 
 
 def _read(path: Path) -> list[dict]:
