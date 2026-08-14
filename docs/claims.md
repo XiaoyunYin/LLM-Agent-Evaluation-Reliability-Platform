@@ -812,6 +812,29 @@ This claim does not cover P4b or the distributed Java substrate.
 
 ---
 
+## 8. Stack line — what is claimed, and where to check it
+
+The résumé stack line is a claim like any other. Each entry names the artifact
+that proves it is real, so the line cannot drift into aspiration.
+
+| Claimed | Evidence | Check |
+|---|---|---|
+| FastAPI | `backend/main.py` | `grep -rl fastapi backend/` |
+| LangGraph | `backend/app/support/agent.py`, `backend/app/spider/agent.py` | `StateGraph` agent loop in both |
+| OpenTelemetry | span emission + trace↔trajectory reconciliation | 10,432 records vs 13,832 spans, §6 |
+| Elasticsearch | BM25 retrieval + `otel-traces` data stream | §1, §5 |
+| SQLite/Postgres | per-episode read-only Spider DBs; mutable P3 support fixture; pgvector dense index | §1, §6, §7 |
+| pytest | 181 tests | `pytest tests -q` |
+| **GitHub Actions** | **`.github/workflows/eval-regression-gate.yml` — this is where the regression gates run** | file exists; 5 green runs recorded in §5 |
+
+**Recorded decisions (2026-08-13).** FastAPI was dropped from an intermediate
+résumé draft by accident and is **restored** — it is genuinely in the stack.
+GitHub Actions was **added deliberately**: it is the execution surface for the
+CI regression gate, which is the subject of its own bullet, so naming the runner
+makes that bullet checkable rather than abstract.
+
+---
+
 ## Cross-cutting
 
 Two claims that hold across every bullet and are worth making explicitly:
