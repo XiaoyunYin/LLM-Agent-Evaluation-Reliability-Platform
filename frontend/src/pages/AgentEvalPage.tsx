@@ -12,7 +12,18 @@ import {
   statefulAgent,
   statefulFamilies,
 } from '../data/agentSnapshot'
-import { measured } from '../types/provenance'
+import { measured, type Metric } from '../types/provenance'
+
+/**
+ * Render a metric's number, or an em-dash if it was never measured. Deliberately
+ * not `?? 0` — a missing measurement is a hole, not a zero, and the union is what
+ * makes that impossible to fudge.
+ */
+function cell(metric: Metric<number>): string {
+  return metric.status === 'measured' || metric.status === 'non_final'
+    ? metric.value.toLocaleString()
+    : '—'
+}
 
 /**
  * Agent evaluation — P0 through P4a.
@@ -43,7 +54,7 @@ function familyRows(): BarRow[] {
       f.rate,
       `runs/support_baseline/frozen_baseline.json — ${f.label}, pooled over 10 repeats`,
       '2026-08-13',
-      'python -m scripts.analyze_p3_baseline --runs support_b3_01 ... support_b3_10',
+      'python -m scripts.analyze_p3_baseline --runs support_b3_01 support_b3_02 support_b3_03 support_b3_04 support_b3_05 support_b3_06 support_b3_07 support_b3_08 support_b3_09 support_b3_10',
     ),
   }))
 }
@@ -132,9 +143,11 @@ export function AgentEvalPage() {
                 <td>
                   <code>{t.label}</code>
                 </td>
-                <td className="tabular">{t.count.toLocaleString()}</td>
+                <td className="tabular">{cell(t.count)}</td>
                 <td className="tabular">
-                  {((t.count / 1034) * 100).toFixed(2)}%
+                  {t.count.status === 'measured'
+                    ? `${((t.count.value / 1034) * 100).toFixed(2)}%`
+                    : '—'}
                 </td>
               </tr>
             ))}
@@ -254,7 +267,7 @@ export function AgentEvalPage() {
                   <code>{c.label}</code>
                 </td>
                 <td className="muted">{c.meaning}</td>
-                <td className="tabular">{c.value}</td>
+                <td className="tabular">{cell(c.value)}</td>
               </tr>
             ))}
           </tbody>
@@ -304,7 +317,7 @@ export function AgentEvalPage() {
                   {g.threshold === null ? '—' : g.threshold.toFixed(6)}
                 </td>
                 <td className="tabular">
-                  {g.spread === null ? '—' : g.spread.toFixed(6)}
+                  {g.spread === null ? '—' : g.spread.value.toFixed(6)}
                 </td>
                 <td className="muted">{g.direction}</td>
                 <td>
@@ -349,7 +362,7 @@ export function AgentEvalPage() {
 
         <Panel
           title="Observability"
-          description="Every agent decision is both a persisted trajectory record and an OpenTelemetry span, and the two are reconciled."
+          description="Both agents emit spans for every model turn and tool call. Exact trace/trajectory reconciliation is persisted — and gate-enforced — for P0."
         >
           <div className="tile-grid">
             <StatTile

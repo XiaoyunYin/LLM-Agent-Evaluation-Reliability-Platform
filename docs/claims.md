@@ -543,7 +543,8 @@ because cached-input tokens are persisted:
 | Benchmark-only estimated cost | **$0.616408** |
 | Per episode | $0.000596 |
 | Per successful episode ($0.616408 / 758) | $0.000813 |
-| **Total real API spend across all P0 dev+test runs** | **$1.2780** (2,139 episodes) |
+| **Spend, P0 implementation phase** | **$1.2780** — 2,139 episodes across 6 runs (`p0_v1`, `p0_v2`, `debug__step14`, `smoke__step13`, `smoke__step13_v2`, `single__step9`) |
+| **Spend, all Spider runs to date** | **$6.8879** — 11,445 episodes across 15 real runs, as reported by the current cost ledger |
 
 Verifier QA, frozen before any agent ran, and bit-for-bit reproducible:
 
@@ -600,7 +601,10 @@ One run, one model, one prompt, one tool schema.
 - ❌ *"9.36 steps per task"* — ambiguous. Say 4.67 model turns, or 9.34 trajectory
   records, and say which.
 - ❌ *"$0.62 measured cost"* — estimated from list price, and it covers the
-  benchmark run only. Total P0 spend was $1.2780.
+  benchmark run only. P0 implementation-phase spend was $1.2780 across 2,139
+  episodes; the full Spider ledger now reads $6.8879 across 11,445 episodes,
+  because P1 variance repeats, the validation ablation and the P2 runs came
+  after that figure was published. Name the cohort whenever either is quoted.
 - ❌ *"18% of the agent's passes are false positives"* — the collision rate
   describes the mutation set, not the agent's query distribution.
 - ❌ Any claim of variance, confidence intervals, calibrated regression thresholds,
