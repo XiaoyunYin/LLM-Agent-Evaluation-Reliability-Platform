@@ -68,22 +68,33 @@ export const spiderAgent = {
  * different fact from "not measured". The union is what stops the two collapsing
  * into the same rendered cell.
  */
-const termination = (count: number, reason: string) =>
+const termination = (count: number, jsonPath: string) =>
   measured(
     count,
-    `${P0_RUN}/p0_metrics.json — failure_breakdown.termination_counts.${reason}`,
+    `${P0_RUN}/p0_metrics.json — ${jsonPath}`,
     '2026-08-13',
     'python scripts/report_spider_metrics.py --run-id spider_full__p0_v2',
   )
 
+/**
+ * Note the paths. `termination_counts` only contains reasons that OCCURRED — it
+ * has four keys, not seven. The three zeros are recorded in their own fields
+ * (`model_failures`, `tool_failures`, `missing_final_sql`), because "this did not
+ * happen" is asserted separately from "here is what happened".
+ *
+ * An earlier version of this file pointed all seven at
+ * `termination_counts.<reason>`, which does not resolve for the zeros. A
+ * provenance path that does not exist is worse than none: it reads as checkable
+ * and is not.
+ */
 export const spiderTerminations = [
-  { key: 'success', label: 'SUCCESS', count: termination(758, 'SUCCESS') },
-  { key: 'verification', label: 'VERIFICATION_FAILED', count: termination(226, 'VERIFICATION_FAILED') },
-  { key: 'maxsteps', label: 'MAX_STEPS', count: termination(48, 'MAX_STEPS') },
-  { key: 'sqlerror', label: 'SQL_ERROR', count: termination(2, 'SQL_ERROR') },
-  { key: 'modelerror', label: 'MODEL_ERROR', count: termination(0, 'MODEL_ERROR') },
-  { key: 'toolerror', label: 'TOOL_ERROR', count: termination(0, 'TOOL_ERROR') },
-  { key: 'nofinalsql', label: 'NO_FINAL_SQL', count: termination(0, 'NO_FINAL_SQL') },
+  { key: 'success', label: 'SUCCESS', count: termination(758, 'failure_breakdown.termination_counts.SUCCESS') },
+  { key: 'verification', label: 'VERIFICATION_FAILED', count: termination(226, 'failure_breakdown.termination_counts.VERIFICATION_FAILED') },
+  { key: 'maxsteps', label: 'MAX_STEPS', count: termination(48, 'failure_breakdown.termination_counts.MAX_STEPS') },
+  { key: 'sqlerror', label: 'SQL_ERROR', count: termination(2, 'failure_breakdown.termination_counts.SQL_ERROR') },
+  { key: 'modelerror', label: 'MODEL_ERROR', count: termination(0, 'failure_breakdown.model_failures') },
+  { key: 'toolerror', label: 'TOOL_ERROR', count: termination(0, 'failure_breakdown.tool_failures') },
+  { key: 'nofinalsql', label: 'NO_FINAL_SQL', count: termination(0, 'failure_breakdown.missing_final_sql') },
 ]
 
 /* ------------------------------------------------------------------ */
@@ -101,19 +112,19 @@ export const statefulAgent = {
     0.9025,
     'runs/support_baseline/frozen_baseline.json — 10 repeats, 800 episodes, sd 1.75%',
     '2026-08-13',
-    'python -m scripts.analyze_p3_baseline --runs support_b3_01 ... support_b3_10',
+    'python -m scripts.analyze_p3_baseline --runs support_b3_01 support_b3_02 support_b3_03 support_b3_04 support_b3_05 support_b3_06 support_b3_07 support_b3_08 support_b3_09 support_b3_10',
   ),
   coreTier: measured(
     0.977,
     '342/350 — the regression canary tier. A drop here signals a regression in the evaluated system or the harness (agent, prompt, tool contract, model behaviour, or substrate), not that the benchmark became harder — the suite is frozen by content hash',
     '2026-08-13',
-    'python -m scripts.analyze_p3_baseline --runs support_b3_01 ... support_b3_10',
+    'python -m scripts.analyze_p3_baseline --runs support_b3_01 support_b3_02 support_b3_03 support_b3_04 support_b3_05 support_b3_06 support_b3_07 support_b3_08 support_b3_09 support_b3_10',
   ),
   hardTier: measured(
     0.844,
     '380/450 — declared the primary discrimination metric before any baseline ran',
     '2026-08-13',
-    'python -m scripts.analyze_p3_baseline --runs support_b3_01 ... support_b3_10',
+    'python -m scripts.analyze_p3_baseline --runs support_b3_01 support_b3_02 support_b3_03 support_b3_04 support_b3_05 support_b3_06 support_b3_07 support_b3_08 support_b3_09 support_b3_10',
   ),
   verifierQa: measured(
     452,
@@ -123,7 +134,7 @@ export const statefulAgent = {
   ),
   referenceReplays: measured(
     80,
-    '80/80 reference solutions replayed through the real runtime with zero model calls',
+    'runs/support_reference_replay/reference_replay.json — 80/80 reference solutions replayed through the real runtime with zero model calls',
     '2026-08-14',
     'python -m scripts.replay_support_references',
   ),
@@ -214,12 +225,20 @@ export const durabilityCounters = [
  * here. Keeping the distinction visible matters: one is an observation, the other
  * is a decision made about that observation.
  */
+const spread = (value: number, metric: string) =>
+  measured(
+    value,
+    `metrics/spider_gate_policy.json — gate.metrics.${metric}.observed_spread, the range across four same-commit repeats (spider_rpt__on_1..4)`,
+    '2026-08-13',
+    'python -m scripts.analyze_run_variance --run spider_rpt__on_1 --run spider_rpt__on_2 --run spider_rpt__on_3 --run spider_rpt__on_4',
+  )
+
 export const gateMetrics = [
   {
     key: 'accuracy',
     label: 'test_suite_task_success',
     threshold: 0.027079,
-    spread: 0.01354,
+    spread: spread(0.01354, 'test_suite_task_success'),
     direction: 'decrease is bad',
     armed: true,
   },
@@ -227,7 +246,7 @@ export const gateMetrics = [
     key: 'turns',
     label: 'mean_model_turns_per_success',
     threshold: 0.055692,
-    spread: 0.027846,
+    spread: spread(0.027846, 'mean_model_turns_per_success'),
     direction: 'increase is bad',
     armed: true,
   },
@@ -235,7 +254,7 @@ export const gateMetrics = [
     key: 'validity',
     label: 'tool_validity_rate',
     threshold: 0.001912,
-    spread: 0.000956,
+    spread: spread(0.000956, 'tool_validity_rate'),
     direction: 'decrease is bad',
     armed: true,
   },
@@ -243,7 +262,7 @@ export const gateMetrics = [
     key: 'cost',
     label: 'estimated_cost_per_success',
     threshold: 0.00008,
-    spread: 0.00004,
+    spread: spread(0.00004, 'estimated_cost_per_success'),
     direction: 'increase is bad',
     armed: true,
   },
@@ -258,11 +277,19 @@ export const gateMetrics = [
 ]
 
 export const gateVerification = {
+  /**
+   * The command is the TEST, not `check_spider_gate` — running the gate against
+   * the committed metrics passes, because the committed metrics are not regressed.
+   * A command that returns GATE PASSED cannot evidence a block. The test injects
+   * the regression and asserts the failure, so it reproduces the property on
+   * demand; the pull request that was actually blocked is corroboration, not
+   * something a reader can re-run.
+   */
   blockedRegression: measured(
     0.04,
-    'A pull request carrying a deliberate 4pp accuracy regression — about 1.5x the threshold — failed the gate and could not be merged',
+    'tests/test_spider_gate.py::test_each_armed_metric_fails_when_it_regresses — a 4pp move, about 1.5x the 0.027079 threshold, fails the gate. Separately observed in CI: a pull request carrying that regression failed regression-gate and could not be merged',
     '2026-08-14',
-    'python -m scripts.check_spider_gate',
+    'pytest tests/test_spider_gate.py -q -k regresses',
   ),
   gateTests: measured(
     23,

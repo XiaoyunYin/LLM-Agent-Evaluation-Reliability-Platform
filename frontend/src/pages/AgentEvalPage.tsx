@@ -54,7 +54,7 @@ function familyRows(): BarRow[] {
       f.rate,
       `runs/support_baseline/frozen_baseline.json — ${f.label}, pooled over 10 repeats`,
       '2026-08-13',
-      'python -m scripts.analyze_p3_baseline --runs support_b3_01 ... support_b3_10',
+      'python -m scripts.analyze_p3_baseline --runs support_b3_01 support_b3_02 support_b3_03 support_b3_04 support_b3_05 support_b3_06 support_b3_07 support_b3_08 support_b3_09 support_b3_10',
     ),
   }))
 }
@@ -317,7 +317,7 @@ export function AgentEvalPage() {
                   {g.threshold === null ? '—' : g.threshold.toFixed(6)}
                 </td>
                 <td className="tabular">
-                  {g.spread === null ? '—' : g.spread.toFixed(6)}
+                  {g.spread === null ? '—' : g.spread.value.toFixed(6)}
                 </td>
                 <td className="muted">{g.direction}</td>
                 <td>

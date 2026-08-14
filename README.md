@@ -62,7 +62,7 @@ published number and its source disagree.
 | Episodes using both tools | **1,034 of 1,034** | |
 | Est. cost per successful episode | **$0.000813** | $0.616408 / 758 — total benchmark cost incl. failed episodes |
 | Benchmark-only estimated cost | $0.616408 | this run only |
-| Total real API spend, all P0 dev+test | **$1.2780** | 2,139 episodes across 6 runs |
+| Real API spend, P0 implementation phase | **$1.2780** | 2,139 episodes across 6 runs. The full Spider ledger, including P1 variance repeats, the ablation and the P2 runs, is **$6.8879** across 11,445 episodes |
 | Trajectory step records | 10,432 | |
 | Spans indexed in Elasticsearch | **13,832** | |
 | Trace ↔ trajectory reconciliation | **exact on all 7 span types** | enumerated from the data, not hand-listed |
