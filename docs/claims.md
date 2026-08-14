@@ -953,4 +953,4 @@ Two claims that hold across every bullet and are worth making explicitly:
   system, not by convention.
 - **Negative results are recorded.** The degenerate kappa, the corpus duplication defect,
   the discarded label set, and the NFCorpus non-replication are all in
-  `docs/build-log.md` rather than removed.
+  `docs/DEFECT_LEDGER.md` and the frozen result docs rather than removed.
