@@ -8,7 +8,7 @@ Each entry records four things:
 - **Claim** — the exact wording that may be used.
 - **Evidence** — the measured numbers and the file they come from.
 - **Scope** — what the claim does *not* cover.
-- **Must not say** — the stronger version that the evidence does not support.
+- **Unsupported wording** — a stronger version that the evidence does not support.
 
 Status legend: **Verified** (artifact-backed) · **Partial** (some parts supported) ·
 **Unsupported** (no artifact).
@@ -107,8 +107,8 @@ The generalisation supported by all four:
 > tracks the stronger one when either dominates. It never requires knowing in advance
 > which retriever suits the query mix.
 
-That is the honest version of a fusion claim — and it explains *when* to expect a gain,
-which a bare number does not.
+This scoped claim also states when a gain is expected, which a bare benchmark
+number does not.
 
 ### A better golden set for generation and judging
 
@@ -127,25 +127,18 @@ model that reads its context from one that pattern-matches.
 - 1,204 paragraphs as the corpus
 - Registered as `golden_squad_v2_sampled` in `DATASET_PATHS`
 
-### Must not say
+### Unsupported wording
 
-- ❌ *"Hybrid retrieval beats both dense and BM25"* — unscoped, and true only where the
+- *"Hybrid retrieval beats both dense and BM25"* — unscoped, and true only where the
   retrievers are complementary. NFCorpus refutes the unscoped form.
-- ❌ *"Lifted recall@10 from 0.69 to 0.84 using hybrid retrieval"* — never measured
+- *"Lifted recall@10 from 0.69 to 0.84 using hybrid retrieval"* — never measured
   on any corpus. On SciFact dense alone reaches 0.8536, so that magnitude comes from
   the embedding model, not from fusion.
-- ❌ *"k=60 is the tuned value"* — k=1 won on SciFact; k=5 on NFCorpus. Standard
+- *"k=60 is the tuned value"* — k=1 won on SciFact; k=5 on NFCorpus. Standard
   practice is k=60, and neither dataset chose it.
-- ❌ Comparing numbers across corpus versions. The synthetic corpus BM25 figure moved
+- Comparing numbers across corpus versions. The synthetic corpus BM25 figure moved
   from 0.0667 to 0.7417 to 0.3505 with no retriever change at all, purely from
   fixture differences.
-
-### Interview answer
-
-> "I got hybrid beating both retrievers on SciFact. Ran NFCorpus to check it and it
-> tied instead — the tuned depth didn't transfer either. So the claim I can defend
-> is that fusion matches the stronger retriever without knowing in advance which one
-> it is, not that it wins."
 
 ### Notes for a reader skimming the numbers
 
@@ -172,15 +165,15 @@ This is why BEIR treats nDCG@10 as the primary metric.
 
 | Measure | Value | Original target |
 |---|---:|---:|
-| Runs | **79** | 60+ ✅ |
-| Candidate answers | **9,480** | 8K+ ✅ |
+| Runs | **79** | 60+ (met) |
+| Candidate answers | **9,480** | 8K+ (met) |
 | — self-hosted `mistral-7b-instruct-v0.3-awq` | 9,240 | |
 | — OpenAI `gpt-4o-mini` | 120 | |
 | — Anthropic `claude-haiku-4-5` | 120 | |
 | Generation failures | **0** | |
-| **Answers judged** | **9,480 of 9,480** | 8K+ ✅ |
+| **Answers judged** | **9,480 of 9,480** | 8K+ (met) |
 | **Judge failures** | **0** | |
-| Trace span documents | **32,412** (13,950 traces) | 10K+ ✅ |
+| Trace span documents | **32,412** (13,950 traces) | 10K+ (met) |
 
 Artifacts: `runs/candidate_generation/cgen__{night_v1,scale_v1,dual_judge_slice_v1}__*`,
 `runs/self_hosted_bulk_judging/final_bulk_*`
@@ -213,7 +206,7 @@ All three providers produced real, persisted answers on the same 120-question SQ
 fixture, whose questions and answers are human-written. 960 answers from a superseded
 synthetic fixture also carry judge scores and are excluded from these totals.
 
-### Must not say
+### Unsupported wording
 
 - Do not present 79 runs as 79 distinct experiments.
 - Do not add the 960 superseded-fixture judgements to the 9,480. Those answers were
@@ -272,22 +265,13 @@ be addressed with prompt work or thresholding while noise cannot.
 wrote the answers; `gpt-4.1-mini` judged them. A model grading its own output carries a
 documented self-preference bias, which would have confounded the agreement number.
 
-### Must not say
+### Unsupported wording
 
-- ❌ *"84% inter-judge agreement"* — measured 65.0%.
-- ❌ *"16% sent to manual review"* — measured 43.3%.
-- ❌ Presenting kappa 0.264 as validation that the 7B is a reliable judge. It measures
+- *"84% inter-judge agreement"* — measured 65.0%.
+- *"16% sent to manual review"* — measured 43.3%.
+- Presenting kappa 0.264 as validation that the 7B is a reliable judge. It measures
   the opposite: a 7B does not substitute for a stronger judge without calibration or
   substantial human review.
-
-### Interview answer
-
-> "I wanted to know whether a 7B could carry bulk judging, so I ran it against
-> gpt-4.1-mini on 120 answers with human-written ground truth. Agreement was 65% and
-> kappa 0.264 — fair at best. The 7B fails 56 of 120 where the larger model fails 16,
-> so it is systematically harsher rather than noisy. My read is that a 7B judge is
-> usable for triage but not as an unsupervised scorer, which is why the harness routes
-> disagreements to review rather than trusting either judge outright."
 
 ### Provenance fix made during this run
 
@@ -360,15 +344,14 @@ Four vLLM options were tested against that profile, re-judging the identical 1,3
 | Wall clock | 2198s | 2091s | -4.8% |
 | **Failed scores** | **0** | **27** | **regression** |
 
-**The tuning is not worth adopting.** A 5% throughput gain cost 27 failed judgements, all
+**The tuned configuration was rejected.** A 5% throughput gain cost 27 failed judgements, all
 from the same cause: `max-model-len 2048` is below the prompt-length tail. Mean prompt is
 1,350 tokens, but 2% of judge prompts exceed 2,048 and the server rejected them with
 `HTTP 400: maximum context length is 2048 tokens`. The KV-cache budget saved by shrinking
 the window did not buy enough batching to justify losing 2% of the data.
 
-Prefix caching and chunked prefill are not implicated — they are free and directionally
-correct for a prefill-bound job. The failure is attributable to one knob, and the honest
-conclusion is to keep those two, restore `max-model-len 4096`, and re-measure.
+Prefix caching and chunked prefill are not implicated. The failure is attributable
+to one setting: keep those two options, restore `max-model-len 4096`, and re-measure.
 
 Latency and cost, from the baseline run (percentiles read from trace span durations):
 
@@ -378,14 +361,15 @@ Latency and cost, from the baseline run (percentiles read from trace span durati
 | Cost per 1,000 judgements | $0.2433 |
 | Cost per 1M tokens | $0.1677 |
 
-### Must not say
+### Unsupported wording
 
 - No "5% faster" without the failure count beside it. The tuned configuration lost 27
   judgements; reporting the speedup alone would hide a correctness regression that the
   measurement exists to catch.
 - No "145 tok/s" — never measured. Peak on the synthetic benchmark was 144.00; sustained
   on the real workload is 60.43.
-- No "8K+ bulk-judged answers" — 1,320.
+- Do not attach the 9,480-answer scale total to this throughput measurement. The
+  throughput and latency figures above come from one 1,320-answer workload.
 
 ---
 
@@ -428,13 +412,14 @@ Elasticsearch exporter writes bulk `create` actions requiring a **data stream**,
 plain index; and the count script aggregated on a `text`-mapped field. All three are
 fixed, and `scripts/setup_trace_index.py` makes the data stream reproducible.
 
-### Must not say
+### Required qualification
 
-- "10K+ traces" is now supported: **32,412 span documents across 13,950 traces**, emitted as a byproduct of real generation and judging. State which of the two figures is meant.
-- Distinguish **span documents** from **traces**. Each judgement is currently its own
-  root span, so the two counts are near 1:1. Nesting per-case spans under a run-level
-  parent would give few traces and many spans, and a claim phrased as "10K traces"
-  would then be far harder to reach than "10K span documents". State which one is meant.
+- Do not describe 32,412 span documents as 32,412 traces. The repository contains
+  **32,412 span documents across 13,950 traces**, emitted by real generation and
+  judging runs.
+- Each judgement is currently its own root span, so the two counts are relatively
+  close. A different parent-span structure would change the trace count without
+  changing the amount of evaluation work.
 
 ### What 10K+ would actually require
 
@@ -463,13 +448,6 @@ number is the same failure as any other inflated metric.
   `metrics/current_metrics.json`, which are committed fixtures, not live eval output.
   The gate mechanism is real and blocks a deliberate regression with exit 1; wiring it to
   real measured scores is a further step that has not been taken.
-
-### Interview answer
-
-> "The gate blocks on >5% eval-score regression and >15% latency or cost, and I verified
-> it fails a deliberate regression with exit code 1. Tracing covers six layers and the
-> export path is proven into Elasticsearch, but I've only generated a smoke test's worth
-> of spans — so I'd claim the instrumentation, not a trace count."
 
 ---
 
@@ -589,29 +567,30 @@ the other's name.
 
 One run, one model, one prompt, one tool schema.
 
-### Must not say
+### Unsupported wording
 
-- ❌ *"73.3% on Spider"* without stating the tool-discovery protocol.
-- ❌ Calling the 73.31% figure *"test-suite execution accuracy"* — that name belongs
+- *"73.3% on Spider"* without stating the tool-discovery protocol.
+- Calling the 73.31% figure *"test-suite execution accuracy"* — that name belongs
   to the 65.38% figure, measured on the distilled suite.
-- ❌ Quoting 65.38% as "the" accuracy without the single-database figure beside it,
+- Quoting 65.38% as "the" accuracy without the single-database figure beside it,
   or vice versa.
-- ❌ *"0.51% SQL error rate"* — that was the superseded v1 figure; the current one
+- *"0.51% SQL error rate"* — that was the superseded v1 figure; the current one
   is 1.16%, and either way it is a **tool-call** rate, not an episode outcome rate.
-- ❌ *"9.36 steps per task"* — ambiguous. Say 4.67 model turns, or 9.34 trajectory
+- *"9.36 steps per task"* — ambiguous. Say 4.67 model turns, or 9.34 trajectory
   records, and say which.
-- ❌ *"$0.62 measured cost"* — estimated from list price, and it covers the
+- *"$0.62 measured cost"* — estimated from list price, and it covers the
   benchmark run only. P0 implementation-phase spend was $1.2780 across 2,139
   episodes; the full Spider ledger now reads $6.8879 across 11,445 episodes,
   because P1 variance repeats, the validation ablation and the P2 runs came
   after that figure was published. Name the cohort whenever either is quoted.
-- ❌ *"18% of the agent's passes are false positives"* — the collision rate
+- *"18% of the agent's passes are false positives"* — the collision rate
   describes the mutation set, not the agent's query distribution.
-- ❌ Any claim of variance, confidence intervals, calibrated regression thresholds,
+- Any claim of variance, confidence intervals, calibrated regression thresholds,
   pass^k, bounded SQL repair, MCP, durable execution, idempotent tool side effects,
-  lease fencing, or crash recovery. None are established.
+  lease fencing, or crash recovery based on P0 alone. Later phases establish some
+  of these separately.
 
-### Debugging findings — not résumé claims
+### Debugging findings
 
 **A tool that answered the wrong question convincingly.** `spider_tools_v1` of
 `inspect_schema` read only `table_name` and silently ignored other keys, so
@@ -687,18 +666,6 @@ Prompting that an empty result may be correct might convert some max-step episod
 (ceiling 77.95%, actual effect unknown). A larger `max_steps` might convert some,
 or might just spend more tokens on the same loops. Test-suite databases would
 tighten the metric's blind spot by an unquantified amount.
-
-### Interview answer
-
-> "The agent doesn't get the schema — it finds it with `inspect_schema`, tests
-> queries with `execute_sql`, and decides when to submit. Correctness is execution
-> against gold using the official Spider evaluator, so no judge opinion is
-> involved. 73.3% over all 1,034 dev tasks, zero infrastructure failures. I won't
-> compare that to the leaderboard, because those systems get the schema in the
-> prompt — different task. The thing I'd actually point at: I ran the same config
-> twice and the aggregate moved 0.4 points, but 34 tasks changed pass/fail — 19 one
-> way, 15 the other. That's why I won't set a CI threshold off one run — measuring
-> that variance properly is next."
 
 ---
 
@@ -816,7 +783,7 @@ fencing-token simulation, not an OS SIGSTOP test.
 
 This claim does not cover P4b or the distributed Java substrate.
 
-### Must not say
+### Unsupported wording
 
 - Do not claim P4b is implemented.
 - Do not claim the 915-case matrix contains zombie/stale-worker or poison/DLQ
@@ -827,10 +794,9 @@ This claim does not cover P4b or the distributed Java substrate.
 
 ---
 
-## 8. Stack line — what is claimed, and where to check it
+## 9. Implemented stack
 
-The résumé stack line is a claim like any other. Each entry names the artifact
-that proves it is real, so the line cannot drift into aspiration.
+Each entry names the code or artifact that verifies its use in the repository.
 
 | Claimed | Evidence | Check |
 |---|---|---|
@@ -842,15 +808,13 @@ that proves it is real, so the line cannot drift into aspiration.
 | pytest | 181 tests | `pytest tests -q` |
 | **GitHub Actions** | **`.github/workflows/eval-regression-gate.yml` — this is where the regression gates run** | file exists; 5 green runs recorded in §5 |
 
-**Recorded decisions (2026-08-13).** FastAPI was dropped from an intermediate
-résumé draft by accident and is **restored** — it is genuinely in the stack.
-GitHub Actions was **added deliberately**: it is the execution surface for the
-CI regression gate, which is the subject of its own bullet, so naming the runner
-makes that bullet checkable rather than abstract.
+**Recorded decisions (2026-08-13).** FastAPI and GitHub Actions are included
+because they are execution dependencies: FastAPI serves the API, and GitHub
+Actions runs the CI regression gate.
 
 ---
 
-## 9. The armed Spider regression gate — what runs in CI
+## 10. The armed Spider regression gate — what runs in CI
 
 **Status: Verified.** Previously this repo had two separate things that were easy
 to conflate: a CI workflow that ran on GitHub Actions against *fixtures*, and a
@@ -946,14 +910,14 @@ QA checks, 80/80 references replayed, 219 tests, and `assert_p3_frozen` green.
 This is the thirteenth defect of the same family: a check that appeared to hold
 because it was keyed on something that only looked stable.
 
-### Must not say
+### Unsupported wording
 
-- ❌ *"CI re-runs the benchmark on every PR"* — it does not. 1,034 tasks is ~72
+- *"CI re-runs the benchmark on every PR"* — it does not. 1,034 tasks is ~72
   minutes and real money. The gate compares **recorded** metrics; a PR that changes
   agent behaviour must re-run the benchmark and update
   `metrics/spider_current_metrics.json`, and the gate blocks the update if it
   regressed.
-- ❌ *"The gate has caught a production regression"* — it has caught a simulated
+- *"The gate has caught a production regression"* — it has caught a simulated
   one and every case in its test suite. No real regression has occurred since it
   was armed.
 
@@ -961,11 +925,11 @@ because it was keyed on something that only looked stable.
 
 ## Cross-cutting
 
-Two claims that hold across every bullet and are worth making explicitly:
+Two rules apply across the claims in this file:
 
-- **Provenance.** Every number in the README names the artifact it came from, and
-  unmeasured metrics render as "not measured" rather than zero — enforced by the type
-  system, not by convention.
-- **Negative results are recorded.** The degenerate kappa, the corpus duplication defect,
-  the discarded label set, and the NFCorpus non-replication are all in
-  `docs/build-log.md` rather than removed.
+- **Provenance.** Every result in the README links to its report or source, and
+  unmeasured dashboard metrics render as "not measured" rather than zero. The
+  dashboard type system enforces the latter rule.
+- **Negative results are recorded.** The degenerate kappa, corpus duplication
+  defect, discarded label set, and NFCorpus non-replication remain in the relevant
+  result reports.

@@ -30,7 +30,7 @@ Two sources, kept visibly separate:
 | Source | Powers | Freshness |
 |---|---|---|
 | FastAPI over the Vite `/api` proxy | Runs, Review queue, the health pill | live |
-| `src/data/metricsSnapshot.ts` | Overview, Retrieval, Judges | edited by hand as you measure |
+| `src/data/metricsSnapshot.ts` | Overview, Retrieval, Judges | updated after audited runs |
 
 The proxy is configured in `vite.config.ts`; it rewrites `/api/x` to `/x` and
 targets `http://127.0.0.1:8000`. This is why the browser never makes a
@@ -48,10 +48,9 @@ To promote one:
 3. Reload. The claim-readiness checklist on the Overview page recomputes
    itself — nothing there is ticked by hand.
 
-A `NotMeasuredMetric` has no `value` field, so TypeScript will not let you
-render a number for something that was never measured. If you find yourself
-wanting to write `measured(0, ...)` to fill a gap, that is the type system
-catching a claim you cannot support.
+A `NotMeasuredMetric` has no `value` field, so TypeScript prevents the UI from
+rendering an unmeasured value. Do not use `measured(0, ...)` as a placeholder;
+zero is a measurement, not a missing value.
 
 ## Checks
 

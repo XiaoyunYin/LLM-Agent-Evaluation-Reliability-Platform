@@ -158,6 +158,6 @@ Superseding the P2 practice of deleting contaminated runs: they are now
 `TOMBSTONE.json` recording the run ID, contamination reason, detection mechanism,
 and exclusion status. Analysis tooling skips tombstoned runs.
 
-Deleting hid the evidence of *how* the contamination happened. The P2 case — two
-concurrent writers producing 1,008 duplicated task IDs — was worth keeping as a
-record even though its data was worthless.
+Deleting hid the evidence of *how* the contamination happened. The P2 case, in
+which two concurrent writers produced 1,008 duplicated task IDs, was retained as
+a record even though its measurements were invalid.

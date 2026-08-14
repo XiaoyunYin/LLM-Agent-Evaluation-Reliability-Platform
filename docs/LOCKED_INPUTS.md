@@ -1,8 +1,7 @@
 # Locked Inputs — Spider SQL Agent Benchmark (P0)
 
-Frozen benchmark configuration. Everything here was fixed **before** any
-agent produced a single query, so none of it can be tuned to flatter a
-result. Changing any value invalidates comparison with prior runs.
+This configuration was frozen **before** the first agent run. Changing any value
+invalidates comparisons with the recorded runs.
 
 ## Dataset pin
 

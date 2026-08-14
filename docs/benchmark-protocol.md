@@ -18,7 +18,7 @@ Each episode:
 5. Every model step, tool call, and verification is persisted as a trajectory
    record and emitted as an OpenTelemetry span.
 
-## The one thing that makes this number not leaderboard-comparable
+## Why the result is not leaderboard-comparable
 
 **The agent discovers the schema through tools. The full schema is never
 serialized into the initial prompt.**
