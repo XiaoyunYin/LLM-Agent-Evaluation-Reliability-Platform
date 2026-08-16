@@ -1,8 +1,8 @@
 # P1 Frozen — Variance, Consistency, Ablation, and Calibrated Gates
 
-Complete. Every decision rule and estimator was fixed in
-[`docs/P1_PREREGISTRATION_V2.md`](../P1_PREREGISTRATION_V2.md) **before** any run
-in this family executed.
+Complete. Every decision rule and estimator was fixed before any run in this
+family executed. The final protocol and measured boundaries are summarized in
+this report; raw run output is intentionally kept local.
 
 **Primary metric: test-suite execution accuracy.** Single-database accuracy is a
 diagnostic companion throughout and gates nothing.

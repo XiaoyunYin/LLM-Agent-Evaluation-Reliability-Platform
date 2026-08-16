@@ -102,7 +102,7 @@ model/token/cost metadata, and the final verifier result.
 
 ## 4. Model-turn budget — derived, not guessed
 
-Measured from the 33 reference trajectories (`runs/support_reference_replay/`):
+Measured from the 33 local reference trajectories:
 
 | | Tool calls |
 |---|---:|
@@ -145,9 +145,8 @@ fails for a real reason is a measurement, not a bug. Editing it because the scor
 is disappointing converts the benchmark into a description of what the model
 already does.
 
-Every change is recorded in `docs/P3_CALIBRATION_CHANGELOG.md` with its category
-and rationale. Exactly **one** intentional difficulty/fairness rebalancing pass is
-permitted before the freeze.
+Every change is recorded with its category and rationale. Exactly **one** intentional
+difficulty/fairness rebalancing pass is permitted before the freeze.
 
 ---
 

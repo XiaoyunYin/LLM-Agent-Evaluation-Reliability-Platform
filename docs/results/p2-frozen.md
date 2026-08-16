@@ -1,8 +1,8 @@
 # P2 Frozen — Intervention A Adopted
 
-Every rule below was fixed in [`docs/P2_PREREGISTRATION.md`](../P2_PREREGISTRATION.md)
-before the treatment existed, and the cohort was frozen before that. Nothing was
-chosen after seeing a result.
+Every rule below was fixed before the treatment existed, and the cohort was
+frozen before that. Nothing was chosen after seeing a result. Raw run output is
+kept local; this report retains the measured comparison and its scope.
 
 **Verdict: ADOPT.** All four pre-registered conditions hold.
 

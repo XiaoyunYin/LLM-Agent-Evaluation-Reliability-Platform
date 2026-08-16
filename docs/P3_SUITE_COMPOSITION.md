@@ -29,9 +29,8 @@ expansion pass**, with:
 | **Explicitly out of scope** | Modifying an individual task because the agent passes it. Making the existing core artificially harder. Removing a task for being easy. |
 
 The 33 calibrated tasks are **preserved unchanged** as the core tier — an
-easy/medium regression anchor. Their calibration history (contract v0 → v1, all
-defect fixes, per-round results) stays in
-`docs/P3_CALIBRATION_CHANGELOG.md`.
+easy/medium regression anchor. Their calibration history is summarized by the
+contract and final result report.
 
 After this pass, difficulty tuning ends.
 

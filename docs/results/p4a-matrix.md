@@ -15,25 +15,14 @@ Command:
 $env:PYTHONPATH='.'; python -m scripts.run_p4a_matrix --run-id p4a_matrix_20260813
 ```
 
-Artifact:
-
-`runs/p4a_matrix/p4a_matrix_20260813/p4a_matrix.json`
-
-Artifact SHA-256:
-
-`9F60CE9E933EDBECBA5CE35199A8CCFED3336D2F44769FADF2C4FB585E6D4FD4`
+The raw matrix output is generated locally and is not committed to the public
+repository. The result table below is the retained public summary.
 
 Freeze tag:
 
 `p4a-frozen`
 
-Audit artifact:
-
-`runs/p4a_matrix/p4a_matrix_20260813/p4a_matrix_audit.json`
-
-Audit artifact SHA-256:
-
-`D98222EAD20A0611175D7FD0C1AF0057A7DD7D3FE53507C1EAC4EF9C009E917B`
+The audit output is also generated locally by the same command.
 
 ## Result
 
@@ -91,13 +80,7 @@ counter and each protocol invariant:
 ## Supplemental Recovery
 
 The 915-case matrix does not include stale-worker fencing or poison/DLQ rows.
-Those are measured in a separate supplemental artifact:
-
-`runs/p4a_supplemental/p4a_supplemental_20260813/p4a_supplemental.json`
-
-Supplemental artifact SHA-256:
-
-`EEAD82EB8C1C298268D1DDEE899F2FA6332AAAB5CA420A6CCC633BDFF18ADB30`
+Those scenarios are outside the supported public claim.
 
 | Scenario | Result |
 |---|---:|
